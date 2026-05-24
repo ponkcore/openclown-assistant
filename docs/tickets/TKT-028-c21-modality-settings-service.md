@@ -2,7 +2,7 @@
 id: TKT-028
 title: C21 Modality Settings Service with /settings command + ≤30s propagation
 version: 0.1.0
-status: in_review
+status: done
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C21
@@ -83,3 +83,4 @@ Land the C21 Modality Settings Service exposing a `/settings` Telegram command s
 - 2026-05-25T00:00:00Z opencode-executor: started
 - 2026-05-25T01:55:00Z opencode-executor: in_review; tests 25 pass; lint clean; typecheck clean
 - 2026-05-25T02:15:00Z opencode-executor iter2: closed F-H1 (added getModalitySettings + setModalitySetting to TenantScopedRepository in src/store/types.ts + tenantStore.ts; refactored service.ts to use them; removed extractQueryable + (as unknown as) cast). F-M1 (RouteKind extension) deferred to future TKT — out of scope. PO-authorised carve-out of TKT-028@0.1.0 §5 Outputs for type-safety repair.
+- 2026-05-24T23:25:00Z opencode-orchestrator: merged in commit aceaf99 (PR #9); RV-CODE-005 verdict iter2=pass_with_changes (F-H1 closed; F-M1 + Lows deferred)
