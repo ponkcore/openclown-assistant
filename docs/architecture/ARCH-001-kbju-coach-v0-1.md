@@ -2,12 +2,12 @@
 id: ARCH-001
 title: KBJU Coach v0.1 → v0.2 (Observability and Scale Readiness) + PRD-003 Adaptive
   Modalities
-version: 0.6.1
-status: draft
+version: 0.6.2
+status: approved
 prd_ref: PRD-001@0.2.0; PRD-002@0.2.1; PRD-003@0.1.3
 owner: '@po'
 created: 2026-04-26
-updated: 2026-05-06
+updated: 2026-05-24
 adrs:
 - ADR-001@0.1.0
 - ADR-002@0.1.0
@@ -45,8 +45,8 @@ tickets:
 - TKT-015@0.1.0
 - TKT-016@0.1.0
 - TKT-017@0.1.0
-  - TKT-018@0.1.0
-  - TKT-020@0.1.0
+- TKT-018@0.1.0
+- TKT-020@0.1.0
 - TKT-021@0.1.0
 - TKT-022@0.1.0
 - TKT-023@0.1.0
@@ -1900,6 +1900,24 @@ Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dock
 
 ---
 
+## 13. PO Ratification (2026-05-24, ARCH-001@0.6.2)
+
+PO answers to §12 Risks & Open Questions. Recorded inline so executor / reviewer subagents have a single source of ratified design intent.
+
+- **Q_TO_BUSINESS_1 (K7 KBJU accuracy targets, ADR-005@0.1.0):** **Ratified as proposed** — ±25% calories / ±30% macros per meal after correction opportunity; ±15% daily calories / ±20% daily macros on days with ≥3 confirmed meals.
+
+- **Q_TO_BUSINESS_2 (durable-storage jurisdiction, ADR-007@0.1.0):** **Deferred** — out of scope for current pilot. Re-opens when the product moves from pilot to commercial offering. Until that point, the operating posture is "pilot-only, single-VPS, no jurisdiction guarantee surfaced to users". When this question reopens, the Architect must produce an updated ADR-007@0.1.0 revision with concrete current-state evidence.
+
+- **Q_TO_BUSINESS_3 (v0.5.0 HYBRID Executor batch):** **Closed** — TKT-016@0.1.0, TKT-017@0.1.0, TKT-018@0.1.0, and TKT-020@0.1.0 shipped on `main` as part of the prior pipeline. The fifth ticket of the original v0.5.0 batch (PR-Agent CI tail-latency telemetry) was retired together with the PR-Agent automation it instrumented.
+
+- **Q_TO_BUSINESS_4 (Hermes vs OpenClaw runtime decision):** **Stay on OpenClaw, no migration** — OpenClaw fits the project better than Hermes today. The question is not re-opened automatically at PRD-NEXT dispatch; if a future PRD has needs that OpenClaw genuinely cannot serve, raise a fresh ADR at that point. The R-stay decision in ADR-014@0.1.0 is now the durable runtime baseline.
+
+- **Q_TO_BUSINESS_5 (per-modality LLM picks for PRD-003@0.1.3 extraction):** **Open routing — do not lock to OmniRoute or any single provider/model.** Provider and model selection per prompt site is now the Sisyphus orchestrator's runtime concern, not an ArchSpec-locked choice. The four PRD-003@0.1.3 prompt sites (water volume, workout JSON-schema extraction, mood free-form-text inference, sleep duration extraction) may use any provider/model the orchestrator deems suitable per role, including non-OmniRoute paths. The orchestrator picks at execution time and may change the pick between cycles based on observed K2 / K1 evidence. Family-separation (executor-model family ≠ reviewer-model family) and the per-role guidance in `.opencode/agents/*.md` remain the only hard constraints. ADR-018@0.1.0 is preserved for historical context but is no longer authoritative on which models to use; treat its specific OmniRoute model IDs as illustrative defaults that the orchestrator may override.
+
+- **Q_TO_BUSINESS_6 (PO-ratified copy + golden sets):** **Drafts produced by Sisyphus orchestrator, PO refines later.** Initial drafts of (a) modality-router keyword chains, (b) Russian + English Telegram reply copy for C17–C22, (c) 50-event workout golden set, (d) 20-event ambiguity golden set, and (e) water quick-volume keyboard preset values live in `docs/drafts/PRD-003-content-drafts.md` from this approval forward. Drafts are produced bilingually (Russian primary, English secondary) so PO can refine in either language. Executor subagents read these drafts as inputs for TKT-022@0.1.0 (router config), TKT-029@0.1.0 / TKT-030@0.1.0 / TKT-031@0.1.0 (modality loggers), and TKT-025@0.1.0 (ambiguity golden set). PO refines on schedule and a future ticket may be opened to formalise once stable.
+
+---
+
 ## Handoff Checklist
 - [x] §0 Recon Report present, ≥3 candidates audited per major capability (§0.2 skill catalogue, §0.4 architectural fork-candidates)
 - [x] Trace matrix covers every PRD Goal
@@ -1928,4 +1946,8 @@ Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dock
 - [ ] §12.1 v0.5.0 risks (R7-R10) + Q_TO_BUSINESS_3
 
 ## revision_log
+
+- 2026-05-24 (v0.6.2): PO approval. §13 PO Ratification added with answers to Q1-Q6. Q5 explicitly opens model/provider routing as an orchestrator-level runtime concern (no ArchSpec lock). Q6 drafts are bilingual (RU + EN) under `docs/drafts/PRD-003-content-drafts.md`. status: draft → approved.
+- 2026-05-06 (v0.6.1): Amendment cycle responding to RV-SPEC-013 F-M1..F-M6 + F-L1..F-L2.
+- 2026-05-06 (v0.6.0): Initial PRD-003@0.1.3 extension over the v0.5.0 baseline.
 
