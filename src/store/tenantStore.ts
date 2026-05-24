@@ -40,6 +40,9 @@ import type {
   UpsertOnboardingStateRequest,
   UpsertSummaryScheduleRequest,
   IncrementMonthlySpendRequest,
+  ModalitySettingsRow,
+  ModalityToggleName,
+  ModalitySettingToggleResult,
   UserProfileRow,
   UserRow,
   UserTargetRow,
@@ -280,6 +283,16 @@ export class TenantPostgresStore implements TenantStore {
     request: CreateKbjuAccuracyLabelRequest
   ): Promise<KbjuAccuracyLabelRow> {
     return this.withTransaction(userId, (repository) => repository.createKbjuAccuracyLabel(userId, request));
+  }
+
+  // ── C21 Modality Settings (TKT-028@0.1.0) ───────────────────────────────
+
+  public async getModalitySettings(userId: string): Promise<ModalitySettingsRow | null> {
+    return this.withTransaction(userId, (repository) => repository.getModalitySettings(userId));
+  }
+
+  public async setModalitySetting(userId: string, modality: ModalityToggleName, value: boolean): Promise<ModalitySettingToggleResult> {
+    return this.withTransaction(userId, (repository) => repository.setModalitySetting(userId, modality, value));
   }
 }
 
@@ -885,6 +898,60 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
     );
     return expectOne(result, "kbju_accuracy_labels");
   }
+
+  // ── C21 Modality Settings (TKT-028@0.1.0) ───────────────────────────────
+
+  public async getModalitySettings(userId: string): Promise<ModalitySettingsRow | null> {
+    const result = await this.db.query<ModalitySettingsRow>(
+      "SELECT user_id, water_on, sleep_on, workout_on, mood_on, updated_at FROM modality_settings WHERE user_id = $1",
+      [userId],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  public async setModalitySetting(
+    userId: string,
+    modality: ModalityToggleName,
+    value: boolean,
+  ): Promise<ModalitySettingToggleResult> {
+    const columnMap: Record<ModalityToggleName, string> = {
+      water: "water_on",
+      sleep: "sleep_on",
+      workout: "workout_on",
+      mood: "mood_on",
+    };
+    const column = columnMap[modality];
+
+    // Read the current row to determine old_value
+    const current = await this.db.query<ModalitySettingsRow>(
+      "SELECT user_id, water_on, sleep_on, workout_on, mood_on, updated_at FROM modality_settings WHERE user_id = $1",
+      [userId],
+    );
+    const oldRow = current.rows[0] ?? null;
+    const keyMap: Record<ModalityToggleName, keyof ModalitySettingsRow> = {
+      water: "water_on",
+      sleep: "sleep_on",
+      workout: "workout_on",
+      mood: "mood_on",
+    };
+    const oldValue: boolean = oldRow ? (oldRow[keyMap[modality]] as boolean) : true; // default ON per PRD-003@0.1.3 §5 US-5
+
+    // Upsert the new value into modality_settings
+    await this.db.query(
+      `INSERT INTO modality_settings (user_id, ${column}, updated_at)
+       VALUES ($1, $2, now())
+       ON CONFLICT (user_id) DO UPDATE SET ${column} = $2, updated_at = now()`,
+      [userId, value],
+    );
+
+    // Audit row per ARCH-001@0.6.1 §3.21 + TKT-021@0.1.0 schema
+    await this.db.query(
+      "INSERT INTO modality_settings_audit (user_id, modality, old_value, new_value, ts_utc) VALUES ($1, $2, $3, $4, now())",
+      [userId, modality, oldValue, value],
+    );
+
+    return { oldValue, newValue: value };
+  }
 }
 
 function expectOne<Row extends QueryResultRow>(result: QueryResult<Row>, entityName: string): Row {
@@ -1090,6 +1157,18 @@ export class BreachDetectingTenantStore implements TenantStore {
   public async createKbjuAccuracyLabel(userId: string, request: CreateKbjuAccuracyLabelRequest): Promise<KbjuAccuracyLabelRow> {
     this.guard(userId, "write", "kbju_accuracy_labels");
     return this.inner.createKbjuAccuracyLabel(userId, request);
+  }
+
+  // ── C21 Modality Settings (TKT-028@0.1.0) ───────────────────────────────
+
+  public async getModalitySettings(userId: string): Promise<ModalitySettingsRow | null> {
+    this.guard(userId, "read", "modality_settings");
+    return this.inner.getModalitySettings(userId);
+  }
+
+  public async setModalitySetting(userId: string, modality: ModalityToggleName, value: boolean): Promise<ModalitySettingToggleResult> {
+    this.guard(userId, "write", "modality_settings");
+    return this.inner.setModalitySetting(userId, modality, value);
   }
 }
 

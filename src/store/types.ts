@@ -275,6 +275,27 @@ export interface KbjuAccuracyLabelRow {
   created_at: DbTimestamp;
 }
 
+// ── C21 Modality Settings (TKT-028@0.1.0 / TKT-021@0.1.0 schema) ───────
+
+/** Row shape from modality_settings table (TKT-021@0.1.0). */
+export interface ModalitySettingsRow {
+  user_id: string;
+  water_on: boolean;
+  sleep_on: boolean;
+  workout_on: boolean;
+  mood_on: boolean;
+  updated_at: DbTimestamp;
+}
+
+/** Toggleable modality names per PRD-003@0.1.3 §3 NG6 (KBJU excluded). */
+export type ModalityToggleName = "water" | "sleep" | "workout" | "mood";
+
+/** Result of a setModalitySetting call — old and new values for audit. */
+export interface ModalitySettingToggleResult {
+  oldValue: boolean;
+  newValue: boolean;
+}
+
 export interface CreateUserRequest {
   telegramUserId: string;
   telegramChatId: string;
@@ -533,6 +554,9 @@ export interface TenantScopedRepository {
   incrementMonthlySpend(userId: string, monthUtc: string, request: IncrementMonthlySpendRequest): Promise<MonthlySpendCounterRow>;
   upsertFoodLookupCache(userId: string, request: UpsertFoodLookupCacheRequest): Promise<FoodLookupCacheRow>;
   createKbjuAccuracyLabel(userId: string, request: CreateKbjuAccuracyLabelRequest): Promise<KbjuAccuracyLabelRow>;
+  // ── C21 Modality Settings (TKT-028@0.1.0) ───────────────────────────────
+  getModalitySettings(userId: string): Promise<ModalitySettingsRow | null>;
+  setModalitySetting(userId: string, modality: ModalityToggleName, value: boolean): Promise<ModalitySettingToggleResult>;
 }
 
 export interface TenantStore extends TenantScopedRepository {

@@ -3,12 +3,11 @@
  *
  * Exposes getSettings / setSetting with an in-process cache (TTL ≤30s per
  * PRD-003@0.1.3 §6 K5).  All SQL is parameterised; all reads/writes are
- * tenant-scoped through the TenantStore RLS mechanism.
+ * tenant-scoped through the TenantStore RLS mechanism via the
+ * TenantScopedRepository methods added in TKT-028 iter2.
  */
 
-import type { TenantStore, TenantScopedRepository } from "../../store/types.js";
-import type { TenantQueryable } from "../../store/tenantStore.js";
-import type { QueryResultRow } from "pg";
+import type { TenantStore, ModalitySettingsRow, ModalityToggleName } from "../../store/types.js";
 
 // ── Public types ──────────────────────────────────────────────────────────
 
@@ -25,14 +24,6 @@ export interface ModalitySettings {
 
 // ── Internal types ────────────────────────────────────────────────────────
 
-/** Maps a ModalityName to the snake_case DB column suffix. */
-const MODALITY_DB_COLUMNS: Record<ModalityName, string> = {
-  water: "water_on",
-  sleep: "sleep_on",
-  workout: "workout_on",
-  mood: "mood_on",
-};
-
 /** Maps a ModalityName to the ModalitySettings key. */
 const MODALITY_KEYS: Record<ModalityName, keyof ModalitySettings> = {
   water: "waterOn",
@@ -40,14 +31,6 @@ const MODALITY_KEYS: Record<ModalityName, keyof ModalitySettings> = {
   workout: "workoutOn",
   mood: "moodOn",
 };
-
-/** DB row shape returned from modality_settings. */
-interface ModalitySettingsRow extends QueryResultRow {
-  water_on: boolean;
-  sleep_on: boolean;
-  workout_on: boolean;
-  mood_on: boolean;
-}
 
 // ── DB abstraction (for testability) ──────────────────────────────────────
 
@@ -145,38 +128,38 @@ export type ModalitySettingsService = ReturnType<typeof createModalitySettingsSe
 // ── Production DB adapter ─────────────────────────────────────────────────
 
 /**
- * Runtime helper: the TenantScopedRepositoryImpl stores its queryable as a
- * private `db` field.  We access it here to execute modality_settings SQL
- * within an already-open RLS-scoped transaction.  This is the only point
- * that reaches into the impl; the service layer itself is clean.
+ * Converts a ModalitySettingsRow (snake_case DB columns) to a
+ * ModalitySettings (camelCase application type).
  */
-function extractQueryable(repo: unknown): TenantQueryable {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  return (repo as unknown as { db: TenantQueryable }).db;
+function rowToSettings(row: ModalitySettingsRow): ModalitySettings {
+  return {
+    waterOn: row.water_on,
+    sleepOn: row.sleep_on,
+    workoutOn: row.workout_on,
+    moodOn: row.mood_on,
+  };
 }
 
 /**
- * Creates a SettingsDb that delegates to TenantStore.withTransaction for
- * RLS-scoped, parameterised SQL.  Suitable for production wiring.
+ * Maps ModalityName to the corresponding ModalitySettingsRow boolean key.
+ */
+const ROW_KEY_MAP: Record<ModalityName, keyof ModalitySettingsRow> = {
+  water: "water_on",
+  sleep: "sleep_on",
+  workout: "workout_on",
+  mood: "mood_on",
+};
+
+/**
+ * Creates a SettingsDb that delegates to TenantStore via the
+ * TenantScopedRepository methods added in TKT-028 iter2.
+ * All SQL is parameterised; RLS is enforced by the transaction boundary.
  */
 export function createTenantStoreSettingsDb(tenantStore: TenantStore): SettingsDb {
   return {
     async fetchSettings(userId: string): Promise<ModalitySettings | null> {
-      return tenantStore.withTransaction(userId, async (repo: TenantScopedRepository) => {
-        const q = extractQueryable(repo);
-        const result = await q.query<ModalitySettingsRow>(
-          "SELECT water_on, sleep_on, workout_on, mood_on FROM modality_settings WHERE user_id = $1",
-          [userId],
-        );
-        if (result.rows.length === 0) return null;
-        const r = result.rows[0];
-        return {
-          waterOn: r.water_on,
-          sleepOn: r.sleep_on,
-          workoutOn: r.workout_on,
-          moodOn: r.mood_on,
-        };
-      });
+      const row = await tenantStore.getModalitySettings(userId);
+      return row ? rowToSettings(row) : null;
     },
 
     async upsertAndAudit(
@@ -185,37 +168,23 @@ export function createTenantStoreSettingsDb(tenantStore: TenantStore): SettingsD
       value: boolean,
       oldValue: boolean,
     ): Promise<ModalitySettings> {
-      const column = MODALITY_DB_COLUMNS[modality];
-      return tenantStore.withTransaction(userId, async (repo: TenantScopedRepository) => {
-        const q = extractQueryable(repo);
+      // setModalitySetting writes the upsert + audit row atomically
+      // in a single transaction.  It returns { oldValue, newValue }.
+      await tenantStore.setModalitySetting(
+        userId,
+        modality as ModalityToggleName,
+        value,
+      );
 
-        // Upsert the modality_settings row
-        await q.query(
-          `INSERT INTO modality_settings (user_id, ${column}, updated_at)
-           VALUES ($1, $2, now())
-           ON CONFLICT (user_id) DO UPDATE SET ${column} = $2, updated_at = now()`,
-          [userId, value],
-        );
-
-        // Audit row per ARCH-001@0.6.1 §3.21 + TKT-021@0.1.0 schema
-        await q.query(
-          "INSERT INTO modality_settings_audit (user_id, modality, old_value, new_value, ts_utc) VALUES ($1, $2, $3, $4, now())",
-          [userId, modality, oldValue, value],
-        );
-
-        // Return the full settings row after the write
-        const result = await q.query<ModalitySettingsRow>(
-          "SELECT water_on, sleep_on, workout_on, mood_on FROM modality_settings WHERE user_id = $1",
-          [userId],
-        );
-        const r = result.rows[0];
-        return {
-          waterOn: r.water_on,
-          sleepOn: r.sleep_on,
-          workoutOn: r.workout_on,
-          moodOn: r.mood_on,
-        };
-      });
+      // Re-read to get the full row after the write
+      const row = await tenantStore.getModalitySettings(userId);
+      if (!row) {
+        // Should never happen after a successful write
+        const key = ROW_KEY_MAP[modality];
+        const settings: ModalitySettings = { ...ALL_ON, [MODALITY_KEYS[modality]]: value };
+        return settings;
+      }
+      return rowToSettings(row);
     },
   };
 }
