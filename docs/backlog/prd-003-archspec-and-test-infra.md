@@ -1,3 +1,11 @@
+---
+id: BACKLOG-001
+title: PRD-003 ArchSpec amendments and test-infra gaps
+status: open
+spec_ref: PRD-003@0.1.3
+created: 2026-05-24
+---
+
 # PRD-003 — ArchSpec amendments and test-infra gaps
 
 Carried forward from PRD-003 ticket-cycle review findings. None of these gate code; all require either Architect amendment of approved artefacts (out of orchestrator and executor write-zones) or a separate infra ticket.
