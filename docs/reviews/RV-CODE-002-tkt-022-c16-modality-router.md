@@ -158,7 +158,7 @@ The `createC16WrappedTextHandler` (factory.ts:78) accepts `c4Detector: (text: st
 
 ### Iter-2 diff scope
 
-Commit `04f798f` ("TKT-022 iter2: address RV-CODE-002 F-M1/F-M2/F-M3") touches 8 files:
+Commit `04f798f` ("TKT-022@0.1.0 iter2: address RV-CODE-002 F-M1/F-M2/F-M3") touches 8 files:
 
 | File | Change |
 |---|---|
@@ -183,7 +183,7 @@ No new runtime deps. No files outside §5 Outputs touched (ticket + review exemp
    - Real config loaders (`ModalityRouterConfigLoader` + `ClassifierConfigLoader`) via `createC16ConfigLoaders` (`factory.ts:142–174`)
    - Graceful degradation: if either config file fails to load, the function logs a warning and falls back to un-wrapped stub handlers.
 
-2. **C4 detector delegation check.** `defaultC4KbjuDetector` (`router.ts:160–188`) defines a `FOOD_KEYWORD_LEMMAS` list of 19 food-keyword lemmas and tests them via `buildMatcherRegex`. This IS an inline keyword list, NOT a delegation to an existing C4 detection function. However, inspection of the C4 module (`src/meals/mealOrchestrator.ts`, `src/kbju/foodLookup.ts`, `src/kbju/kbjuEstimator.ts`) confirms that **no existing C4 food-keyword detection function exists** — C4 does LLM-based estimation via OmniRoute/USDA/OpenFoodFacts APIs, not keyword matching. The executor had no existing function to delegate to. The ticket §3 NOT-In-Scope says "Modification of C4 KBJU pattern set" — `defaultC4KbjuDetector` creates a NEW function in C16 without modifying any C4 file. The comment at `router.ts:157` ("Per TKT-022 §7: C4 pattern set is read-only; this function mirrors the C4 trigger keywords without modifying the C4 module itself") accurately describes the situation. This is **acceptable** — not a §3 violation.
+2. **C4 detector delegation check.** `defaultC4KbjuDetector` (`router.ts:160–188`) defines a `FOOD_KEYWORD_LEMMAS` list of 19 food-keyword lemmas and tests them via `buildMatcherRegex`. This IS an inline keyword list, NOT a delegation to an existing C4 detection function. However, inspection of the C4 module (`src/meals/mealOrchestrator.ts`, `src/kbju/foodLookup.ts`, `src/kbju/kbjuEstimator.ts`) confirms that **no existing C4 food-keyword detection function exists** — C4 does LLM-based estimation via OmniRoute/USDA/OpenFoodFacts APIs, not keyword matching. The executor had no existing function to delegate to. The ticket §3 NOT-In-Scope says "Modification of C4 KBJU pattern set" — `defaultC4KbjuDetector` creates a NEW function in C16 without modifying any C4 file. The comment at `router.ts:157` ("Per TKT-022@0.1.0 §7: C4 pattern set is read-only; this function mirrors the C4 trigger keywords without modifying the C4 module itself") accurately describes the situation. This is **acceptable** — not a §3 violation.
 
 3. **Integration tests.** `tests/modality/router.integration.test.ts` (291 lines, 8 test cases):
    - `createC16WrappedTextHandler` with WATER ("выпил 200мл") → deterministic_single, original handler called ✅
@@ -219,7 +219,7 @@ No new runtime deps. No files outside §5 Outputs touched (ticket + review exemp
    ```
    This rejects `{label:"WATER",confidence:0.8,reason:"..."}` (3 keys) and `{label:"WATER",confidence:0.8,label:"X"}` (duplicate key, still 2 keys but `Object.keys` returns unique). ✅
 
-2. **Test.** `router-classifier.test.ts:409–445` ("rejects LLM output with extra keys beyond {label, confidence} (ADR-006 guardrail)"): mocks all three OmniRoute tiers to return `{"label":"WATER","confidence":0.8,"reason":"user said water"}` → `parseClassifierOutput` rejects on every tier → `classifyViaLLM` returns `AMBIGUOUS` with `modelTier: "failure"`. ✅
+2. **Test.** `router-classifier.test.ts:409–445` ("rejects LLM output with extra keys beyond {label, confidence} (ADR-006@0.1.0 guardrail)"): mocks all three OmniRoute tiers to return `{"label":"WATER","confidence":0.8,"reason":"user said water"}` → `parseClassifierOutput` rejects on every tier → `classifyViaLLM` returns `AMBIGUOUS` with `modelTier: "failure"`. ✅
 
 ### New findings introduced by iter-2
 
