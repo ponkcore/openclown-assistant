@@ -1,0 +1,14 @@
+-- PRD-003@0.1.3 §5 US-7 right-to-delete cascade extension.
+-- Adds the seven new modality tables to the /forget_me hard-delete cascade.
+-- This migration is a documentation marker; the actual cascade is implemented
+-- in src/privacy/rightToDelete.ts createDeletionSqlByTable().
+-- The deletion order matters: child tables before parent tables, with
+-- users last. The seven new tables are inserted before the existing users delete.
+
+-- Right-to-delete cascade for PRD-003 modality tables:
+--   water_events, sleep_records, sleep_pairing_state,
+--   workout_events, mood_events, modality_settings_audit,
+--   modality_settings
+-- All deletes happen in a single transaction boundary per
+-- PRD-003@0.1.3 §5 US-7 acceptance bullet 4 and ARCH-001@0.6.1 §5.3
+-- schema invariants.

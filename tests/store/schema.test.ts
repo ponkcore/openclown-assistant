@@ -23,6 +23,14 @@ const archTables = [
   "food_lookup_cache",
   "tenant_audit_runs",
   "kbju_accuracy_labels",
+  // PRD-003@0.1.3 modality tables (TKT-021)
+  "water_events",
+  "sleep_records",
+  "sleep_pairing_state",
+  "workout_events",
+  "mood_events",
+  "modality_settings",
+  "modality_settings_audit",
 ] as const;
 
 const userOwnedTables = [
@@ -42,6 +50,14 @@ const userOwnedTables = [
   "monthly_spend_counters",
   "food_lookup_cache",
   "kbju_accuracy_labels",
+  // PRD-003@0.1.3 modality tables (TKT-021)
+  "water_events",
+  "sleep_records",
+  "sleep_pairing_state",
+  "workout_events",
+  "mood_events",
+  "modality_settings",
+  "modality_settings_audit",
 ] as const;
 
 describe("tenant schema invariants", () => {
@@ -55,7 +71,12 @@ describe("tenant schema invariants", () => {
   it("requires user_id and cascading user deletes on every user-owned table except explicit exemptions", () => {
     for (const table of userOwnedTables) {
       const block = tableBlock(table);
-      expect(block).toMatch(/\buser_id\s+UUID\s+NOT\s+NULL\s+REFERENCES\s+users\(id\)\s+ON\s+DELETE\s+CASCADE\b/i);
+      // Most tables: user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+      // PK-as-user_id tables (modality_settings, sleep_pairing_state): user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE
+      const hasUserFkCascade =
+        /\buser_id\s+UUID\s+NOT\s+NULL\s+REFERENCES\s+users\(id\)\s+ON\s+DELETE\s+CASCADE\b/i.test(block) ||
+        /\buser_id\s+UUID\s+PRIMARY\s+KEY\s+REFERENCES\s+users\(id\)\s+ON\s+DELETE\s+CASCADE\b/i.test(block);
+      expect(hasUserFkCascade).toBe(true);
     }
 
     expect(columnNames("users")).not.toContain("user_id");
@@ -104,12 +125,32 @@ describe("tenant schema invariants", () => {
       "telegram_file_id",
     ];
 
+    // PRD-003@0.1.3 modality tables legitimately store raw text input
+    // (raw_text, raw_workout_text, raw_description) per ARCH-001@0.6.1 §5.3.
+    // These are normalised text, not raw binary media; redaction is at the
+    // C10 emit boundary (TKT-026), not at storage time.
+    const modalityTablesWithRawText = new Set([
+      "water_events",
+      "workout_events",
+      "mood_events",
+    ]);
+
     for (const table of archTables) {
       const names = columnNames(table);
       for (const column of forbiddenExactColumns) {
         expect(names).not.toContain(column);
       }
-      expect(names.filter((name) => /^raw_|_raw_|_bytes$/.test(name))).toEqual([]);
+      // Raw binary media columns (audio, photo) are forbidden;
+      // raw_text / raw_workout_text / raw_description are allowed for modality tables.
+      const rawBinaryColumns = names.filter((name) =>
+        /^raw_audio|^raw_photo|_bytes$/.test(name)
+      );
+      expect(rawBinaryColumns).toEqual([]);
+      if (!modalityTablesWithRawText.has(table)) {
+        // Pre-PRD-003 tables must not have any raw_ columns
+        const rawColumns = names.filter((name) => /^raw_/.test(name));
+        expect(rawColumns).toEqual([]);
+      }
     }
   });
 

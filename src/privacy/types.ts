@@ -36,6 +36,14 @@ export type UserScopedDeletionTable =
   | "user_targets"
   | "user_profiles"
   | "monthly_spend_counters"
+  // PRD-003@0.1.3 §5 US-7 modality tables (TKT-021)
+  | "water_events"
+  | "sleep_records"
+  | "sleep_pairing_state"
+  | "workout_events"
+  | "mood_events"
+  | "modality_settings_audit"
+  | "modality_settings"
   | "users";
 
 export interface UserIdentityForDeletion {

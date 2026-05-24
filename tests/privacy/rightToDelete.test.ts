@@ -147,11 +147,22 @@ describe("right-to-delete SQL helpers", () => {
       "confirmed_meals",
       "meal_drafts",
       "transcripts",
+      // PRD-003@0.1.3 §5 US-7 modality tables (TKT-021)
+      "water_events",
+      "sleep_records",
+      "sleep_pairing_state",
+      "workout_events",
+      "mood_events",
+      "modality_settings_audit",
+      "modality_settings",
       "users",
     ]);
     expect(tables.indexOf("confirmed_meals")).toBeLessThan(tables.indexOf("meal_drafts"));
     expect(tables.indexOf("meal_items")).toBeLessThan(tables.indexOf("confirmed_meals"));
     expect(tables.indexOf("kbju_accuracy_labels")).toBeLessThan(tables.indexOf("confirmed_meals"));
+    // PRD-003 modality: audit before settings, all before users
+    expect(tables.indexOf("modality_settings_audit")).toBeLessThan(tables.indexOf("modality_settings"));
+    expect(tables.indexOf("modality_settings")).toBeLessThan(tables.indexOf("users"));
   });
 
   it("executes hard-delete statements for all user-scoped tables", async () => {
