@@ -3,7 +3,7 @@ id: TKT-022
 title: C16 Modality Router — hybrid deterministic chain + LLM-fallback classifier
   (ADR-015@0.1.0 amended Option C)
 version: 0.1.0
-status: in_review
+status: done
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C16
@@ -106,3 +106,4 @@ Land the C16 Modality Router that classifies inbound Telegram messages into KBJU
 - 2026-05-24T00:00:00Z opencode-executor: started
 - 2026-05-24T00:31:00Z opencode-executor: in_review; tests 102 pass; lint clean; typecheck clean
 - 2026-05-24T00:55:00Z opencode-executor iter2: addressed F-M1 (production wiring + integration test), F-M2 (config dedup), F-M3 (schema strictness)
+- 2026-05-24T21:10:00Z opencode-orchestrator: merged in commit 8d49ab1 (PR #6); RV-CODE-002 verdict=pass_with_changes (3 Mediums closed iter-2; F-L1/F-L2/F-L3 backlogged BACKLOG-002)
