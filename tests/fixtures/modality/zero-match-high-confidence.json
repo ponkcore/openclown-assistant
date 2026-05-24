@@ -1,0 +1,40 @@
+{
+  "path": "zero_match_llm_resolved",
+  "cases": [
+    {
+      "name": "zero: чувствую отлично → MOOD (high conf)",
+      "input": "чувствую себя отлично",
+      "expectedModality": "MOOD",
+      "expectedOutcome": "zero_match_llm_resolved",
+      "llmMock": { "modality": "MOOD", "confidence": 0.85, "modelTier": "default" }
+    },
+    {
+      "name": "zero: плавал в бассейне → WORKOUT (high conf)",
+      "input": "плавал в бассейне",
+      "expectedModality": "WORKOUT",
+      "expectedOutcome": "zero_match_llm_resolved",
+      "llmMock": { "modality": "WORKOUT", "confidence": 0.8, "modelTier": "default" }
+    },
+    {
+      "name": "zero: не мог заснуть → SLEEP (fallback, high conf)",
+      "input": "не мог заснуть",
+      "expectedModality": "SLEEP",
+      "expectedOutcome": "zero_match_llm_resolved",
+      "llmMock": { "modality": "SLEEP", "confidence": 0.75, "modelTier": "fallback" }
+    },
+    {
+      "name": "zero: приятная усталость → WORKOUT (high conf)",
+      "input": "приятная усталость после зала",
+      "expectedModality": "WORKOUT",
+      "expectedOutcome": "zero_match_llm_resolved",
+      "llmMock": { "modality": "WORKOUT", "confidence": 0.7, "modelTier": "default" }
+    },
+    {
+      "name": "zero: сходил на фитнес → WORKOUT (emergency, high conf)",
+      "input": "сходил на фитнес",
+      "expectedModality": "WORKOUT",
+      "expectedOutcome": "zero_match_llm_resolved",
+      "llmMock": { "modality": "WORKOUT", "confidence": 0.9, "modelTier": "emergency" }
+    }
+  ]
+}

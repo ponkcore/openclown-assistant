@@ -6,6 +6,8 @@ import {
   type PrometheusMetricName,
 } from "./kpiEvents.js";
 
+import { createModalityInstrumentedRegistry } from "./modalityMisclassificationRate.js";
+
 export type MetricType = "counter" | "gauge" | "histogram" | "histogram_sum" | "histogram_count" | "histogram_bucket";
 
 export interface MetricSample {
@@ -209,7 +211,8 @@ export function createMetricsServer(
     );
   }
 
-  const registry = createMetricsRegistry();
+  const inner = createMetricsRegistry();
+  const { registry } = createModalityInstrumentedRegistry(inner);
   let server: http.Server | null = null;
 
   return {

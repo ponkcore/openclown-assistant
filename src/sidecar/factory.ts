@@ -2,6 +2,8 @@ import type { C1Deps, TelegramHandlers } from "../telegram/types.js";
 import type { NormalizedTelegramUpdate } from "../telegram/types.js";
 import type { RussianReplyEnvelope } from "../shared/types.js";
 import type { MetricsRegistry } from "../observability/metricsEndpoint.js";
+import { createMetricsRegistry } from "../observability/metricsEndpoint.js";
+import { createModalityInstrumentedRegistry } from "../observability/modalityMisclassificationRate.js";
 import type { Allowlist } from "../security/allowlist.js";
 import path from "node:path";
 
@@ -171,7 +173,8 @@ function createC16ConfigLoaders(
 }
 
 export function createSidecarDeps(pilotUserIds: string[], allowlist?: Allowlist): C1Deps {
-  const metricsRegistry = createNullMetricsRegistry();
+  const _inner = createMetricsRegistry();
+  const { registry: metricsRegistry } = createModalityInstrumentedRegistry(_inner);
   const logger: import("../shared/types.js").OpenClawLogger = {
     info: (msg) => console.log(`[sidecar:info] ${msg}`),
     warn: (msg) => console.warn(`[sidecar:warn] ${msg}`),

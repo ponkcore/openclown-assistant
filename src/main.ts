@@ -2,6 +2,7 @@ import http from "node:http";
 import { parseConfig } from "./shared/config.js";
 import { createSidecarDeps } from "./sidecar/factory.js";
 import { routeBridgeRequest } from "./sidecar/seam.js";
+import { setMetricsRegistry } from "./deployment/healthCheck.js";
 import type { BridgeRequest } from "./sidecar/types.js";
 import type { C1Deps } from "./telegram/types.js";
 
@@ -266,6 +267,11 @@ export function startServer(): http.Server {
 
   const port = resolvePort();
   const server = createServer();
+  // Wire the shared metrics registry into the /metrics endpoint
+  if (!deps) {
+    deps = createSidecarDeps(pilotUserIds);
+  }
+  setMetricsRegistry(deps.metricsRegistry);
   startTime = Date.now();
   server.listen(port, () => {
     console.log(`KBJU sidecar listening on port ${port}`);

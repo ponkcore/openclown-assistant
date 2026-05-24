@@ -1,0 +1,21 @@
+{
+  "path": "deterministic_single",
+  "cases": [
+    { "name": "KBJU: съел творог", "input": "съел 200г творога", "expectedModality": "KBJU", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "KBJU: съела курица", "input": "съела курицу с рисом", "expectedModality": "KBJU", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "KBJU: ел кашу", "input": "ел кашу", "expectedModality": "KBJU", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "KBJU: ела рыбу", "input": "ела рыбу на обед", "expectedModality": "KBJU", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "KBJU: курица 150г", "input": "курица 150г", "expectedModality": "KBJU", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "KBJU: хлеб с маслом", "input": "хлеб с маслом", "expectedModality": "KBJU", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "KBJU: мясо на ужин", "input": "мясо на ужин", "expectedModality": "KBJU", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "WATER: выпил 200мл", "input": "выпил 200мл воды", "expectedModality": "WATER", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "WATER: выпила стакан", "input": "выпила стакан воды", "expectedModality": "WATER", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "WATER: 250 мл", "input": "250 мл", "expectedModality": "WATER", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "WATER: 1 литр воды", "input": "1 литр воды", "expectedModality": "WATER", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "SLEEP: спал 7 часов", "input": "спал 7 часов", "expectedModality": "SLEEP", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "SLEEP: лёг в 23", "input": "лёг в 23", "expectedModality": "SLEEP", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "WORKOUT: бегал 5км", "input": "бегал 5 км", "expectedModality": "WORKOUT", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "MOOD: настроение 7/10", "input": "настроение 7/10", "expectedModality": "MOOD", "expectedOutcome": "deterministic_single", "llmMock": null },
+    { "name": "SLEEP: встал в 7", "input": "встал в 7", "expectedModality": "SLEEP", "expectedOutcome": "deterministic_single", "llmMock": null }
+  ]
+}

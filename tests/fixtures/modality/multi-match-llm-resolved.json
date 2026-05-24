@@ -1,0 +1,75 @@
+{
+  "path": "deterministic_multi_llm_resolved",
+  "cases": [
+    {
+      "name": "multi: выпил пол-литра кефира → KBJU",
+      "input": "выпил пол-литра кефира",
+      "expectedModality": "KBJU",
+      "expectedOutcome": "deterministic_multi_llm_resolved",
+      "llmMock": { "modality": "KBJU", "confidence": 0.85, "modelTier": "default" }
+    },
+    {
+      "name": "multi: выпил стакан кефира → WATER",
+      "input": "выпил стакан кефира",
+      "expectedModality": "WATER",
+      "expectedOutcome": "deterministic_multi_llm_resolved",
+      "llmMock": { "modality": "WATER", "confidence": 0.7, "modelTier": "default" }
+    },
+    {
+      "name": "multi: вода и мясо → KBJU (fallback)",
+      "input": "вода и мясо",
+      "expectedModality": "KBJU",
+      "expectedOutcome": "deterministic_multi_llm_resolved",
+      "llmMock": { "modality": "KBJU", "confidence": 0.75, "modelTier": "fallback" }
+    },
+    {
+      "name": "multi: кефир и вода → WATER (emergency)",
+      "input": "кефир и вода",
+      "expectedModality": "WATER",
+      "expectedOutcome": "deterministic_multi_llm_resolved",
+      "llmMock": { "modality": "WATER", "confidence": 0.6, "modelTier": "emergency" }
+    },
+    {
+      "name": "multi: выпил воды после тренировки → WATER",
+      "input": "выпил воды после тренировки",
+      "expectedModality": "WATER",
+      "expectedOutcome": "deterministic_multi_llm_resolved",
+      "llmMock": { "modality": "WATER", "confidence": 0.9, "modelTier": "default" }
+    },
+    {
+      "name": "multi: молоко и бегал → KBJU",
+      "input": "молоко и бегал",
+      "expectedModality": "KBJU",
+      "expectedOutcome": "deterministic_multi_llm_resolved",
+      "llmMock": { "modality": "KBJU", "confidence": 0.82, "modelTier": "default" }
+    },
+    {
+      "name": "multi: кефир с водой → KBJU",
+      "input": "кефир с водой",
+      "expectedModality": "KBJU",
+      "expectedOutcome": "deterministic_multi_llm_resolved",
+      "llmMock": { "modality": "KBJU", "confidence": 0.78, "modelTier": "default" }
+    },
+    {
+      "name": "multi: выпил воды с лимоном и кефир → SLEEP",
+      "input": "выпил воды с лимоном и кефир",
+      "expectedModality": "SLEEP",
+      "expectedOutcome": "deterministic_multi_llm_resolved",
+      "llmMock": { "modality": "SLEEP", "confidence": 0.65, "modelTier": "default" }
+    },
+    {
+      "name": "multi: пол-литра молока → KBJU",
+      "input": "пол-литра молока",
+      "expectedModality": "KBJU",
+      "expectedOutcome": "deterministic_multi_llm_resolved",
+      "llmMock": { "modality": "KBJU", "confidence": 0.88, "modelTier": "default" }
+    },
+    {
+      "name": "multi: кефир и вода → KBJU (LLM resolves)",
+      "input": "кефир и воду",
+      "expectedModality": "KBJU",
+      "expectedOutcome": "deterministic_multi_llm_resolved",
+      "llmMock": { "modality": "KBJU", "confidence": 0.73, "modelTier": "default" }
+    }
+  ]
+}
