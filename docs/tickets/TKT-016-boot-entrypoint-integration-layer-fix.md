@@ -1,18 +1,12 @@
 ---
 id: TKT-016
-title: "Boot entry point + OpenClaw bridge integration layer"
+title: Boot entry point + OpenClaw bridge integration layer
 version: 0.1.0
 status: done
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-001@0.2.0; PRD-002@0.2.1
-author_model: "claude-opus-4.7-thinking"
-assigned_executor: "codex-gpt-5.5"
 created: 2026-05-04
 updated: 2026-05-05
-completed_at: 2026-05-05
-completed_by: "juarespresswood75 (PO)"
-completed_note: |
-  TKT-016 closed after Executor PR #116 and Kimi RV-CODE-016 review PR #117 were both merged on 2026-05-05. Implementation final head before squash was 26d0fb165eb188a2452f4c1ebffc7d29d792b1ec after four Executor iterations: iter-1 delivered the boot bridge skeleton but left the C1 seam and cron restricted-context proof incomplete; iter-2 closed the C1 sidecar seam and cron allowlist proof; iter-3 closed the callback tenant-allowlist bypass; iter-4 closed the request-body DoS finding with a 64 KiB limit and 413 payload_too_large tests. Local verification before merge passed: npm run build, npm test (35 files / 678 tests), npm run lint, npm run typecheck, docker compose config, and python3 scripts/validate_docs.py. Qodo PR-Agent final-head review reported tests present, no security concerns, and no major issues. Kimi K2.6 RV-CODE-016 verdict was pass. Model deviation is recorded: ticket assigned codex-gpt-5.5, but PO used DeepSeek V4 Pro fallback because GPT was unavailable; the deviation was accepted only after heightened Devin/Kimi/PR-Agent security scrutiny.
 ---
 
 # TKT-016: Boot entry point + OpenClaw bridge integration layer
@@ -70,11 +64,10 @@ Make the Dockerized KBJU sidecar boot and accept versioned HTTP bridge calls fro
 - [ ] `npm run lint`, `npm run typecheck`, and `python3 scripts/validate_docs.py` pass.
 
 ## 7. Constraints
-- Codex GPT-5.5 is assigned because this ticket touches boot and deployment files.
-- Boot-path changes without a process-startup test violate BACKLOG-011 process-retro and are not reviewable.
+- executor is assigned because this ticket touches boot and deployment files.
+- Boot-path changes without a process-startup test violate process-retro and are not reviewable.
 - Do not log Telegram bot tokens, usernames, raw prompts, raw transcripts, raw media, provider keys, or provider responses.
 - If OpenClaw Gateway cannot bridge through public plugin hooks/tools, stop and raise an ADR amendment instead of silently shipping raw grammY.
-
 
 ## 8. Definition of Done
 - [ ] All §6 Acceptance Criteria pass.
@@ -82,20 +75,3 @@ Make the Dockerized KBJU sidecar boot and accept versioned HTTP bridge calls fro
 - [ ] No `TODO` / `FIXME` is left without a follow-up backlog note in the PR body.
 - [ ] Executor fills §10 Execution Log before hand-back.
 - [ ] Ticket frontmatter `status` is promoted to `in_review` in a separate commit.
-
-## 9. Questions
-<!-- Executor appends questions here only if blocked; create docs/questions/Q-TKT-016-NN.md if needed. -->
-
-## 10. Execution Log
-Synthesized by Architect-4 from PR-A / PR-B / PR-C input tickets, then patched with SPIKE-001 inbound_claim plugin findings and SPIKE-002 community ecosystem findings. Executor appends timestamped entries below this line.
-
-<!-- 2026-05-05 Devin Orchestrator closure: PR #116 merged after iter-4 final head 26d0fb165eb188a2452f4c1ebffc7d29d792b1ec and PR #117 merged with Kimi K2.6 RV-CODE-016 verdict pass. TKT-016@0.1.0 is closed as done; next implementation ticket in ARCH-001@0.5.0 sequence is TKT-017@0.1.0 G1 tenant-isolation breach detector. -->
-
----
-
-## Handoff Checklist
-- [x] Goal is one sentence.
-- [x] NOT-In-Scope has explicit exclusions.
-- [x] Acceptance Criteria are machine-checkable.
-- [x] References are version-pinned.
-- [x] `assigned_executor` is justified.

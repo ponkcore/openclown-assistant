@@ -1,10 +1,9 @@
 ---
 id: PRD-XXX
-title: ""
+title: ''
 version: 0.1.0
-status: draft            # draft | in_review | approved | superseded
-owner: "@OpenClown-bot"
-author_model: "gpt-5.5-thinking"
+status: draft
+owner: '@po'
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 supersedes: null
@@ -19,20 +18,20 @@ related: []
 
 ## 2. Goals (SMART)
 - G1: <measurable goal with metric and deadline>
-- G2: ...
+- G2:...
 
 ## 3. Non-Goals (explicitly NOT in this epic)
 - NG1: <to prevent scope creep>
-- NG2: ...
+- NG2:...
 
 ## 4. Target Users / Personas
 - P1: <who, context, motivation>
 
 ## 5. User Stories & Acceptance Criteria
-### US-1: <As a ..., I want ..., so that ...>
+### US-1: <As a..., I want..., so that...>
 **Acceptance:**
-- [ ] Given ..., when ..., then ...
-- [ ] ...
+- [ ] Given..., when..., then...
+- [ ]...
 
 ## 6. Success Metrics / KPIs
 | Metric | Baseline | Target | Measurement method |
@@ -51,10 +50,10 @@ related: []
 |---|---|---|---|
 
 ## 9. Open Questions (resolve BEFORE handoff to Architect)
-- Q1: ...
+- Q1:...
 
 ## 10. Out of Scope (explicitly deferred)
-- ...
+-...
 
 ---
 

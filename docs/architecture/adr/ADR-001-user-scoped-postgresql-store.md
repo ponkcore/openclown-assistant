@@ -1,9 +1,8 @@
 ---
 id: ADR-001
-title: "User-Scoped PostgreSQL Store"
+title: User-Scoped PostgreSQL Store
 status: proposed
 arch_ref: ARCH-001@0.2.0
-author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
 superseded_by: null
@@ -49,7 +48,7 @@ Why the losers lost:
 
 ## Consequences
 - Positive: Every persistent entity in ARCH-001@0.2.0 C3/C11 gets a storage-layer `user_id` boundary and the end-of-pilot audit can search cross-user foreign-key anomalies.
-- Negative / trade-offs accepted: Executors must implement migrations, RLS policy tests, and a non-owner app DB role; DB work is security-critical enough to assign to `codex-gpt-5.5` in tickets.
+- Negative / trade-offs accepted: Executors must implement migrations, RLS policy tests, and a non-owner app DB role; DB work is security-critical enough to assign to `executor` in tickets.
 - Follow-up work: ARCH-001@0.2.0 Phase 6 must define declarative schemas with `user_id`, composite foreign keys, delete transaction boundaries, and the K4 audit query shape.
 
 ## References

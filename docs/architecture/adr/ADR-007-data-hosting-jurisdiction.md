@@ -1,9 +1,8 @@
 ---
 id: ADR-007
-title: "Data Hosting Jurisdiction Shortlist"
+title: Data Hosting Jurisdiction Shortlist
 status: proposed
 arch_ref: ARCH-001@0.2.0
-author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
 superseded_by: null

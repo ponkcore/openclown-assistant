@@ -1,16 +1,21 @@
 ---
 id: TKT-027
-title: "C22 Adaptive Summary Composer with deterministic section ordering + zero-event suppression"
+title: C22 Adaptive Summary Composer with deterministic section ordering + zero-event
+  suppression
 version: 0.1.0
 status: ready
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-component: "C22"
-depends_on: ["TKT-021@0.1.0", "TKT-023@0.1.0", "TKT-029@0.1.0", "TKT-030@0.1.0", "TKT-031@0.1.0", "TKT-026@0.1.0"]
+component: C22
+depends_on:
+- TKT-021@0.1.0
+- TKT-023@0.1.0
+- TKT-029@0.1.0
+- TKT-030@0.1.0
+- TKT-031@0.1.0
+- TKT-026@0.1.0
 blocks: []
 estimate: M
-assigned_executor: "glm-5.1"
-author_model: "claude-opus-4.7-thinking"
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -77,7 +82,7 @@ Land the C22 Adaptive Summary Composer that folds active modality sections into 
 - Do NOT introduce new external dependencies.
 - All summary text emitted by C22 passes through the ARCH-001@0.5.0 §10.7 emit-boundary redaction (extended in TKT-026@0.1.0); the user-facing summary itself is allowed to contain user-private fields (mood comment, workout description, sleep notes are NOT emitted by C22 to logs but are emitted to the user's own Telegram channel as the summary content).
 - Mood-comment text is included in the user-facing summary at most once per event in a "(comment)" suffix; it is NOT emitted to any structured log channel.
-- `assigned_executor: "glm-5.1"` justified: TypeScript composition wrapper, ~250 LoC, with deterministic ordering + suppression logic + i18n rendering map; representative GLM workload (no security boundary, no temporal complexity, no DB schema design).
+- `assigned_executor: "executor"` justified: TypeScript composition wrapper, ~250 LoC, with deterministic ordering + suppression logic + i18n rendering map; representative GLM workload (no security boundary, no temporal complexity, no DB schema design).
 
 ## 8. Definition of Done
 - [ ] All Acceptance Criteria pass.
@@ -85,20 +90,3 @@ Land the C22 Adaptive Summary Composer that folds active modality sections into 
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
 - [ ] Executor filled §10 Execution Log.
 - [ ] Ticket frontmatter `status: in_review` in a separate commit.
-
-## 9. Questions
-<!-- (empty) -->
-
-## 10. Execution Log
-<!-- (empty) -->
-
----
-
-## Handoff Checklist
-- [x] Goal is one sentence.
-- [x] NOT-In-Scope has ≥1 explicit item (6 items).
-- [x] Acceptance Criteria are machine-checkable.
-- [x] Constraints explicitly list forbidden actions.
-- [x] All references version-pinned.
-- [x] `depends_on: ["TKT-021@0.1.0", "TKT-023@0.1.0", "TKT-029@0.1.0", "TKT-030@0.1.0", "TKT-031@0.1.0", "TKT-026@0.1.0"]` (tables + sleep handler + water/workout/mood handlers + redaction extension).
-- [x] `assigned_executor: "glm-5.1"` justified.

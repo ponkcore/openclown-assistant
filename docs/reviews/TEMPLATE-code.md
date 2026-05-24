@@ -1,10 +1,9 @@
 ---
 id: RV-CODE-XXX
 type: code_review
-target_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/NN"
+target_pr: "<PR URL>"
 ticket_ref: TKT-XXX@X.Y.Z
-status: in_review          # in_review | approved | changes_requested
-reviewer_model: "kimi-k2.6"
+status: in_review
 created: YYYY-MM-DD
 ---
 

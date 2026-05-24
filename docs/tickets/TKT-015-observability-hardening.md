@@ -1,18 +1,17 @@
 ---
 id: TKT-015
-title: "Observability Hardening"
+title: Observability Hardening
 status: done
 arch_ref: ARCH-001@0.3.0
-component: "C1 Access-Controlled Telegram Entrypoint; C10 Cost, Degrade, and Observability Service"
-depends_on: ["TKT-003@0.1.0", "TKT-004@0.1.0"]
+component: C1 Access-Controlled Telegram Entrypoint; C10 Cost, Degrade, and Observability
+  Service
+depends_on:
+- TKT-003@0.1.0
+- TKT-004@0.1.0
 blocks: []
 estimate: M
-assigned_executor: "glm-5.1"
 created: 2026-04-28
 updated: 2026-05-01
-completed_at: 2026-05-01
-completed_by: "yourmomsenpai (PO)"
-completed_note: "TKT-015 closed following RV-CODE-015 iter-2 verdict pass (Kimi K2.6 commit on rv-branch). Implementation merged via PR #58 (squash commit on main 2026-05-01) covering all 14 ACs (npm test 106/106 on the targeted suites, lint clean, typecheck clean): C1 unsupported-message handling for stickers (MSG_GENERIC_RECOVERY + route-unmatched telemetry + Prometheus metric increment via injected metricsRegistry on the routing path), C1 history-command routing 256-character lowercase cap preserving original inbound text, C10 emit-boundary allowlist/forbidden-field redaction immediately before logger serialization, C10 metrics endpoint bind guard rejecting both `::` / `[::]` / `0.0.0.0` and the IPv4-mapped IPv6 wildcard `::ffff:0.0.0.0`. Review trail: iter-1 (commit e7f6afe, pass_with_changes blocked on F-M1 broken security-invariant test in events.test.ts:199-211 + F-M2 missing metric increment + F-L1 unused PROMETHEUS_METRIC_NAMES import + F-L2 IPv4-mapped IPv6 wildcard bypass) -> iter-2 (commit fb4e7ba, pass after F-M1 RESOLVED via test rename + new injected-event test asserting raw_transcript coercion to [REDACTED], F-M2 RESOLVED via metricsRegistry wired into C1Deps + mock in makeDeps + increment call inside the unsupported switch case + assertion test, F-L1 RESOLVED automatically by F-M2 wiring, F-L2 RESOLVED via guard extension + new rejection test). One PR-Agent supplementary finding F-PA-15 was VALID (independently identified F-M1) and was promoted into Kimi iter-2 scope and RESOLVED. One PR-Agent supplementary finding F-PA-16 (metric/log emission ordering on send failure: deps.metricsRegistry.increment() is called synchronously before await sendWithRetry(); if sendWithRetry throws, the metric is recorded but logRouteOutcome is skipped, creating a metric/log mismatch for failed unsupported messages) DEFERRED to BACKLOG-006@0.1.0 §TKT-NEW-P per PO decision on 2026-05-01 (importance 7, observability class, non-blocking for AC verification because the existing tests assert the success path and Telegram sendMessage rarely throws under normal operation). PR-Agent supplementary review on PR #58: 2 distinct findings (F-PA-15 promoted, F-PA-16 deferred); cosmetic Operator Precedence Clarity nit on the ternary || chain skipped as non-substantive. Reviewer Kimi K2.6 remains the load-bearing CODE-mode reviewer. Note: this artifact was originally scaffolded by Kimi as RV-CODE-009 (id-clash with the parallel TKT-009 review) and orchestrator-renamed to RV-CODE-015 via the clerical rename PR #62 (replacing closed PR #61); see RV-CODE-015 frontmatter clerical-note block for the rename history."
 ---
 
 # TKT-015: Observability Hardening
@@ -29,7 +28,7 @@ Harden C1/C10 observability edge cases from the post-review closure scope.
 
 ## 3. NOT In Scope (Executor must NOT touch these — Reviewer fails on violation)
 - No production behavior outside C1/C10 hardening.
-- No changes to closed artifacts TKT-003@0.1.0, TKT-004@0.1.0, RV-CODE-003@0.1.0, or RV-CODE-004@0.1.0.
+- No changes to closed artifacts TKT-003@0.1.0, TKT-004@0.1.0, or.
 - No onboarding, meal estimation, history mutation, voice transcription, photo recognition, summary, storage, deployment, or Docker changes.
 - No new runtime dependencies.
 
@@ -40,11 +39,11 @@ Harden C1/C10 observability edge cases from the post-review closure scope.
 - ARCH-001@0.3.0 §10.7 Observability Hardening Addendum
 - TKT-003@0.1.0 §7 Constraints
 - TKT-004@0.1.0 §10 Execution Log
-- RV-CODE-003@0.1.0 §Red-team probes line on `createMetricsServer`
-- RV-CODE-004@0.1.0 frontmatter `approved_note`
-- RV-CODE-004@0.1.0 §Findings F-L2
-- RV-CODE-004@0.1.0 §Hostile-reader pass summary
-- Devin Review PR #21 comments D-I5 and D-I9 on head `bfd2643`.
+- probes line on `createMetricsServer`
+- frontmatter `approved_note`
+- F-L2
+- pass summary
+- orchestrator Review PR #21 comments D-I5 and D-I9 on head `bfd2643`.
 - `src/shared/types.ts`
 - `src/telegram/types.ts`
 - `src/telegram/entrypoint.ts`
@@ -101,26 +100,3 @@ Harden C1/C10 observability edge cases from the post-review closure scope.
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body
 - [ ] Executor filled §10 Execution Log
 - [ ] Ticket frontmatter `status: in_review` in a separate commit
-
-## 9. Questions (empty at creation; Executor appends here ONLY if blocked — do NOT start code)
-<!-- Q1 (2026-04-28, model-id): question text — see docs/questions/Q-TKT-015-NN.md -->
-
-## 10. Execution Log (Executor fills as work proceeds)
-<!-- 2026-04-28 09:00 glm-5.1: started iter-1 implementation -->
-<!-- 2026-04-28 10:00 glm-5.1: opened PR #58 (head e7f6afe) -->
-<!-- 2026-05-01 10:00 kimi-k2.6: iter-1 review verdict pass_with_changes (2M + 2L) -->
-<!-- 2026-05-01 11:30 glm-5.1: iter-2 fixes pushed (head fb4e7ba) F-M1/F-M2 RESOLVED + F-L1/F-L2 collateral RESOLVED -->
-<!-- 2026-05-01 12:30 kimi-k2.6: iter-2 review verdict pass; 106/106 targeted tests + lint/typecheck clean -->
-<!-- 2026-05-01 14:45 PO: merged PR #58 (TKT-015 code), PR #62 (RV-CODE-015 clerical-renamed review file) -->
-<!-- 2026-05-01 15:00 orchestrator: opening closure-PR-2 (this PR): TKT-015 status flip + RV-CODE-015 status flip + BACKLOG-006 with TKT-NEW-P (F-PA-16 metric/log emission ordering) -->
-
----
-
-## Handoff Checklist (Architect ticks before setting status to `ready`)
-- [x] Goal is one sentence, no conjunctions
-- [x] NOT-In-Scope has ≥1 explicit item
-- [x] Acceptance Criteria are machine-checkable (no "looks good")
-- [x] Constraints explicitly list forbidden actions
-- [x] All ArchSpec / ADR references are version-pinned
-- [x] `depends_on` accurately reflects prerequisites; no cycles
-- [x] `assigned_executor` is justified (especially Codex — explain why GLM cannot)

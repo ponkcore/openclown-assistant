@@ -1,19 +1,11 @@
 ---
 id: ADR-005
-title: "Hybrid KBJU Estimation"
+title: Hybrid KBJU Estimation
 version: 0.2.0
 status: accepted
 arch_ref: ARCH-001@0.3.1
-author_model: "gpt-5.5-thinking"
-reviewer_models:
-  - "kimi-k2.6"
-review_refs:
-  - RV-SPEC-004@0.1.0
 created: 2026-04-26
 updated: 2026-04-29
-approved_at: 2026-04-29
-approved_by: "yourmomsenpai (PO)"
-approved_note: "ADR-005@0.2.0 (KBJU formula parameters Q1–Q5 + formula_version constant) accepted following RV-SPEC-004 iter-4 verdict pass. Review trail: iter-1 (94f8ccd, pass_with_changes) → iter-2 (e97d6b0, pass after F-M1 Q3 sign + F-M2 ARCH-001 cascade resolved in commit 3045637) → iter-3 (c324055, pass after Q-file rename + ARCH-001@0.3.1 cascade verified scope-compliant in commit f72ed12) → iter-4 (501de94, pass after ARCH-001 changelog 0.3.1 entry NUDGE_3 added in commit 3ee8912). Both branches merged via PR #29 (commit c9154cf, ADR-005 + ARCH-001 0.3.1 + Q-TKT-005-01 + TKT-005 arch_ref re-pin) and PR #30 (commit 5d82d0d, RV-SPEC-004 review artifact). PO-deferred non-blocking findings: F-L1 (Math.round wording per ECMA-262) and F-L3 (ADR `version:` frontmatter convention drift across other ADRs + TEMPLATE.md) routed to a separate clerical follow-up PR after TKT-005 cycle close."
 superseded_by: null
 ---
 

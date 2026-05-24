@@ -31,19 +31,12 @@ DOCS_ROOT = REPO_ROOT / "docs"
 # Directories under docs/ that are NOT typed artifact directories (no
 # frontmatter required). Files inside these are free-form meta docs.
 # `personality` holds PERSONA-XXX system-prompt skeletons read at runtime
-# by the recommendation skill (see ARCH-001@0.2.0 §6 External Interfaces).
-# `meta` holds the orchestrator session-handoff prompt and other cross-role
-# meta-process documents (see docs/meta/devin-session-handoff.md).
-# `session-log` holds orchestrator state snapshots used to migrate the
-# orchestrator role between Devin accounts (or to opencode + GPT-5.5)
-# without losing context. Snapshots are by definition volatile operational
-# state, not versioned artifacts; see docs/session-log/README.md.
+# by the recommendation skill (see ARCH-001 §6 External Interfaces).
 # `roadmap` holds Business-Planner-authored roadmap / vision documents
 # (ROADMAP-NNN-*.md) — strategic-direction artifacts that span multiple
 # PRDs and may evolve over time without strict semver. See
-# docs/roadmap/README.md. Authored under one-off PO authorisation that
-# extends the BP write-zone beyond `docs/prd/` for that session only.
-FREEFORM_DIRS = {"prompts", "knowledge", "personality", "meta", "session-log", "roadmap"}
+# docs/roadmap/README.md.
+FREEFORM_DIRS = {"prompts", "knowledge", "personality", "roadmap"}
 # Free-form top-level docs/*.md files (non-artifact reference material).
 FREEFORM_TOPLEVEL: set[str] = set()
 
@@ -70,11 +63,11 @@ TYPE_RULES: dict[str, tuple[set[str], set[str]]] = {
         {"proposed", "accepted", "rejected", "superseded"},
     ),
     "tickets": (
-        {"id", "title", "status", "arch_ref", "assigned_executor", "created"},
+        {"id", "title", "status", "arch_ref", "created"},
         {"draft", "ready", "in_progress", "in_review", "done", "blocked"},
     ),
     "reviews": (
-        {"id", "type", "status", "reviewer_model", "created"},
+        {"id", "type", "status", "created"},
         {"in_review", "approved", "changes_requested"},
     ),
     "questions": (

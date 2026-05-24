@@ -1,28 +1,22 @@
 ---
 id: ADR-012
-title: "Model-stall detection mechanism — per-call streaming token watchdog"
+title: Model-stall detection mechanism — per-call streaming token watchdog
 version: 0.1.0
 status: proposed
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
-author_model: "claude-opus-4.7-thinking"
-reviewer_models:
-  - "kimi-k2.6"
-review_refs: []
 source_inputs:
-  - "PR-B 120s PRD-compatible threshold"
-  - "PR-C zeroclaw polling-pattern evidence"
+- PR-B 120s PRD-compatible threshold
+- PR-C zeroclaw polling-pattern evidence
 created: 2026-05-04
 updated: 2026-05-04
-approved_at: null
-approved_by: null
 ---
 
 # ADR-012: Model-stall detection mechanism
 
 ## 0. Recon Report
 
-PRD-002@0.2.1 G2 requires automated detection of LLM call stalls (motivated by BACKLOG-009 Qwen 3.6 Plus
+PRD-002@0.2.1 G2 requires automated detection of LLM call stalls (motivated by executor
 128K context exhaustion, 5-of-5 cancellation pattern). Only one model-stall detection mechanism exists
 across all 6 evaluated runtimes: zeroclaw's `stall_watchdog.rs:29-124`.
 
@@ -52,9 +46,9 @@ Each LLM provider call is wrapped in a `StallWatchdog` that monitors streaming t
 ## 3. Design
 
 ```
-LLM call start → StallWatchdog.start()
+LLM call start → StallWatchdog.start
   └─ setInterval(STALL_THRESHOLD_MS / 2): check now - lastTokenAt
-  └─ on each delta chunk: lastTokenAt = Date.now()
+  └─ on each delta chunk: lastTokenAt = Date.now
   └─ if stalled: abort fetch → fallback provider → log kbju_llm_call_stalled
 ```
 
@@ -74,4 +68,4 @@ LLM call start → StallWatchdog.start()
 
 **Negative:**
 - Algorithm ports from Rust (zeroclaw Tokio task model) to TypeScript (setInterval model) — different concurrency model
-- Does NOT detect provider-level stalls before the first token unless the LLM client calls `touch()` at request emission; provider-down cases remain covered by existing request timeout
+- Does NOT detect provider-level stalls before the first token unless the LLM client calls `touch` at request emission; provider-down cases remain covered by existing request timeout

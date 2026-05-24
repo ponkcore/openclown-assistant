@@ -17,7 +17,7 @@ ROADMAP files are **not** tickets, **not** PRDs, **not** ArchSpecs. They do not 
 | Field | Rule |
 |---|---|
 | **Author role** | Business Planner only. PO must explicitly authorise BP write-zone extension to `docs/roadmap/` for the session that produces a new or revised ROADMAP. The default BP write-zone (`docs/prd/`) does **not** cover this directory. |
-| **Author model** | Whatever model the BP role is currently invoked with (historical default: `claude-opus-4.7-thinking` for openclown-assistant; alternative: `gpt-5.5-thinking` via ChatGPT Plus). |
+| **Author model** | Whatever model the BP role is currently invoked with (historical default: `planner` for openclown-assistant; alternative: `planner` via ChatGPT Plus). |
 | **Status flow** | `draft` → `in_review` (Reviewer / RV-SPEC dispatch) → `approved` (PO sets after Reviewer verdict `pass` or `pass_with_changes`). Same flow as PRDs. |
 | **Versioning** | Semver-style on a single canonical file (e.g. `ROADMAP-001-v0-2-and-beyond.md` bumps internal `version: 0.1.0 → 0.2.0` rather than creating `ROADMAP-001-v0-3-...md`). The file is the canonical "current" roadmap; superseded versions live in git history, not as separate files. |
 | **Validation** | This directory is FREEFORM (no required frontmatter fields enforced by `scripts/validate_docs.py`). The validator skips this directory because ROADMAP files are strategic-direction artifacts, not versioned product artifacts. BP authors are still encouraged to include a YAML frontmatter block with at minimum `id`, `title`, `version`, `status`, `author_model`, `created`, `updated` for human readability. |
@@ -45,7 +45,7 @@ ROADMAP files are **not** tickets, **not** PRDs, **not** ArchSpecs. They do not 
 | **Architect** | Phase 0 recon. Sequencing dependencies between PRD-N and PRD-N+1 inform whether ArchSpec-N must reserve component-namespace for ArchSpec-N+1 (pre-emptive design). |
 | **Reviewer (SPEC)** | Cross-PRD coherence check. If a new PRD seems to contradict ROADMAP, that is a finding. |
 | **PO** | Strategic check before authorising the next PRD draft. ROADMAP is the document the PO points at when asking BP "is this what we agreed?". |
-| **Devin Orchestrator** | Cross-cycle dispatch sequencing. The next-cycle TKT/PRD dispatch decision uses ROADMAP as a tiebreaker when multiple PRDs are technically ready. |
+| **orchestrator** | Cross-cycle dispatch sequencing. The next-cycle TKT/PRD dispatch decision uses ROADMAP as a tiebreaker when multiple PRDs are technically ready. |
 
 ## Relationship to `docs/backlog/`
 

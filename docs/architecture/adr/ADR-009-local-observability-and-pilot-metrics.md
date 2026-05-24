@@ -1,9 +1,8 @@
 ---
 id: ADR-009
-title: "Local Observability and Pilot Metrics"
+title: Local Observability and Pilot Metrics
 status: proposed
 arch_ref: ARCH-001@0.2.0
-author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
 superseded_by: null

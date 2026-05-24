@@ -1,16 +1,15 @@
 ---
 id: TKT-028
-title: "C21 Modality Settings Service with /settings command + ≤30s propagation"
+title: C21 Modality Settings Service with /settings command + ≤30s propagation
 version: 0.1.0
 status: ready
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-component: "C21"
-depends_on: ["TKT-021@0.1.0"]
+component: C21
+depends_on:
+- TKT-021@0.1.0
 blocks: []
 estimate: M
-assigned_executor: "glm-5.1"
-author_model: "claude-opus-4.7-thinking"
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -71,7 +70,7 @@ Land the C21 Modality Settings Service exposing a `/settings` Telegram command s
 - Do NOT use a session-scoped cache that would persist beyond the TTL boundary; the propagation contract is global, not per-session.
 - The `/settings` command MUST be Russian-only at the user-facing layer (PRD-003@0.1.3 §7 Localization).
 - All SQL parameterised; all RLS-policy-scoped reads via the existing user-context middleware.
-- `assigned_executor: "glm-5.1"` justified: a Telegram command handler + a service module + a TTL cache; no security boundary beyond standard RLS-scoped reads (the security boundary lives in TKT-021@0.1.0); GLM-typical TypeScript module work.
+- `assigned_executor: "executor"` justified: a Telegram command handler + a service module + a TTL cache; no security boundary beyond standard RLS-scoped reads (the security boundary lives in TKT-021@0.1.0); GLM-typical TypeScript module work.
 
 ## 8. Definition of Done
 - [ ] All Acceptance Criteria pass.
@@ -79,20 +78,3 @@ Land the C21 Modality Settings Service exposing a `/settings` Telegram command s
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
 - [ ] Executor filled §10 Execution Log.
 - [ ] Ticket frontmatter `status: in_review` in a separate commit.
-
-## 9. Questions
-<!-- (empty) -->
-
-## 10. Execution Log
-<!-- (empty) -->
-
----
-
-## Handoff Checklist
-- [x] Goal is one sentence.
-- [x] NOT-In-Scope has ≥1 explicit item (5 items).
-- [x] Acceptance Criteria are machine-checkable.
-- [x] Constraints explicitly list forbidden actions.
-- [x] All references version-pinned.
-- [x] `depends_on: ["TKT-021@0.1.0"]` (tables); `blocks` lists handlers + composer (they read settings via this service).
-- [x] `assigned_executor: "glm-5.1"` justified.

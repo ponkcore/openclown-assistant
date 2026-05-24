@@ -1,16 +1,15 @@
 ---
 id: TKT-025
-title: "Modality-input disambiguation golden tests + R1 misclassification telemetry"
+title: Modality-input disambiguation golden tests + R1 misclassification telemetry
 version: 0.1.0
 status: ready
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-component: "C16+observability"
-depends_on: ["TKT-022@0.1.0"]
+component: C16+observability
+depends_on:
+- TKT-022@0.1.0
 blocks: []
 estimate: S
-assigned_executor: "glm-5.1"
-author_model: "claude-opus-4.7-thinking"
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -76,7 +75,7 @@ Land the PRD-003@0.1.3 §8 R1 rolling-30-day modality-misclassification rate tel
 - Do NOT add new dashboards or alert rules — informational only per PRD-003@0.1.3 §8 R1.
 - The 30-day rolling windows MUST be computed over the existing metric retention; if the existing retention is shorter than 30 days, the metric returns `null` until enough data accrues (do not fabricate values).
 - Clarifying-reply copy in path-5 fixtures MUST match ARCH-001@0.6.0 §6.2.2 verbatim — character-equality assertion, not approximate.
-- `assigned_executor: "glm-5.1"` justified: ~80 LoC of metric-aggregation + 5-fixture-set golden test runner + extension hooks; representative GLM workload.
+- `assigned_executor: "executor"` justified: ~80 LoC of metric-aggregation + 5-fixture-set golden test runner + extension hooks; representative GLM workload.
 
 ## 8. Definition of Done
 - [ ] All Acceptance Criteria pass.
@@ -84,20 +83,3 @@ Land the PRD-003@0.1.3 §8 R1 rolling-30-day modality-misclassification rate tel
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
 - [ ] Executor filled §10 Execution Log.
 - [ ] Ticket frontmatter `status: in_review` in a separate commit.
-
-## 9. Questions
-<!-- (empty) -->
-
-## 10. Execution Log
-<!-- (empty) -->
-
----
-
-## Handoff Checklist
-- [x] Goal is one sentence, no conjunctions.
-- [x] NOT-In-Scope has ≥1 explicit item (4 explicit items).
-- [x] Acceptance Criteria are machine-checkable.
-- [x] Constraints explicitly list forbidden actions.
-- [x] All references version-pinned.
-- [x] `depends_on: ["TKT-022@0.1.0"]` (the C16 router emits the counter this ticket aggregates).
-- [x] `assigned_executor: "glm-5.1"` justified.

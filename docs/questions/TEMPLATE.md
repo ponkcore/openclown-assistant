@@ -2,8 +2,8 @@
 id: Q-TKT-XXX-NN
 status: open              # open | answered | superseded
 ticket_ref: TKT-XXX@X.Y.Z
-asker_model: "glm-5.1"
-answerer_model: "gpt-5.5-xhigh"
+asker_model: "executor"
+answerer_model: "planner-xhigh"
 created: YYYY-MM-DD
 answered: null
 ---

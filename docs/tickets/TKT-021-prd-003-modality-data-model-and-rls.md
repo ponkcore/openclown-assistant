@@ -1,16 +1,22 @@
 ---
 id: TKT-021
-title: "PRD-003 modality data model migrations + RLS + right-to-delete cascade"
+title: PRD-003 modality data model migrations + RLS + right-to-delete cascade
 version: 0.1.0
 status: ready
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-component: "C-data-model"
+component: C-data-model
 depends_on: []
-blocks: ["TKT-022@0.1.0", "TKT-023@0.1.0", "TKT-029@0.1.0", "TKT-030@0.1.0", "TKT-031@0.1.0", "TKT-026@0.1.0", "TKT-027@0.1.0", "TKT-028@0.1.0"]
+blocks:
+- TKT-022@0.1.0
+- TKT-023@0.1.0
+- TKT-029@0.1.0
+- TKT-030@0.1.0
+- TKT-031@0.1.0
+- TKT-026@0.1.0
+- TKT-027@0.1.0
+- TKT-028@0.1.0
 estimate: M
-assigned_executor: "codex-gpt-5.5"
-author_model: "claude-opus-4.7-thinking"
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -66,7 +72,7 @@ Land the four modality storage schemas (water / sleep / workout / mood) plus the
 - All foreign keys ON DELETE CASCADE except the cross-modality-summary table (none in this ticket).
 - All `text` columns subject to PII redaction at emit (raw_workout_text, mood_comment_text, sleep_text_input — these are *stored* but redacted at emit boundary by C10; persistence is fine).
 - Schema names follow the existing repo convention (snake_case, lower).
-- `assigned_executor: "codex-gpt-5.5"` justified: SQL-heavy migration with foreign-key cascade ordering and RLS policy correctness (typing-heavy, security-critical per `docs/prompts/architect.md` §Phase 8 executor-assignment rule).
+- `assigned_executor: "executor"` justified: SQL-heavy migration with foreign-key cascade ordering and RLS policy correctness (typing-heavy, security-critical per `docs/prompts/architect.md` §Phase 8 executor-assignment rule).
 
 ## 8. Definition of Done
 - [ ] All Acceptance Criteria pass.
@@ -74,20 +80,3 @@ Land the four modality storage schemas (water / sleep / workout / mood) plus the
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
 - [ ] Executor filled §10 Execution Log.
 - [ ] Ticket frontmatter `status: in_review` in a separate commit.
-
-## 9. Questions (empty at creation; Executor appends here ONLY if blocked — do NOT start code)
-<!-- (empty) -->
-
-## 10. Execution Log (Executor fills as work proceeds)
-<!-- (empty) -->
-
----
-
-## Handoff Checklist (Architect ticks before setting status to `ready`)
-- [x] Goal is one sentence, no conjunctions.
-- [x] NOT-In-Scope has ≥1 explicit item (5 explicit items listed).
-- [x] Acceptance Criteria are machine-checkable (test files, CLI commands, RLS introspection).
-- [x] Constraints explicitly list forbidden actions.
-- [x] All ArchSpec / ADR / PRD references are version-pinned (ARCH-001@0.6.0, ADR-001@0.1.0, ADR-017@0.1.0, PRD-001@0.2.0, PRD-002@0.2.1, PRD-003@0.1.3).
-- [x] `depends_on: []` (this is the foundation ticket); `blocks` lists every component ticket that depends on these tables.
-- [x] `assigned_executor: "codex-gpt-5.5"` justified in §7 (SQL + RLS + cascade ordering — typing-heavy, security-critical).

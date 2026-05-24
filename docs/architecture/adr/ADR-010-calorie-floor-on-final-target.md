@@ -1,19 +1,11 @@
 ---
 id: ADR-010
-title: "Calorie floor on final target"
+title: Calorie floor on final target
 version: 0.1.0
 status: accepted
 arch_ref: ARCH-001@0.4.0
-author_model: "gpt-5.5-xhigh"
-reviewer_models:
-  - "kimi-k2.6"
-review_refs:
-  - RV-SPEC-005@0.1.0
 created: 2026-04-30
 updated: 2026-04-30
-approved_at: 2026-04-30
-approved_by: "yourmomsenpai (PO)"
-approved_note: "ADR-010@0.1.0 (calorie floor on final target) accepted following RV-SPEC-005 iter-2 verdict pass. Review trail: iter-1 (788f2af, pass_with_changes) → iter-2 (2cefb7d, pass after F-M1 Option C citation, F-M2 ARCH-001@0.4.0 §8.2 telemetry cascade, F-L1 formula_version v1/v2 schema split RESOLVED in Architect commit 1e3a71e). Both branches merged via PR #40 (commit ab0b092, ADR-010 + ARCH-001@0.4.0 cascade) and PR #41 (commit 87da684, RV-SPEC-005 review artifact). Hidden Devin Review panel findings deferred (Devin Review ACU exhausted post-merge; manual triage in follow-up PR if substantive). Downstream Executor ticket (clamp implementation per §Q1–§Q4 with `formula_version = mifflin_st_jeor_v2_2026_04`) routed via BACKLOG-001@0.1.0 §TKT-NEW-D promotion when v0.1 cycle bandwidth permits."
 superseded_by: null
 ---
 
@@ -21,7 +13,7 @@ superseded_by: null
 
 ## 0. Recon Report
 
-Scope of this ADR-only cycle: resolve the medical-safety constant surfaced in BACKLOG-001@0.1.0 §TKT-NEW-D and cascade the resulting contract into ARCH-001@0.4.0. No Executor ticket, production code, schema migration, test, prompt, or PRD change is part of this PR.
+Scope of this ADR-only cycle: resolve the medical-safety constant surfaced in and cascade the resulting contract into ARCH-001@0.4.0. No Executor ticket, production code, schema migration, test, prompt, or PRD change is part of this PR.
 
 Artifacts audited before decision:
 
@@ -30,7 +22,7 @@ Artifacts audited before decision:
 | PRD-001@0.2.0 | US-1 requires onboarding target calculation and display, but does not define a lower calorie floor. Non-goals do not exclude this safety guard. |
 | ARCH-001@0.3.1 | C2 target creation currently references ADR-005@0.2.0 for BMR, activity adjustment, pace delta, and macro targets, but has no floor contract. |
 | ADR-005@0.2.0 | Pins the target-calculation formula constants, including 7700 kcal/kg pace conversion and `formula_version = "mifflin_st_jeor_v1_2026_04"`; it does not bound the final calorie target. |
-| BACKLOG-001@0.1.0 §TKT-NEW-D | Records the source-of-record gap: `calculateCalories` can return negative or dangerously low values when PRD-001@0.2.0 pace range permits 2.0 kg/week loss for a low-maintenance user. |
+| | Records the source-of-record gap: `calculateCalories` can return negative or dangerously low values when PRD-001@0.2.0 pace range permits 2.0 kg/week loss for a low-maintenance user. |
 | Code locus `src/onboarding/targetCalculator.ts` | Context-only audit found `calculateCalories` returns `maintenanceKcal + goalDelta`; code is intentionally not edited in this Architect PR. |
 
 External sources audited:
@@ -43,9 +35,7 @@ External sources audited:
 
 Pilot telemetry caveat: no pilot cohort target-distribution data exists yet. This decision is therefore a precautionary safety guard for a deterministic calculator, not a conclusion derived from observed KBJU Coach usage.
 
-## 1. Context
-
-BACKLOG-001@0.1.0 §TKT-NEW-D records a post-TKT-005@0.1.0 safety gap: PRD-001@0.2.0 permits a loss pace up to 2.0 kg/week, and ADR-005@0.2.0 converts pace using 7700 kcal/kg. That combination can subtract about 2200 kcal/day from maintenance. For a sedentary low-maintenance adult profile, ARCH-001@0.3.1 C2 target creation can therefore produce a final daily calorie target below common low-calorie diet ranges, below specialist-supervised low-energy boundaries, or even below zero.
+## 1. Context records a post-TKT-005@0.1.0 safety gap: PRD-001@0.2.0 permits a loss pace up to 2.0 kg/week, and ADR-005@0.2.0 converts pace using 7700 kcal/kg. That combination can subtract about 2200 kcal/day from maintenance. For a sedentary low-maintenance adult profile, ARCH-001@0.3.1 C2 target creation can therefore produce a final daily calorie target below common low-calorie diet ranges, below specialist-supervised low-energy boundaries, or even below zero.
 
 KBJU Coach is explicitly non-medical, but it still presents daily calorie and macro targets to the pilot users. The target calculator must not emit values that imply unsupervised very-low-energy dieting or impossible energy intake. The floor belongs in an ADR because ADR-005@0.2.0 already owns durable target-calculation constants and formula-version auditability.
 
@@ -69,14 +59,14 @@ KBJU Coach is explicitly non-medical, but it still presents daily calorie and ma
 
 - Description: Keep no final calorie floor; instead reduce the effective maximum loss pace for low-maintenance users so the formula cannot cross a safety boundary.
 - Pros: Keeps the user's displayed target mathematically derived from pace and maintenance without a separate clamp step.
-- Cons: This was the Route 2 alternative recorded in BACKLOG-001@0.1.0 §TKT-NEW-D and is less direct: the risk is the final calorie target, not pace itself. It also requires per-profile dynamic pace validation, more onboarding copy, and a new explanation for why the same pace is valid for one user but invalid for another.
+- Cons: This was the Route 2 alternative recorded in and is less direct: the risk is the final calorie target, not pace itself. It also requires per-profile dynamic pace validation, more onboarding copy, and a new explanation for why the same pace is valid for one user but invalid for another.
 - Cost / latency / ops burden: No provider cost; medium implementation complexity in validation and UX.
 
 ### Option D: Sex-agnostic 1,200 kcal/day floor
 
 - Description: Clamp every adult `lose` target to at least 1,200 kcal/day regardless of sex.
 - Pros: Simplest constant and easiest copy; aligns with the lower edge of several reduced-calorie menu examples and avoids depending on binary sex values for the floor.
-- Cons: Allows male users to receive lower targets than the common 1,200-1,500 kcal/day low-calorie range would imply. It is less conservative for the exact BACKLOG-001@0.1.0 §TKT-NEW-D candidate values.
+- Cons: Allows male users to receive lower targets than the common 1,200-1,500 kcal/day low-calorie range would imply. It is less conservative for the exact candidate values.
 - Cost / latency / ops burden: Lowest implementation burden; weaker safety posture for male profiles.
 
 ## 3. Decision
@@ -151,7 +141,7 @@ Allowed event fields:
 | `formula_version` | `mifflin_st_jeor_v2_2026_04` |
 | `outcome` | `clamped` |
 
-No height, weight, age, raw Telegram text, username, or free-form user input may be included. BACKLOG-001@0.1.0 §TKT-NEW-C remains the source-of-record for state-corruption reset telemetry and is not expanded by this ADR.
+No height, weight, age, raw Telegram text, username, or free-form user input may be included. remains the source-of-record for state-corruption reset telemetry and is not expanded by this ADR.
 
 ### Q5: Formula versioning
 
@@ -161,7 +151,7 @@ Rationale: the BMR coefficients, activity multipliers, pace conversion, macro sp
 
 ### Q6: Follow-up ticket boundary
 
-After ADR-010@0.1.0 is accepted by the PO and ARCH-001@0.4.0 is approved, a new Executor ticket may be promoted from BACKLOG-001@0.1.0 §TKT-NEW-D. That ticket should implement only the clamp, copy, formula-version bump, telemetry event, and focused tests for C2/C1. It should not re-open ADR-005@0.2.0 formula constants or change PRD-001@0.2.0 pace limits unless a new Architect cycle authorizes that scope.
+After ADR-010@0.1.0 is accepted by the PO and ARCH-001@0.4.0 is approved, a new Executor ticket may be promoted from. That ticket should implement only the clamp, copy, formula-version bump, telemetry event, and focused tests for C2/C1. It should not re-open ADR-005@0.2.0 formula constants or change PRD-001@0.2.0 pace limits unless a new Architect cycle authorizes that scope.
 
 ## 5. Consequences
 
@@ -169,12 +159,12 @@ After ADR-010@0.1.0 is accepted by the PO and ARCH-001@0.4.0 is approved, a new 
 - Positive: Users receive a clear disclosure instead of a silent target mutation.
 - Negative / trade-offs accepted: The sex-specific floor is intentionally coarse and does not replace medical screening for pregnancy, lactation, eating-disorder risk, chronic disease, or clinician-supervised diets.
 - Negative / trade-offs accepted: Some users selecting aggressive loss pace will see a slower effective deficit than requested.
-- Follow-up work: Promote BACKLOG-001@0.1.0 §TKT-NEW-D to an Executor ticket only after ADR-010@0.1.0 is accepted and ARCH-001@0.4.0 is approved.
+- Follow-up work: Promote to an Executor ticket only after ADR-010@0.1.0 is accepted and ARCH-001@0.4.0 is approved.
 - Audit impact: C2 target rows calculated after implementation must carry `formula_version = "mifflin_st_jeor_v2_2026_04"`; clamp events use `kbju_onboarding_target_floor_clamped` with the bounded fields in §4 Q4.
 
 ## 6. References
 
-- BACKLOG-001@0.1.0 §TKT-NEW-D: `docs/backlog/onboarding-followups.md`
+-: `docs/backlog/onboarding-followups.md`
 - PRD-001@0.2.0: approved KBJU Coach PRD.
 - ARCH-001@0.3.1: approved KBJU Coach architecture baseline for this cycle.
 - ADR-005@0.2.0: accepted hybrid KBJU estimation and target-formula ADR.

@@ -1,17 +1,16 @@
 ---
 id: PRD-003
-title: "Tracking Modalities Expansion"
+title: Tracking Modalities Expansion
 version: 0.1.3
-status: approved         # draft | in_review | approved | superseded
-owner: "@yourmomsenpai"
-author_model: "claude-opus-4.7-thinking"
+status: approved
+owner: '@po'
 created: 2026-05-03
 updated: 2026-05-06
 supersedes: null
 superseded_by: null
 related:
-  - "PRD-001@0.2.0"
-  - "PRD-002@0.2.1"
+- PRD-001@0.2.0
+- PRD-002@0.2.1
 ---
 
 # PRD-003: Tracking Modalities Expansion
@@ -37,14 +36,14 @@ PRD-001@0.2.0 shipped a single-modality assistant: KBJU (calories, protein, fat,
 - **NG7.** No medical or clinical advice across any of the four new modalities. PRD-001@0.2.0 §3 NG7 is reaffirmed without modification. PRD-003 makes no statement about diagnoses, conditions, supplements, sleep disorders, exercise injuries, or mood disorders, on-request or unprompted. Sleep duration sanity floor / ceiling (G2) is data-quality plumbing, not a clinical judgement.
 - **NG8.** No subscription, billing, payment, promo-code, or referral functionality. Extends PRD-001@0.2.0 §3 NG4 + PRD-002@0.2.1 §3 NG6 indefinitely; the Product Owner has confirmed monetization stays out of scope for the entire v0.2 cycle.
 - **NG9.** No per-user assistant personality customization (no preset picker, no tone-of-voice options). Preserves PRD-001@0.2.0 §3 NG10 + PRD-002@0.2.1 §3 NG5; the proactive-coaching PRD will revisit only the narrow adaptive-UX subset.
-- **NG10.** No SDLC pipeline token / cost / role-attribution telemetry — preserved from PRD-002@0.2.1 §3 NG9. Tracking Business Planner / Architect / Executor / Reviewer LLM consumption is out of scope for the entire v0.2 cycle.
+- **NG10.** No SDLC pipeline token / cost / role-attribution telemetry — preserved from PRD-002@0.2.1 §3 NG9. Tracking Business Planner / Architect / Executor / reviewer consumption is out of scope for the entire v0.2 cycle.
 - **NG11.** No retroactive backfill of pre-deploy modality data. Users cannot enter "вчера выпил 2 литра воды" or "на прошлой неделе бегал 3 раза по 5 км" through any past-dated input path; events timestamp at the moment of logging only. Historical entry by past-date is deferred to a future PRD if Product Owner ratifies a need.
 
 ## 4. Target Users / Personas
 - **P1 — Product Owner (primary v0.2 user).** Same individual as PRD-001@0.2.0 §4 P1 + PRD-002@0.2.1 §4 P1. First active user of the new modalities post-deploy; uses water / sleep / workout / mood logging through the same Telegram surface used for KBJU; expects summary integration to reflect his active modality set with no manual configuration churn. Tech comfort high; expects ≤1-second-precision timestamping, deterministic section ordering, and zero false positives on the on / off toggle.
 - **P2 — Partner (secondary subject).** Same individual as PRD-001@0.2.0 §4 P2 + PRD-002@0.2.1 §4 P2. Onboards into the same surface as P1 with all four modalities ON by default; may disable any subset via the §5 US-5 settings flow. PRD-003 telemetry about her interactions remains redacted per ARCH-001@0.4.0 §10.7 emit-boundary policy and PRD-002@0.2.1 §5 US-5 redaction acceptance carries forward.
 - **P3 — Future user (3 to 10 000).** Anyone added to the Telegram allowlist post-deploy. Onboarded through the same in-bot path as P1 / P2; gets all four modalities ON by default; can disable any. Allowlist size is bounded by PRD-002@0.2.1 G4 / K4 (load-tested up to N = 10 000 with documented code-path audit before each gate); PRD-003 introduces no new user-count constraint.
-- **P4 — Devin Orchestrator and Architect (operational consumers).** Same individuals as PRD-001@0.2.0 §4 P4 + PRD-002@0.2.1 §4 P4. Read the same alert and ratification surfaces from PRD-002@0.2.1 to coordinate the PRD-003 successor architecture-spec design; consume PRD-003 summary-correctness audit data (G6) as one input to that architecture-spec review. Not customers of the product; first-class consumers of PRD-003 output for coordination decisions.
+- **P4 — orchestrator and Architect (operational consumers).** Same individuals as PRD-001@0.2.0 §4 P4 + PRD-002@0.2.1 §4 P4. Read the same alert and ratification surfaces from PRD-002@0.2.1 to coordinate the PRD-003 successor architecture-spec design; consume PRD-003 summary-correctness audit data (G6) as one input to that architecture-spec review. Not customers of the product; first-class consumers of PRD-003 output for coordination decisions.
 
 ## 5. User Stories & Acceptance Criteria
 
@@ -132,7 +131,7 @@ PRD-001@0.2.0 shipped a single-modality assistant: KBJU (calories, protein, fat,
 ## 7. Technical Envelope (constraints Architect must respect)
 - **Channel.** Telegram remains the primary product channel as locked in PRD-001@0.2.0 §7 and reaffirmed in PRD-002@0.2.1 §7 (Product-Owner-locked decision). PRD-003 introduces no new user-facing channel; web visualization is explicitly deferred (§3 NG5) to the calendar-and-web-view PRD; external tracker integrations (Apple Health, Google Fit, Oura, Whoop, Garmin, Fitbit, Strava, MyFitnessPal) are explicitly out of v0.2 (§3 NG4).
 - **Runtime.** openclaw runtime, locked in PRD-001@0.2.0 §7 + ARCH-001@0.4.0 (Product-Owner-locked decision). PRD-003 inherits this constraint without modification; the specific language and node version backing the runtime are Architect-owned.
-- **Foundation prerequisite.** PRD-003 ships AFTER PRD-002@0.2.1 ratifies and the PRD-002@0.2.1 successor architecture spec lands. The foundation provided by PRD-002@0.2.1 (continuous tenant-isolation breach detection per PRD-002@0.2.1 G1, automated model-stall detection per PRD-002@0.2.1 G2, scale-ready Telegram allowlist with documented code-path audit per PRD-002@0.2.1 G4) is a hard prerequisite — every PRD-003 modality inherits those guarantees without re-justifying them, and the PRD-003 successor architecture spec cannot start until the PRD-002@0.2.1 successor architecture spec is approved. Empirical PR-Agent tail-latency validation per PRD-002@0.2.1 G3 also must be passing on the rolling-10-PR window before PRD-003 implementation tickets begin shipping.
+- **Foundation prerequisite.** PRD-003 ships AFTER PRD-002@0.2.1 ratifies and the PRD-002@0.2.1 successor architecture spec lands. The foundation provided by PRD-002@0.2.1 (continuous tenant-isolation breach detection per PRD-002@0.2.1 G1, automated model-stall detection per PRD-002@0.2.1 G2, scale-ready Telegram allowlist with documented code-path audit per PRD-002@0.2.1 G4) is a hard prerequisite — every PRD-003 modality inherits those guarantees without re-justifying them, and the PRD-003 successor architecture spec cannot start until the PRD-002@0.2.1 successor architecture spec is approved. Empirical code reviewer tail-latency validation per PRD-002@0.2.1 G3 also must be passing on the rolling-10-PR window before PRD-003 implementation tickets begin shipping.
 - **VPS resource ceiling.** No fixed CPU or RAM ceiling, inherited from PRD-002@0.2.1 §7. The Architect must design for horizontal scale to ≥10 000 concurrent users (consistent with the §4 P3 growth path the Product Owner has confirmed and with PRD-002@0.2.1 G4 / K4 allowlist load-test ladder); concrete instance sizing is decided by the Architect and operations function on demand.
 - **LLM budget.** No numeric LLM-budget envelope, inherited from PRD-002@0.2.1 §7 + §9 OQ-1. The Product Owner has explicitly authorised unconstrained spend for the v0.2 development cycle. Production-runtime cost telemetry per PRD-002@0.2.1 §9 OQ-1 will surface PRD-003 modality costs alongside KBJU costs for future ratification but enforces no ceiling here.
 - **Latency budget.** PRD-003 modality-event handling MUST add ≤5 % overhead to every user-facing latency budget already locked in PRD-001@0.2.0 §7 (voice ≤8 s p95 / ≤30 s p100; text ≤5 s p95 / ≤15 s p100; photo ≤12 s p95 / ≤45 s p100). Per-modality settings-toggle propagation budget is ≤30 seconds (G5 / K5). Adaptive summary generation MUST NOT exceed the existing PRD-001@0.2.0 §5 US-7 summary-generation latency by more than 5 %.
@@ -176,7 +175,7 @@ All six OQs (OQ-1..OQ-6) are ratified by the Product Owner via the 2026-05-06 RO
 - Subscription / billing / payment / promo-code / referral functionality — indefinitely deferred; extends PRD-001@0.2.0 §3 NG4 + PRD-002@0.2.1 §3 NG6.
 - SDLC pipeline token / cost / role-attribution telemetry — preserved as out-of-v0.2 from PRD-002@0.2.1 §10; not deferred to a successor PRD, simply out of v0.2 entirely. Any future SDLC observability work would require fresh Product Owner authorisation.
 - Retroactive backfill of pre-deploy modality data (past-dated water / sleep / workout / mood entries; bulk import from previous tracking apps) — deferred indefinitely; if the Product Owner ratifies a need, a successor PRD can introduce a bulk-import / past-date path.
-- Repo-wide rebrand of the term "KBJU" — out of scope for PRD-003 (same write-zone reasoning as PRD-002@0.2.1 §10); tracked separately as a follow-up coordinated by the Devin Orchestrator.
+- Repo-wide rebrand of the term "KBJU" — out of scope for PRD-003 (same write-zone reasoning as PRD-002@0.2.1 §10); tracked separately as a follow-up coordinated by the orchestrator.
 
 ---
 

@@ -1,14 +1,13 @@
 ---
 id: PERSONA-001
 type: persona
-title: "KBJU Coach v0.1 persona — system-prompt skeleton"
+title: KBJU Coach v0.1 persona — system-prompt skeleton
 version: 0.1.0
 status: draft
 arch_ref: ARCH-001@0.2.0
 prd_ref: PRD-001@0.2.0
 locale: ru
-owner: "@OpenClown-bot"
-author_model: "human-po-draft"
+owner: '@po'
 created: 2026-04-26
 updated: 2026-04-26
 ---
@@ -87,7 +86,7 @@ updated: 2026-04-26
 ## 6. Versioning
 
 - `0.1.0` — initial PO draft, sufficient for `TKT-011@0.1.0` execution.
-- `0.2.0+` — PO refinement after first pilot week (wording, length, examples). Each bump requires a new commit on a `persona/PERSONA-001-vX.Y.Z` branch and a Reviewer LLM session if structure changes.
+- `0.2.0+` — PO refinement after first pilot week (wording, length, examples). Each bump requires a new commit on a `persona/PERSONA-001-vX.Y.Z` branch and a reviewer session if structure changes.
 
 ## 7. Operational notes (not part of the system prompt)
 

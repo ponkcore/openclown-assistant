@@ -1,16 +1,17 @@
 ---
 id: TKT-029
-title: "C17 Water Logger — volume extraction + quick-preset inline keyboard + telemetry"
+title: C17 Water Logger — volume extraction + quick-preset inline keyboard + telemetry
 version: 0.1.0
 status: ready
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-component: "C17"
-depends_on: ["TKT-021@0.1.0", "TKT-022@0.1.0"]
-blocks: ["TKT-027@0.1.0"]
+component: C17
+depends_on:
+- TKT-021@0.1.0
+- TKT-022@0.1.0
+blocks:
+- TKT-027@0.1.0
 estimate: M
-assigned_executor: "deepseek-v4-pro"
-author_model: "deepseek-v4-pro"
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -39,7 +40,7 @@ Land the C17 Water Logger that persists water-event rows with volume extraction 
 
 ## 4. Execution Notes
 
-- Executor: `deepseek-v4-pro`. Sequential with TKT-030@0.1.0 and TKT-031@0.1.0; same Executor handles all three to avoid OmniRoute key contention on a 2-user pilot.
+- Executor: `executor`. Sequential with TKT-030@0.1.0 and TKT-031@0.1.0; same Executor handles all three to avoid OmniRoute key contention on a 2-user pilot.
 - LLM calls: reuses OmniRoute (ADR-002@0.1.0) with ADR-018@0.1.0 picks.
 - Shared infra: event-row insert pattern mirrors TKT-030@0.1.0 and TKT-031@0.1.0 (row shape, telemetry counter, reply-copy module structure).
 

@@ -1,20 +1,26 @@
 ---
 id: TKT-002
-title: "Tenant PostgreSQL Store"
+title: Tenant PostgreSQL Store
 status: done
 arch_ref: ARCH-001@0.2.0
-component: "C3 Tenant-Scoped Store"
-depends_on: ["TKT-001@0.1.0"]
-blocks: ["TKT-003@0.1.0", "TKT-004@0.1.0", "TKT-005@0.1.0", "TKT-009@0.1.0", "TKT-010@0.1.0", "TKT-011@0.1.0", "TKT-012@0.1.0", "TKT-014@0.1.0"]
+component: C3 Tenant-Scoped Store
+depends_on:
+- TKT-001@0.1.0
+blocks:
+- TKT-003@0.1.0
+- TKT-004@0.1.0
+- TKT-005@0.1.0
+- TKT-009@0.1.0
+- TKT-010@0.1.0
+- TKT-011@0.1.0
+- TKT-012@0.1.0
+- TKT-014@0.1.0
 estimate: L
-assigned_executor: "codex-gpt-5.5"
 created: 2026-04-26
 updated: 2026-04-27
 closed_at: 2026-04-27
-closed_by: "orchestrator (PO-delegated)"
-closure_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/12"
-closure_commit: "66c151a"
-review_ref: "RV-CODE-002"
+closed_by: orchestrator (PO-delegated)
+review_ref: null
 ---
 
 # TKT-002: Tenant PostgreSQL Store
@@ -82,36 +88,3 @@ Implement the PostgreSQL tenant store with RLS-backed repositories.
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body
 - [ ] Executor filled §10 Execution Log
 - [ ] Ticket frontmatter `status: in_review` in a separate commit
-
-## 9. Questions (empty at creation; Executor appends here ONLY if blocked — do NOT start code)
-<!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-002-NN.md -->
-
-## 10. Execution Log (Executor fills as work proceeds)
-<!-- YYYY-MM-DD HH:MM model-id: started -->
-<!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
-2026-04-26 20:46 codex-gpt-5.5: started
-2026-04-26 20:46 codex-gpt-5.5: opened PR #12
-2026-04-26 22:00 gpt-5.5: corrected execution log — original entries said "codex-gpt-5.5" but actual runtime was opencode + GPT-5.5 (xhigh) on the OpenClaw VPS; git author shown as "GLM-5.1 Executor" is a VPS-pinned config, not the actual model
-2026-04-26 22:00 gpt-5.5: applied RV-CODE-002 fixes F-H1 + F-M1 + F-M2 + F-L1 + F-L2 to PR #12
-2026-04-26 22:00 gpt-5.5: re-pushed exec/TKT-002-tenant-postgresql-store
-2026-04-26 22:26 gpt-5.5: iter 2 — applied F-DR-DBTS (registerPgTypeParsers extended to TIMESTAMPTZ OID 1184)
-2026-04-26 22:26 gpt-5.5: iter 2 — F-DR-CONFLICT-A decision: keep ON CONFLICT (id) because users.id is the C3 tenant key for RLS and same-UUID retries are idempotent; telegram_user_id remains the UNIQUE external identity guard
-2026-04-26 22:26 gpt-5.5: iter 2 — F-DR-CONFLICT-B decision: keep ON CONFLICT (user_id, id) because schema.sql defines that unique constraint; both upserts are id-addressed, omitted id creates a new row, and summary schedules may coexist per user
-2026-04-26 22:26 gpt-5.5: iter 2 — F-DR-SOFTDELETE decision: changed softDeleteConfirmedMealWithVersion so first delete sets deleted_at/version, re-delete of an already soft-deleted row is a no-op returning the existing marker, and stale versions still fail for non-deleted rows
-2026-04-26 22:26 gpt-5.5: iter 2 — corrective: iter 1 silently dropped F-DR-DBTS and three informational flags despite invocation 13 listing all seven fixes; this iter 2 closes the gap
-2026-04-26 22:28 gpt-5.5: blocked on Q-TKT-002-01
-2026-04-26 22:38 gpt-5.5: Q-TKT-002-01 answered (option A); merged origin/main into branch; status blocked -> in_review
-2026-04-26 22:41 gpt-5.5: blocked on Q-TKT-002-02
-2026-04-27 10:14 gpt-5.5: Q-TKT-002-02 + Q-TKT-002-03 answered (option A both); pinned unpinned ticket-reference token in Q-TKT-002-01 line 41; status blocked -> in_review
-2026-04-27 10:31 orchestrator: PR #12 merged via squash-commit 66c151a; status in_review -> done; RV-CODE-002 status in_review -> approved (clerical close-out)
-
----
-
-## Handoff Checklist
-- [x] Goal is one sentence, no conjunctions
-- [x] NOT-In-Scope has ≥1 explicit item
-- [x] Acceptance Criteria are machine-checkable (no "looks good")
-- [x] Constraints explicitly list forbidden actions
-- [x] All ArchSpec / ADR references are version-pinned
-- [x] `depends_on` accurately reflects prerequisites; no cycles
-- [x] `assigned_executor` is justified (especially Codex — explain why GLM cannot)

@@ -1,24 +1,18 @@
 ---
 id: ADR-011
-title: "Runtime architecture choice — OpenClaw hybrid gateway and KBJU sidecar"
+title: Runtime architecture choice — OpenClaw hybrid gateway and KBJU sidecar
 version: 0.1.0
 status: proposed
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-001@0.2.0; PRD-002@0.2.1
-author_model: "claude-opus-4.7-thinking"
-reviewer_models:
-  - "kimi-k2.6"
-review_refs: []
 source_inputs:
-  - "PR-A rejected for load-bearing integration; retained boot-path evidence"
-  - "PR-B HYBRID gateway+sidecar+HTTP bridge"
-  - "PR-C HYBRID Option E with alternatives comparison"
-  - "SPIKE-001 OpenClaw inbound_claim plugin bridge feasibility"
-  - "SPIKE-002 OpenClaw community ecosystem audit"
+- PR-A rejected for load-bearing integration; retained boot-path evidence
+- PR-B HYBRID gateway+sidecar+HTTP bridge
+- PR-C HYBRID Option E with alternatives comparison
+- SPIKE-001 OpenClaw inbound_claim plugin bridge feasibility
+- SPIKE-002 OpenClaw community ecosystem audit
 created: 2026-05-04
 updated: 2026-05-04
-approved_at: null
-approved_by: null
 supersedes: null
 superseded_by: null
 ---
@@ -52,7 +46,7 @@ The bridge implementation is a repo-owned OpenClaw `kbju-bridge` plugin:
 - `kbju_cron` registered tool POSTs to `/kbju/cron` from a deterministic cron context that uses `DELEGATE_BLOCKED_TOOLS` or an equivalent no-tool/allowlist configuration permitting only `kbju_cron`.
 - `kbju_callback` registered tool POSTs to `/kbju/callback` unless TKT-016@0.1.0 proves a plugin-level callback interception hook can route inline buttons without an agent hop; callback fallback contexts allow only `kbju_callback`.
 - The plugin may use the SPIKE-002@0.1.0 openclown dual-hook pattern (`inbound_claim` + `message:preprocessed`) for unbound/catch-all conversations.
-- The bridge is not an OpenClaw skill `handle(input, ctx)` and does not call `src/telegram/entrypoint.ts` `routeMessage()` for Telegram routing.
+- The bridge is not an OpenClaw skill `handle(input, ctx)` and does not call `src/telegram/entrypoint.ts` `routeMessage` for Telegram routing.
 
 ## 2. Options evaluated
 

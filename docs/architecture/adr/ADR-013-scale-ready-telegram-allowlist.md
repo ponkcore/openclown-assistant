@@ -1,21 +1,15 @@
 ---
 id: ADR-013
-title: "Scale-ready Telegram allowlist architecture"
+title: Scale-ready Telegram allowlist architecture
 version: 0.1.0
 status: proposed
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
-author_model: "claude-opus-4.7-thinking"
-reviewer_models:
-  - "kimi-k2.6"
-review_refs: []
 source_inputs:
-  - "PR-B JSON + Set + file-watch reload"
-  - "PR-C JSON + Set + alternatives rejection"
+- PR-B JSON + Set + file-watch reload
+- PR-C JSON + Set + alternatives rejection
 created: 2026-05-04
 updated: 2026-05-04
-approved_at: null
-approved_by: null
 ---
 
 # ADR-013: Scale-ready Telegram allowlist architecture
@@ -59,10 +53,10 @@ config/allowlist.json:
 ```
 allowlist.ts (pseudo):
 class Allowlist {
-  private set: Set<number> = new Set()
+  private set: Set<number> = new Set
   constructor(path: string) {
     this.load(path)
-    fs.watchFile(path, { interval: 1000 }, () => { this.load(path) })
+    fs.watchFile(path, { interval: 1000 },  => { this.load(path) })
   }
   load(path: string) {
     const { users } = JSON.parse(fs.readFileSync(path, 'utf-8'))

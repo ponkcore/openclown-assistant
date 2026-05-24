@@ -1,90 +1,62 @@
 ---
 id: ARCH-001
-title: "KBJU Coach v0.1 → v0.2 (Observability and Scale Readiness) + PRD-003 Adaptive Modalities"
+title: KBJU Coach v0.1 → v0.2 (Observability and Scale Readiness) + PRD-003 Adaptive
+  Modalities
 version: 0.6.1
 status: draft
-prd_ref: "PRD-001@0.2.0; PRD-002@0.2.1; PRD-003@0.1.3"
-owner: "@OpenClown-bot"
-author_model: "claude-opus-4.7-thinking"
-reviewer_models:
-  - "kimi-k2.6"
-review_refs:
-  - "RV-SPEC-010"
-synthesis_inputs:
-  - "PR-A: arch/ARCH-001-v0.5.0-integration-layer-and-observability (gpt-5.5-xhigh)"
-  - "PR-B: arch/ARCH-001-v0.5.0-deepseek-deep-context-design (deepseek-v4-pro)"
-  - "PR-C: arch/ARCH-001-v0.5.0-alternatives-design (deepseek-v4-pro)"
-  - "SPIKE-001: OpenClaw bridge feasibility (deepseek-v4-pro)"
-  - "SPIKE-002: OpenClaw community ecosystem audit (deepseek-v4-pro)"
-  - "v0.6.0 ARCH-extension: PRD-003@0.1.3 adaptive modalities (claude-opus-4.7-thinking)"
-  - "v0.6.0 PR #142 mid-PR amendment: ADR-015 flipped Option A→C Hybrid; ADR-018 added (LLM picks per Q5 PO-delegation); §6.2 Voice/Tone profile + concrete reply strings added (per Q6 PO-delegation); claude-opus-4.7-thinking)"
-  - "v0.6.1 amendment cycle: RV-SPEC-013@0.1.0 findings F-M1..F-M6 + F-L1..F-L2 (deepseek-v4-pro)"
+prd_ref: PRD-001@0.2.0; PRD-002@0.2.1; PRD-003@0.1.3
+owner: '@po'
 created: 2026-04-26
 updated: 2026-05-06
-approved_at: 2026-05-04
-approved_by: "lindwurm.22.shane (PO)"
-approved_note: |
-  ARCH-001@0.5.0 ratified by Reviewer (Kimi K2.6) per docs/reviews/RV-SPEC-010-arch-001-v0-5-0-synthesis-final.md
-  verdict APPROVED on 2026-05-04 (all 5 findings F-B1 / F-M1 / F-M2 / F-m1 / F-n1 closed by PR-D #110 closure
-  patch commit 1d9066c, validate_docs 78/0). Five implementation tickets TKT-016@0.1.0 through
-  TKT-020@0.1.0 subsequently shipped against this ArchSpec and merged to main: TKT-016 PR #116
-  (boot-bridge integration), TKT-017 PR #119 (G1 tenant-isolation breach detector), TKT-018 PR #125
-  (G2 model-stall detector), TKT-019 PR #130 (G3 PR-Agent CI tail-latency telemetry), TKT-020 PR #131
-  (G4 config-driven allowlist + load tests). PRD-002@0.2.1 G1-G4 fully closed on main 2026-05-06
-  per closure-PR #134 squash 369a3bd. The frontmatter status flip from draft to approved was missed
-  immediately after RV-SPEC-010 ratification on 2026-05-04 and is corrected here as a clerical patch
-  in Devin Orchestrator write-zone (precedent: PR #43 ADR-010@0.1.0 + ARCH-001@0.4.0 status flips
-  closure clerical PR after RV-SPEC-005 ratification).
 adrs:
-  - ADR-001@0.1.0
-  - ADR-002@0.1.0
-  - ADR-003@0.1.0
-  - ADR-004@0.1.0
-  - ADR-005@0.2.0
-  - ADR-006@0.1.0
-  - ADR-007@0.1.0
-  - ADR-008@0.1.0
-  - ADR-009@0.1.0
-  - ADR-010@0.1.0
-  - ADR-011@0.1.0
-  - ADR-012@0.1.0
-  - ADR-013@0.1.0
-  - ADR-014@0.1.0
-  - ADR-015@0.1.0
-  - ADR-016@0.1.0
-  - ADR-017@0.1.0
-  - ADR-018@0.1.0
+- ADR-001@0.1.0
+- ADR-002@0.1.0
+- ADR-003@0.1.0
+- ADR-004@0.1.0
+- ADR-005@0.2.0
+- ADR-006@0.1.0
+- ADR-007@0.1.0
+- ADR-008@0.1.0
+- ADR-009@0.1.0
+- ADR-010@0.1.0
+- ADR-011@0.1.0
+- ADR-012@0.1.0
+- ADR-013@0.1.0
+- ADR-014@0.1.0
+- ADR-015@0.1.0
+- ADR-016@0.1.0
+- ADR-017@0.1.0
+- ADR-018@0.1.0
 tickets:
-  - TKT-001@0.1.0
-  - TKT-002@0.1.0
-  - TKT-003@0.1.0
-  - TKT-004@0.1.0
-  - TKT-005@0.1.0
-  - TKT-006@0.1.0
-  - TKT-007@0.1.0
-  - TKT-008@0.1.0
-  - TKT-009@0.1.0
-  - TKT-010@0.1.0
-  - TKT-011@0.1.0
-  - TKT-012@0.1.0
-  - TKT-013@0.1.0
-  - TKT-014@0.1.0
-  - TKT-015@0.1.0
-  - TKT-016@0.1.0
-  - TKT-017@0.1.0
+- TKT-001@0.1.0
+- TKT-002@0.1.0
+- TKT-003@0.1.0
+- TKT-004@0.1.0
+- TKT-005@0.1.0
+- TKT-006@0.1.0
+- TKT-007@0.1.0
+- TKT-008@0.1.0
+- TKT-009@0.1.0
+- TKT-010@0.1.0
+- TKT-011@0.1.0
+- TKT-012@0.1.0
+- TKT-013@0.1.0
+- TKT-014@0.1.0
+- TKT-015@0.1.0
+- TKT-016@0.1.0
+- TKT-017@0.1.0
   - TKT-018@0.1.0
-  - TKT-019@0.1.0
   - TKT-020@0.1.0
-  - TKT-021@0.1.0
-  - TKT-022@0.1.0
-  - TKT-023@0.1.0
-  - TKT-029@0.1.0
-  - TKT-030@0.1.0
-  - TKT-031@0.1.0
-  - TKT-025@0.1.0
-  - TKT-026@0.1.0
-  - TKT-027@0.1.0
-  - TKT-028@0.1.0
+- TKT-021@0.1.0
+- TKT-022@0.1.0
+- TKT-023@0.1.0
+- TKT-029@0.1.0
+- TKT-030@0.1.0
+- TKT-031@0.1.0
+- TKT-025@0.1.0
+- TKT-026@0.1.0
+- TKT-027@0.1.0
+- TKT-028@0.1.0
 ---
 
 # ARCH-001: KBJU Coach v0.1
@@ -168,8 +140,6 @@ Capabilities with no suitable fork-candidate: Russian onboarding and target calc
 
 ### 0.4 Architectural fork-candidate verdicts (≥3 per major capability)
 
-> Per RV-SPEC-002@0.1.0 F-M1: §0.1 maps OpenClaw built-in vs gap, §0.2 audits skill-catalogue forks. This §0.4 enumerates ≥3 *architectural* alternatives per major capability with explicit reject/reference verdicts before they are formalized in ADRs, so the Recon Report is self-contained.
-
 | Capability | Architectural fork-candidate | Verdict | Rationale (one sentence) | Chosen path / ADR |
 |---|---|---|---|---|
 | Telegram entrypoint | OpenClaw built-in Telegram gateway | **chosen** | PRD-001@0.2.0 §7 locks OpenClaw runtime; native gateway covers webhooks, media routing, and sandbox boundaries with no extra dependency. | C1 + ADR-008@0.1.0 |
@@ -204,98 +174,6 @@ Capabilities with no suitable fork-candidate: Russian onboarding and target calc
 | Observability | Structured JSON logs + PG metric tables + loopback `/metrics` | **chosen** | Zero new SaaS, audit log + KPIs queryable in-DB, right-to-delete reaches metric/cost rows. | ADR-009@0.1.0 |
 | Observability | OpenTelemetry + Jaeger | reject | Operational overhead exceeds 2-user value; reserved as future migration path. | — |
 | Observability | Sentry / Datadog / SaaS APM | reject | Sends user metadata to third party, contradicts §9.3 egress policy and OBC-3 jurisdiction. | — |
-
-### 0.5 Alternatives evaluation — Architect-3 agent-runtime comparison (v0.5.0)
-
-Architect-3 evaluated 5 alternative agent runtimes against the OpenClaw incumbent across 15 axes.
-Full comparison matrix in `docs/knowledge/agent-runtime-comparison.md`.
-
-**6-runtime comparison summary:**
-
-| Framework | Language | Subagent delegation | Stall detection | Skill registry | Verdict |
-|---|---|---|---|---|---|
-| OpenClaw (incumbent) | TypeScript / Node 24 | None built-in | **None** | Skill manifest | HYBRID gateway retained |
-| hermes-agent | Python 3.11 | `delegate_tool.py:1836-1878` | None | None | REFERENCE |
-| nanobot | Python 3.11 | `SubagentManager` phased status | None | None | REFERENCE |
-| picoclaw | Go 1.25 | `SubTurn` 3/5 limit | None | None | SKIP (Go, wrong scope) |
-| zeroclaw | Rust 1.87 | None explicit | `stall_watchdog.rs:29-124` | Custom `~/.zeroclaw/skills/` | FORK (stall_watchdog only) |
-| ironclaw | Rust + Monty | `LoopDelegate` trait | None | 4-source, max 100 | REFERENCE |
-
-**Build-vs-fork-vs-skip verdicts:**
-- **hermes-agent = REFERENCE:** Subagent delegation pattern (`delegate_tool.py:1836-1878`: `goal+context+toolsets+tasks` contract, thread-pool children, `DELEGATE_BLOCKED_TOOLS`) is the richest subagent design — forked into KBJU sidecar contract. HTTP bridge precedent (`whatsapp-bridge/bridge.js`: Node→express HTTP→Python, lines 1-18).
-- **nanobot = REFERENCE:** `SubagentManager` phased status tracking (`initializing|awaiting_tools|final_response|done|error`) and `WebSocketChannel` token auth.
-- **picoclaw = SKIP:** Go language mismatch insurmountable (gRPC/protobuf bridge costs exceed benefit). `SubTurn` depth/concurrency limits (3/5) are useful reference caps.
-- **zeroclaw = FORK (stall_watchdog only):** `stall_watchdog.rs:29-124` is the ONLY model-stall detection across all 6 runtimes. Algorithm: `AtomicU64` timestamp + background Tokio task polling at `timeout/2` + callback on stall. Ported to TypeScript middleware (C13). Nothing else forkable — Rust/TS FFI not justified.
-- **ironclaw = REFERENCE:** 4-source skill registry (`registry.rs:1-41`: workspace/user/installed/bundled, max 100, SHA256 hashing). User-mode Telegram (MTProto) is wrong mode — KBJU requires bot API.
-
-**Hybrid hypothesis evaluation map:**
-```
-User voice → OpenClaw Telegram channel → routes to subagent X via HTTP POST /kbju/message → returns to user
-```
-| Claim | Evidence from alternatives | Verdict |
-|---|---|---|
-| Subagent delegation across runtimes viable | hermes-agent `delegate_tool.py:1836`; nanobot `SubagentManager` per-subtask `AgentRunner` | **Proven viable** |
-| HTTP bridge between TS gateway and subagent viable | hermes-agent WhatsApp bridge `bridge.js→express→Python`; zeroclaw `SkillHttpTool` `skill_http.rs:90` | **Proven viable — multiple precedents** |
-| Drop-in subagent exists (no custom bridge) | **None** — every alternative requires custom bridge construction | **FALSE** |
-| Subagent in compatible language available | **None** — all 5 alternatives in Python/Go/Rust | **FALSE** |
-
-**Hybrid viability verdict: PARTIALLY VIABLE WITH CAVEATS** — pattern works but requires custom HTTP bridge per subagent and adds process lifecycle surface.
-
-**Post-SPIKE-001 update:** The OpenClaw-specific bridge seam is now resolved. `inbound_claim` fires before agent dispatch, returns `{ handled: true, reply }`, and can POST to the KBJU sidecar without any LLM routing decision. The canonical bridge is therefore an OpenClaw plugin, not a skill `handle(input, ctx)` implementation.
-
-**Post-SPIKE-002 update:** The community ecosystem does not contain a ready-made Telegram→HTTP bridge, deterministic callback plugin, or nutrition skill that replaces KBJU logic. Community reuse is limited to patterns/supplements: openclown dual-hook capture, SecureClaw kill-switch/failure-mode/cost monitoring, Riphook tool-enforcement patterns, and Calorie Visualizer local `foods.json` + USDA fallback data pattern.
-
-**Three weakest assumptions:**
-1. **(A1 — resolved by SPIKE-001)** OpenClaw Gateway can route HTTP to KBJU sidecar through an OpenClaw plugin `inbound_claim` hook without native subagent support. Residual risk moves to callback-query handling, not ordinary Telegram message routing.
-2. **(A2)** Single KBJU sidecar handles concurrent users without per-tenant process isolation — shared heap reintroduces multi-tenancy as runtime concern beyond data-layer RLS.
-3. **(A3)** zeroclaw's Rust `stall_watchdog.rs` ports cleanly to TS middleware — monitors channel keepalive, not LLM token velocity; fundamentally different abstraction layer.
-
-**DeepSeek family blind-spot patterns:** Both Architect-2 and Architect-3 share DeepSeek V4 Pro family — both independently converged on HYBRID. Architect-4 (Opus, Anthropic family) and Kimi (Moonshot family) must compensate for TS/Node ecosystem bias and potential under-weighting of Rust alternatives (zeroclaw's full WASM plugin ecosystem for future extensibility).
-
-
-### 0.6 Architect-4 synthesis decision matrix (v0.5.0)
-
-Architect-4 full-read inputs: PR-A diff = 1430 lines, PR-B diff = 1061 lines, PR-C diff = 1358 lines. PR-C carried the strongest empirical floor: 33 file:line citations and a 6-runtime comparison; PR-B added a focused OpenClaw recon; PR-A added the strongest boot-path warning but had lower recon depth. Load-bearing choices below are choose-not-splice: each row names the final source or explicit synthesis rationale.
-
-| Decision area | PR-A choice | PR-B choice | PR-C choice | Final choice | Source | Rationale |
-|---|---|---|---|---|---|---|
-| OpenClaw integration mechanism | Raw grammY adapter; OpenClaw deferred | HYBRID gateway + sidecar + HTTP bridge | HYBRID gateway + sidecar + HTTP bridge | HYBRID gateway + KBJU sidecar + HTTP bridge plugin | PR-C + PR-B convergence, patched by SPIKE-001 | Keeps PO's OpenClaw constraint. SPIKE-001 resolves the bridge seam: Telegram messages are claimed by an OpenClaw plugin using `inbound_claim`, not by a skill handler or raw grammY. |
-| Boot entry point shape | `src/main.ts` grammY executable | `src/main.ts` sidecar HTTP server | `src/main.ts` sidecar HTTP server | `src/main.ts` sidecar HTTP server | PR-B/PR-C | Current `src/index.ts` is a barrel and Docker runs the wrong path; sidecar entrypoint is the smallest HYBRID-compatible correction. |
-| Subagent topology | None | Gateway → sidecar | Gateway → sidecar, with hermes/nanobot patterns as references | Single KBJU sidecar, no mesh | PR-C | Mesh was rejected; one sidecar gives a versioned boundary without rewriting 15 merged tickets. |
-| TKT decomposition | TKT-016@0.1.0 boot + PRD-002@0.2.1 TKTs | TKT-016@0.1.0..TKT-020@0.1.0 split by G1-G4 | TKT-016@0.1.0..TKT-020@0.1.0 split by boot/G1/G2/G3/G4 | TKT-016@0.1.0..TKT-020@0.1.0 split by boot/G1/G2/G3/G4 | PR-C | Atomic enough for Executor/reviewer cycles; no additional ticket needed because registry/delegation remain deferred. |
-| G1 implementation surface | TenantStore/observability module | C10b detector | C12 breach detector wrapping C3 access | C12 breach detector at C3 repository boundary plus HTTP-edge 403 | Synthesis from PR-B/PR-C | Load-bearing check belongs at repository boundary; HTTP edge only reports bridge rejection. Proxy-based interception is guidance, not a required implementation mechanism. |
-| G2 implementation surface | Model-stall detector | C10c watchdog with 120s threshold | C13 token watchdog forked from zeroclaw pattern | C13 per-call token watchdog, default 120s | Synthesis from PR-B/PR-C | PRD-002@0.2.1 fixes 120s default; zeroclaw provides the polling algorithm pattern but not transport semantics. |
-| G3 implementation surface | PR-Agent tail-latency telemetry | CI-side telemetry | CI-side telemetry | CI-side telemetry without committed generated telemetry artifacts | Synthesis | PRD requires metrics, not committing run artifacts; generated telemetry files are excluded from the ticket to preserve write-zone discipline. |
-| G4 implementation surface | Config-driven allowlist | JSON + Set + file-watch reload | JSON + Set + file-watch reload | JSON + Set + atomic file reload, fallback seeding from env | PR-B/PR-C | Meets ≤30s propagation and O(1) lookup with no DB/Redis/API. |
-| §11 boot-smoke test placement | Tests for process startup | Tests implied by TKT-016@0.1.0 | Boot-smoke mandated in TKT-016@0.1.0 | `tests/deployment/bootEntrypoint.test.ts` or equivalent deployment boot-smoke | Synthesis | BACKLOG-011 process-retro mandate is non-negotiable for boot-path files; deployment tests already host process-start checks. |
-| Telegram runtime dependency | `grammy` direct | OpenClaw bundled gateway | OpenClaw Gateway, sidecar never calls Bot API | OpenClaw Gateway owns Telegram; sidecar uses HTTP envelopes only | PR-B/PR-C | Preserves OpenClaw in load-bearing capacity; no direct Telegram dependency is required in KBJU sidecar. |
-| Migration / coexistence with deployed OpenClaw VPS | Raw app coexists as separate bot process | Add `kbju-sidecar` next to gateway | Add `kbju-sidecar` next to gateway | Coexist behind internal Docker network; gateway health-gates sidecar | PR-B/PR-C | Avoids rewiring current OpenClaw deploy until sidecar health and bridge tests pass. |
-| HTTP bridge contract | None | Four endpoints | Four endpoints with schemas/version header/error codes | Four endpoints with `X-Kbju-Bridge-Version: 1.0`, schemas, 400/403/500/503 | PR-C + SPIKE-001 | PR-C has the most complete sidecar contract; SPIKE-001 maps it to `inbound_claim` + `kbju_cron` / `kbju_callback` registered tools. |
-| Bridge implementation mechanism | Raw grammY app | Assumed gateway bridge | Assumed gateway bridge | OpenClaw plugin with `inbound_claim` + registered tools | SPIKE-001 | `inbound_claim` runs in classify/preflight and skips the agent for text/voice/photo messages. Cron and callbacks are bounded by bridge tools if no lower-level callback hook is available. |
-| Community reuse boundary | n/a | n/a | skills/runtime alternatives | Build own bridge; reference/adopt selected community security/data patterns | SPIKE-002 | No existing plugin implements `inbound_claim → HTTP`; SecureClaw/Riphook/Calorie Visualizer improve security/data surfaces but do not replace HYBRID. |
-| Subagent-delegation pattern | None | Not emphasized | Reference hermes `delegate_tool.py:1836-1878` | Reference only; no generic subagent registry in v0.5.0 | PR-C | Useful schema precedent but generic delegation is outside PRD-002@0.2.1. |
-| Skill registry | Deferred | Deferred | ironclaw reference, deferred | Deferred | PR-C | No PRD-002@0.2.1 goal requires runtime skill discovery; defer to modalities/proactive-coaching PRDs. |
-
-### 0.7 Input proposal extraction
-
-| Input PR | Load-bearing decisions | ADRs authored | Tickets authored | Three weakest assumptions | Non-load-bearing improvements | Recon evidence quality |
-|---|---|---|---|---|---|---|
-| PR-A | Abandon OpenClaw for v0.1 dispatch; use raw grammY adapter; `src/main.ts` executable and `src/telegram/adapter.ts`; PRD-002@0.2.1 components C12-C15 still added. | `ADR-011@0.1.0` raw grammY integration shape. | TKT-016@0.1.0 runnable Telegram integration layer plus TKT-017@0.1.0..TKT-020@0.1.0 for G1-G4. | (1) grammY adapter does not violate PO's keep-OpenClaw constraint; (2) future OpenClaw plugin migration will not be more expensive after a raw adapter ships; (3) direct Bot API handling is safer than an undocumented gateway bridge. | Strong boot-path diagnosis: `src/index.ts` barrel + Docker `dist/index.js` mismatch; explicit boot-smoke mandate. | Low-to-medium: useful empirical CLI finding, but only about 2 file:line citations versus PR-C's 33. |
-| PR-B | Keep OpenClaw via HYBRID gateway + Node sidecar HTTP bridge; `src/main.ts` sidecar; C10b/C10c/C10d observability subcomponents; JSON allowlist. | `ADR-011@0.1.0`, `ADR-012@0.1.0`, `ADR-013@0.1.0`. | TKT-016@0.1.0 boot/sidecar, TKT-017@0.1.0 breach, TKT-018@0.1.0 stall, TKT-019@0.1.0 telemetry, TKT-020@0.1.0 allowlist. | (1) OpenClaw Gateway can forward Telegram events to sidecar despite no stable public route contract; (2) single sidecar process is sufficient for multi-tenant isolation; (3) C10 subcomponent grouping will remain understandable to Executors. | Clear PRD-002@0.2.1 G1-G4 trace additions; 120s model-stall threshold; allowlist propagation gates. | Medium: 5 citations, focused on OpenClaw and current source. |
-| PR-C | Keep OpenClaw via HYBRID Option E; one KBJU sidecar; reference hermes/nanobot/zeroclaw/ironclaw patterns; defer registry. | `ADR-011@0.1.0`, `ADR-012@0.1.0`, `ADR-013@0.1.0`. | TKT-016@0.1.0 boot, TKT-017@0.1.0 G1, TKT-018@0.1.0 G2, TKT-019@0.1.0 G3, TKT-020@0.1.0 G4. | (1) OpenClaw Gateway can route HTTP to sidecar; (2) single sidecar handles concurrent tenants safely; (3) zeroclaw stall-watchdog ports cleanly from transport to LLM token layer. | Complete HTTP bridge schemas; 6-runtime comparison; clearer C12-C15 component split; sidecar lifecycle runbook additions. | High: 33 file:line citations and the broadest alternative evaluation. |
-
-### 0.8 Disagreement resolution
-
-- OpenClaw: PR-A's raw grammY option has the shortest implementation path, but it removes OpenClaw from the user-facing runtime at exactly the decision point where PO said not to abandon OpenClaw. PR-B and PR-C independently converged on HYBRID, and PR-C supplied the broader alternatives evidence; HYBRID wins.
-- Stall detection: PR-B's 120s threshold matches PRD-002@0.2.1 G2; PR-C's 15s default contradicts the PRD default but contributes the zeroclaw polling pattern. Final design keeps 120s default with ≤15s post-threshold emission and per-role overrides.
-- G3 telemetry: PR-C's ticket originally mentioned committing generated telemetry under `docs/telemetry/`; final design rejects that as unnecessary output. The canonical ticket writes a machine-readable artifact for CI upload/logging only and keeps repo write-zone clean until a separate docs artifact is approved.
-- TKT assignment: PR-B/PR-C assigned DeepSeek; final tickets assign `glm-5.1` by default except boot-path TKT-016@0.1.0 assigned `codex-gpt-5.5` because it touches deployment/boot files and must pass startup tests.
-
-### 0.9 Architect-4 weakest assumptions
-
-1. **Callback determinism seam:** SPIKE-001 proves zero-LLM routing for Telegram text/voice/photo messages through `inbound_claim`, but callback queries are a separate OpenClaw Telegram path. TKT-016@0.1.0 must either prove a plugin-level callback interception path or route callbacks through the restricted `kbju_callback` tool and record the one-hop LLM trade-off explicitly.
-2. **Two-process observability correlation:** The final design assumes a single `request_id` and redaction contract can be preserved across OpenClaw Gateway plugin logs, sidecar logs, C3 durable metrics, and PO alerts. If gateway logs cannot carry the sidecar `request_id`, G1/G2 incident reconstruction may be weaker than PRD-002@0.2.1 expects.
-3. **CI telemetry ownership boundary:** The final design assumes PR-Agent tail-latency metrics can be captured from CI/log surfaces without modifying `.github/**` in this Architect PR and without committing generated telemetry artifacts. TKT-019@0.1.0 must prove the CI surface before any Ready-for-Review promotion of implementation work.
 
 ### 0.10 v0.6.0 PRD-003@0.1.3 Recon Delta (Adaptive Modalities)
 
@@ -602,7 +480,7 @@ inline in ADR-014@0.1.0 §Context (cited there for the runtime-decision trade-of
 Implements: PRD-001@0.2.0 §2 Goals, §5 User Stories, §6 KPIs, §7 Technical Envelope; PRD-002@0.2.1
 §2 Goals (G1..G4); PRD-003@0.1.3 §2 Goals (G1..G6) for adaptive modalities + §5 user stories
 (US-1..US-7) + §6 KPIs (K1..K8) + §7 Technical Envelope; and PO OBC/answers recorded in
-`docs/questions/Q-ARCH-001-gap-report-2026-04-26.md`.
+`docs/questions/-gap-report-2026-04-26.md`.
 Does NOT implement: PRD-001@0.2.0 §3 Non-Goals, PRD-003@0.1.3 §3 Non-Goals (NG1..NG11).
 
 ### 1.1 Trace matrix
@@ -630,8 +508,7 @@ Does NOT implement: PRD-001@0.2.0 §3 Non-Goals, PRD-003@0.1.3 §3 Non-Goals (NG
 | PRD-001@0.2.0 §6 K6 | Weekly retention: both pilot users active ≥7/7 days/week for 4 weeks. | C3 Tenant-Scoped Store; C4 Meal Logging Orchestrator; C10 Cost, Degrade, and Observability Service |
 | PRD-001@0.2.0 §6 K7 | KBJU estimation accuracy target, to be proposed after Phase 5-6 feasibility analysis. | C6 KBJU Estimator; C7 Photo Recognition Provider; C10 Cost, Degrade, and Observability Service |
 | PRD-002@0.2.1 §2 G1 | Continuous tenant-isolation breach detection (runtime, not end-of-pilot audit). | C12 Breach Detector (NEW v0.5.0) |
-| PRD-002@0.2.1 §2 G2 | Automated model-stall detection + recovery (per BACKLOG-009 Qwen 3.6 Plus context exhaustion). | C13 Stall Watchdog (NEW v0.5.0) |
-| PRD-002@0.2.1 §2 G3 | PR-Agent CI tail-latency empirical validation (Qwen 3.6 Plus → GPT-5.3 Codex swap). | C14 PR-Agent Telemetry Emitter (NEW v0.5.0) |
+| PRD-002@0.2.1 §2 G2 | Automated model-stall detection + recovery. | C13 Stall Watchdog (NEW v0.5.0) |
 | PRD-002@0.2.1 §2 G4 | Scale-ready access control: static env-var allowlist → hot-reloadable config file, growth path to thousands. | C15 Config-Driven Allowlist (NEW v0.5.0) |
 | PRD-002@0.2.1 §3 NG | No new databases, no Kubernetes, no external APIs, no Redis. | C12, C13, C14, C15 all comply — zero new infra deps |
 | PRD-003@0.1.3 §2 G1 | Water tracking enabled (voice/text/quick-volume keyboard → per-user `water_events`). | C16 Modality Router (NEW v0.6.0); C17 Water Logger (NEW v0.6.0); C3 Tenant-Scoped Store |
@@ -679,7 +556,6 @@ Module mapping within the HYBRID topology:
 | history/privacy modules | C8 History Mutation Service; C11 Right-to-Delete and Tenant Audit Service |
 | summary modules | C9 Summary Recommendation Service |
 | shared runtime modules | C3 Tenant-Scoped Store; C10 Cost, Degrade, and Observability Service; C12 Breach Detector; C13 Stall Watchdog; C15 Allowlist |
-| CI telemetry script | C14 PR-Agent CI Telemetry |
 
 All LLM calls go through OmniRoute first, with direct provider keys available only to the runtime failover path; skill business logic never reads raw provider keys. Persistent records are user_id scoped from day 1. Access control is managed by the C15 config-driven allowlist (ADR-013@0.1.0), hot-reloaded from `config/allowlist.json` without redeploy.
 
@@ -704,7 +580,6 @@ OpenClaw Gateway (TS/Node 24)          KBJU Sidecar (TS/Node 24, HTTP server)
   |-- POST /kbju/cron ----------------->|  Daily summary triggers via restricted kbju_cron tool
   |-- GET  /kbju/health --------------->|  {status: "ok", uptime, breach_count}
   |
-  `--- C14 PR-Agent Telemetry: reads GitHub Actions metadata, emits CI JSON artifact
 ```
 
 ```mermaid
@@ -838,20 +713,14 @@ graph LR
 ### 3.13 C13 Stall Watchdog (NEW v0.5.0 — PRD-002@0.2.1 G2)
 - Responsibility: Monitor every streaming LLM call for token-output stalls (algorithm forked from zeroclaw `stall_watchdog.rs:29-124`, ported to TypeScript middleware).
 - Inputs: Per-call streaming LLM fetch; config `STALL_THRESHOLD_MS` (default 120000), `STALL_MAX_RETRIES` (default 2).
-- Outputs: `touch()` on each delta chunk updates `lastTokenAt`; background interval checks `now - lastTokenAt > STALL_THRESHOLD_MS`; on stall: aborts fetch via `AbortController`, triggers OmniRoute fallback, emits `kbju_llm_call_stalled`.
+- Outputs: `touch` on each delta chunk updates `lastTokenAt`; background interval checks `now - lastTokenAt > STALL_THRESHOLD_MS`; on stall: aborts fetch via `AbortController`, triggers OmniRoute fallback, emits `kbju_llm_call_stalled`.
 - LLM usage: none (observability middleware, not a consumer).
-- State: Per-call instance (not shared) — single `Date.now()` + `AbortController`, released after call completes.
-
-### 3.14 C14 PR-Agent CI Telemetry (NEW v0.5.0 — PRD-002@0.2.1 G3)
-- Responsibility: Emit empirical PR-Agent latency telemetry per merged PR to validate GPT-5.3 Codex swap (2026-05-02, per BACKLOG-009).
-- Inputs: `GITHUB_EVENT_PATH` env var in CI; GitHub REST API via CI token for PR metadata + comments.
-- Outputs: `scripts/pr-agent-stats.json` per PR (`ci_step_setup_ms`, `ttft_ms`, `ttlt_ms`, `total_ci_stage_ms`, `model`) emitted as CI log/artifact, not committed by default.
-- LLM usage: none (metadata-only script, invoked from GitHub Actions on PR-Agent CI steps and post-merge telemetry jobs).
+- State: Per-call instance (not shared) — single `Date.now` + `AbortController`, released after call completes.
 
 ### 3.15 C15 Config-Driven Allowlist (NEW v0.5.0 — PRD-002@0.2.1 G4)
 - Responsibility: Replace static `TELEGRAM_PILOT_USER_IDS` env var with hot-reloadable JSON config file + in-memory `Set<number>` + `fs.watchFile` reload (ADR-013@0.1.0).
-- Inputs: `config/allowlist.json` (`{"users": [N, ...]}`); fallback to `TELEGRAM_PILOT_USER_IDS` on first migration.
-- Outputs: O(1) `isAllowed(telegramId)` via `Set.has()`; metrics `kbju_allowlist_reload`, `kbju_allowlist_blocked`, `kbju_allowlist_size`.
+- Inputs: `config/allowlist.json` (`{"users": [N,...]}`); fallback to `TELEGRAM_PILOT_USER_IDS` on first migration.
+- Outputs: O(1) `isAllowed(telegramId)` via `Set.has`; metrics `kbju_allowlist_reload`, `kbju_allowlist_blocked`, `kbju_allowlist_size`.
 - LLM usage: none.
 - State: In-memory `Set<number>` rebuilt atomically on each reload; file-watch polls `fs.stat` at ~1s; max propagation ≤2s.
 
@@ -875,7 +744,7 @@ graph LR
 - Responsibility: Persist sleep records from paired evening + morning events OR single-event morning duration per PRD-003@0.1.3 §5 US-2 + ADR-017@0.1.0 state machine. Compute DST-safe `attribution_date_local`. Enforce sanity-floor / ceiling soft-warn flow.
 - Inputs: C16-routed sleep message; user profile timezone; `sleep_records` + `sleep_pairing_state` write capability; `luxon` tz library; C21 modality-OFF gate; C8 Cron Dispatcher hourly tick for GC.
 - Outputs: `sleep_records` row insert (paired or single-event); `sleep_pairing_state` row insert/update/delete; user-facing Russian replies per six state-machine paths; `kbju_modality_event_persisted{modality=sleep,source=...}`.
-- LLM usage: ADR-018@0.1.0 picks — default `accounts/fireworks/models/qwen3-vl-30b-a3b`, fallback `accounts/fireworks/models/deepseek-v3p2`. Forced JSON-mode for `{start_at, end_at, duration_min, is_nap}` extraction from free-form morning report.
+- LLM usage: ADR-018@0.1.0 picks — default `accounts/fireworks/models/qwen3-vl-30b-a3b`, fallback `accounts/fireworks/models/executor`. Forced JSON-mode for `{start_at, end_at, duration_min, is_nap}` extraction from free-form morning report.
 - State: in-flight evening "лёг" event lives in `sleep_pairing_state` with 24-hour TTL; hourly GC cron skill `src/skills/sleep-gc/` reuses C8 Cron Dispatcher (ARCH-001@0.5.0 §3.8).
 - Failure modes: (a) modality OFF → silent ignore. (b) sanity-floor (<30 min) or ceiling (>24 h) → soft-warn with confirm-as-is / correct path; no record persisted until user confirms. (c) "лёг then лёг" → older invalidated, new replaces. (d) "встал" without prior "лёг" → clarifying-reply asking for duration. (e) DST transition → handled by `luxon` IANA tz database; smoke-tested in TKT-023@0.1.0.
 
@@ -883,7 +752,7 @@ graph LR
 - Responsibility: Persist workout events from voice / text / photo with closed-enum type extraction per ADR-016@0.1.0 forced-output JSON schema. Achieve PRD-003@0.1.3 §6 K2 ≥80% recognition + ≥70% per-field accuracy.
 - Inputs: C16-routed workout message OR C7 photo extraction output; `workout_events` write capability; C21 modality-OFF gate.
 - Outputs: `workout_events` row insert with closed-enum `type` ∈ {strength, running, cycling, swimming, walking, yoga, hiit, other}; user-facing Russian confirmation reply; `kbju_modality_event_persisted{modality=workout,source=...}`.
-- LLM usage: ADR-018@0.1.0 picks — default `accounts/fireworks/models/qwen3-vl-30b-a3b`, fallback `accounts/fireworks/models/deepseek-v3p2`. Forced-output JSON schema per ADR-016@0.1.0 §Decision verbatim contract.
+- LLM usage: ADR-018@0.1.0 picks — default `accounts/fireworks/models/qwen3-vl-30b-a3b`, fallback `accounts/fireworks/models/executor`. Forced-output JSON schema per ADR-016@0.1.0 §Decision verbatim contract.
 - State: stateless per request; persistence in `workout_events`.
 - Failure modes: (a) modality OFF → silent ignore. (b) zero quantifiable fields → clarifying-reply asking for at least one of duration / distance / weight (per §5 US-3 2nd AC). (c) extraction returns invalid JSON → deterministic post-validator (ADR-006@0.1.0 forced-output guardrail pattern reused) re-prompts once then asks user.
 
@@ -891,7 +760,7 @@ graph LR
 - Responsibility: Persist mood events with 1–10 numeric score + optional ≤280-char comment + free-form-text-with-inferred-score-confirmation flow per PRD-003@0.1.3 §5 US-4. 5-minute TTL on pending inferences.
 - Inputs: C16-routed mood message OR inline-keyboard 1–10 tap; `mood_events` write capability; C21 modality-OFF gate.
 - Outputs: `mood_events` row insert with `(score, comment_text)`; user-facing Russian confirmation reply (or inferred-score confirmation prompt); `kbju_modality_event_persisted{modality=mood,source=...}`.
-- LLM usage: ADR-018@0.1.0 picks — default `accounts/fireworks/models/deepseek-v3p2`, fallback `accounts/fireworks/models/kimi-k2p6`. Forced JSON-mode for `{score: 1..10, factors: [str], note: str?}` from free-form text → inferred score (only when user did not provide a numeric score directly).
+- LLM usage: ADR-018@0.1.0 picks — default `accounts/fireworks/models/executor`, fallback `accounts/fireworks/models/reviewer`. Forced JSON-mode for `{score: 1..10, factors: [str], note: str?}` from free-form text → inferred score (only when user did not provide a numeric score directly).
 - State: in-process pending-inference cache with 5-minute TTL per user; expired pending inferences are dropped silently.
 - Failure modes: (a) modality OFF → silent ignore. (b) comment >280 chars → truncate + friendly notice (per §5 US-4 2nd AC). (c) inferred score not confirmed within 5 minutes → drop silently.
 
@@ -967,7 +836,7 @@ graph LR
 3. If monthly trend risks exceeding $10, C10 enables degrade mode: cheaper text model, skip optional lookup leg when it would add latency/cost, no photo retry beyond one transient transport retry, and deterministic summaries when needed.
 4. C10 sends the PO alert once per degrade episode and suppresses duplicates with a monthly idempotency key.
 
-#### 4.8.1 Behavior beyond pilot capacity (RV-SPEC-002@0.1.0 Q1 — graceful degradation)
+#### 4.8.1 Behavior beyond pilot capacity
 If pilot scope informally expands beyond 2 users before any subscription/billing model exists (PRD-001@0.2.0 §3 Non-Goals lock paid features for v0.1), the cost guard remains a single shared `MONTHLY_SPEND_CEILING_USD = 10` accumulator, not a per-user budget. The user-visible behavior is:
 
 1. C10 evaluates the projected monthly total on every provider call; the projection is uniform across all active users (no per-user prioritization, no preferred-user reservation).
@@ -1243,8 +1112,8 @@ breach_events (ephemeral — not persisted, only logged + metered):
 ### 5.2 v0.5.0 stall_events (pseudo-schema)
 stall_events (ephemeral — not persisted, only logged + metered):
   timestamp_utc: timestamptz
-  provider: string  # omniroute, deepseek-v4, etc.
-  model: string     # deepseek-v4-pro, gpt-5.3-codex
+  provider: string  # omniroute, fireworks, etc.
+  model: string
   threshold_ms: integer
   actual_stall_ms: integer
   retry_count: integer
@@ -1274,7 +1143,7 @@ water_events:
   volume_ml: integer NOT NULL  -- CHECK 0 < volume_ml <= 5000
   source: text NOT NULL  -- enum {text, voice, keyboard}
   raw_text: text NULL  -- present iff source ∈ {text, voice}; redacted at emit per §8.1
-  created_at: timestamptz NOT NULL DEFAULT now()
+  created_at: timestamptz NOT NULL DEFAULT now
   index: (user_id, ts_utc DESC)
 
 sleep_records:
@@ -1287,14 +1156,14 @@ sleep_records:
   attribution_tz: text NOT NULL  -- IANA tz string snapshot (immutable)
   is_nap: boolean NOT NULL  -- duration_min <= 240
   is_paired_origin: boolean NOT NULL
-  created_at: timestamptz NOT NULL DEFAULT now()
+  created_at: timestamptz NOT NULL DEFAULT now
   index: (user_id, attribution_date_local, is_nap)
 
 sleep_pairing_state:
   user_id: bigint PK  -- one outstanding "лёг" per user max
   leg_event_ts_utc: timestamptz NOT NULL
   expires_at_utc: timestamptz NOT NULL  -- leg_event_ts_utc + 24h
-  -- hourly GC cron skill (ARCH-001@0.6.0 §3.18) deletes rows where expires_at_utc < now()
+  -- hourly GC cron skill (ARCH-001@0.6.0 §3.18) deletes rows where expires_at_utc < now
 
 workout_events:
   event_id: uuid PK
@@ -1309,7 +1178,7 @@ workout_events:
   source: text NOT NULL  -- enum {text, voice, photo}
   raw_text: text NULL  -- redacted at emit per §8.1; present iff source ∈ {text, voice}
   raw_description: text NULL  -- present iff source = photo (Qwen-VL transcription)
-  created_at: timestamptz NOT NULL DEFAULT now()
+  created_at: timestamptz NOT NULL DEFAULT now
   index: (user_id, ts_utc DESC)
 
 mood_events:
@@ -1321,7 +1190,7 @@ mood_events:
   source: text NOT NULL  -- enum {keyboard, text, voice, inferred}
   inferred_from_text: boolean NOT NULL DEFAULT false
   raw_text: text NULL  -- redacted at emit per §8.1
-  created_at: timestamptz NOT NULL DEFAULT now()
+  created_at: timestamptz NOT NULL DEFAULT now
   index: (user_id, ts_utc DESC)
 
 modality_settings:
@@ -1330,7 +1199,7 @@ modality_settings:
   sleep_on: boolean NOT NULL DEFAULT true
   workout_on: boolean NOT NULL DEFAULT true
   mood_on: boolean NOT NULL DEFAULT true
-  updated_at: timestamptz NOT NULL DEFAULT now()
+  updated_at: timestamptz NOT NULL DEFAULT now
   -- KBJU is NOT a column here per PRD-003@0.1.3 §3 NG6 + §5 US-5 6th AC
 
 modality_settings_audit:
@@ -1339,7 +1208,7 @@ modality_settings_audit:
   modality: text NOT NULL  -- enum {water, sleep, workout, mood}
   old_value: boolean NOT NULL
   new_value: boolean NOT NULL
-  ts_utc: timestamptz NOT NULL DEFAULT now()
+  ts_utc: timestamptz NOT NULL DEFAULT now
   index: (user_id, ts_utc DESC)
 ```
 
@@ -1698,7 +1567,7 @@ Section ordering: KBJU → water → sleep → workout → mood. Zero-event sect
 - Inner isolation is C3 plus ADR-001@0.1.0: every user-owned table has `user_id`, composite ownership validation for child rows, PostgreSQL RLS enabled, and a non-owner app DB role that cannot bypass RLS.
 - Repository APIs must require `user_id` for all reads/mutations except migrations and the C11 end-of-pilot audit runner. Any unscoped repository method is a security defect.
 - Telegram automated messages are sent only to users who initiated the bot and confirmed onboarding/report schedules; C1 obeys Telegram retry metadata and the local outbound cap from §6.
-- **Privileged audit role (RV-SPEC-002@0.1.0 F-M2)**: PostgreSQL RLS by design blocks the application role from reading rows owned by other users, so the K4 cross-user reference audit cannot run as that role. A dedicated PostgreSQL role `kbju_audit` is provisioned with `BYPASSRLS` (or, equivalently, `pg_read_all_data` membership scoped to the audit query set), and is gated by a **separate** runtime secret `AUDIT_DB_URL` injected only into the C11 audit script container/job. Constraints on `kbju_audit`:
+- **Privileged audit role**: PostgreSQL RLS by design blocks the application role from reading rows owned by other users, so the K4 cross-user reference audit cannot run as that role. A dedicated PostgreSQL role `kbju_audit` is provisioned with `BYPASSRLS` (or, equivalently, `pg_read_all_data` membership scoped to the audit query set), and is gated by a **separate** runtime secret `AUDIT_DB_URL` injected only into the C11 audit script container/job. Constraints on `kbju_audit`:
   - Read-only on user-owned tables; write access limited to `tenant_audit_runs` (audit metadata, no user payloads).
   - Forbidden in any application skill image (`openclaw-gateway`, `kbju-sidecar`); CI/deploy linter rejects images that import `AUDIT_DB_URL`.
   - Audit script is a one-shot job (Docker `--rm` or equivalent), not a long-running service; the `AUDIT_DB_URL` secret is unmounted after the job exits.
@@ -1735,7 +1604,7 @@ Section ordering: KBJU → water → sleep → workout → mood. Zero-event sect
 
 ### 9.6 Allowlist Configuration (v0.5.0 — ADR-013@0.1.0)
 - Source: config/allowlist.json
-- Schema: {"users": [N, N, ...], "comment": "Telegram user IDs"}
+- Schema: {"users": [N, N,...], "comment": "Telegram user IDs"}
 - Hot-reload: fs.watchFile at ~1s poll interval; atomic file write (write tmp, rename) avoids partial reads
 - Migration: if config/allowlist.json missing on first boot, reads TELEGRAM_PILOT_USER_IDS env var, seeds config file, continues with file-based allowlist
 - Deprecation: TELEGRAM_PILOT_USER_IDS removed after one migration cycle
@@ -1800,7 +1669,7 @@ docker compose exec -T postgres pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB" >
 chmod 0600 backups/*.dump
 ```
 
-### 10.6 Rollback Sequence (RV-SPEC-002@0.1.0 F-H1 hardened)
+### 10.6 Rollback Sequence
 Rollback is image/git-tag based for code and restore-from-backup only for data. Do not use `git reset --hard`, do not delete volumes, and do not roll the database backward unless the forward migration damaged data.
 
 #### 10.6.1 Pre-flight checks (run BEFORE any rollback action)
@@ -1874,7 +1743,7 @@ docker compose up -d openclaw-gateway kbju-sidecar
 
 After `pg_restore` completes, replay the audit log for any `event_type = right_to_delete_completed` events whose `created_at` is between the dump timestamp and the restore time — §9.5 requires deletion replay before the bot resumes serving users.
 
-### 10.7 VPS Migration Runbook (RV-SPEC-002@0.1.0 F-L1 hardened)
+### 10.7 VPS Migration Runbook
 
 The migration moves *all* persistent state (PostgreSQL volume + `.env.production`) from the old VPS to a new VPS, then re-points the public Telegram webhook so messages flow to the new host. Snapshot tooling is `pg_dump -Fc` (PostgreSQL custom format, restored with `pg_restore`). A reference helper lives at `scripts/migrate-vps.sh` and wraps the same commands non-interactively.
 
@@ -1899,7 +1768,7 @@ chmod 0600 "$DUMP"
 
 # 3. Copy the dump and the production env file to the NEW VPS.
 scp "$DUMP" <new-vps>:/srv/openclown-assistant/backups/
-scp .env.production <new-vps>:/srv/openclown-assistant/.env.production
+scp.env.production <new-vps>:/srv/openclown-assistant/.env.production
 ```
 
 #### 10.7.3 Bring the new VPS up
@@ -1966,32 +1835,31 @@ TKT-015@0.1.0 is a focused hardening follow-up from TKT-004@0.1.0 closure and do
 - C10 metrics bind guard: `createMetricsServer` rejects unspecified-address wildcards before `server.listen`, including `0.0.0.0`, `::`, and `[::]`; loopback (`127.0.0.1` / `::1`) and Docker-internal hostnames remain allowed.
 
 ## 11. Test Strategy and Work Breakdown
-| ID | Title | Depends on | Assigned executor |
-|---|---|---|---|
-| TKT-001@0.1.0 | TypeScript OpenClaw Project Scaffold | — | glm-5.1 |
-| TKT-002@0.1.0 | Tenant PostgreSQL Store | TKT-001@0.1.0 | codex-gpt-5.5 |
-| TKT-003@0.1.0 | Observability Cost Guard | TKT-001@0.1.0, TKT-002@0.1.0 | glm-5.1 |
-| TKT-004@0.1.0 | Telegram Entrypoint Routing | TKT-001@0.1.0, TKT-002@0.1.0, TKT-003@0.1.0 | glm-5.1 |
-| TKT-005@0.1.0 | Onboarding Target Calculator | TKT-001@0.1.0, TKT-002@0.1.0, TKT-004@0.1.0 | glm-5.1 |
-| TKT-006@0.1.0 | Food Lookup KBJU Estimator | TKT-001@0.1.0, TKT-002@0.1.0, TKT-003@0.1.0 | glm-5.1 |
-| TKT-007@0.1.0 | Voice Transcription Adapter | TKT-001@0.1.0, TKT-003@0.1.0, TKT-004@0.1.0 | glm-5.1 |
-| TKT-008@0.1.0 | Photo Recognition Adapter | TKT-001@0.1.0, TKT-003@0.1.0, TKT-006@0.1.0 | glm-5.1 |
-| TKT-009@0.1.0 | Meal Draft Confirmation Flow | TKT-002@0.1.0, TKT-003@0.1.0, TKT-004@0.1.0, TKT-005@0.1.0, TKT-006@0.1.0, TKT-007@0.1.0, TKT-008@0.1.0 | glm-5.1 |
-| TKT-010@0.1.0 | History Mutation Flow | TKT-002@0.1.0, TKT-004@0.1.0, TKT-009@0.1.0 | glm-5.1 |
-| TKT-011@0.1.0 | Summary Recommendation Scheduler | TKT-002@0.1.0, TKT-003@0.1.0, TKT-005@0.1.0, TKT-006@0.1.0, TKT-010@0.1.0 | qwen-3.6-plus |
-| TKT-012@0.1.0 | Right To Delete Audit | TKT-002@0.1.0, TKT-003@0.1.0, TKT-004@0.1.0, TKT-010@0.1.0, TKT-011@0.1.0 | codex-gpt-5.5 |
-| TKT-013@0.1.0 | Deployment Packaging | TKT-001@0.1.0, TKT-002@0.1.0, TKT-003@0.1.0 | glm-5.1 |
-| TKT-014@0.1.0 | Pilot KPI Smoke Suite | TKT-003@0.1.0, TKT-005@0.1.0, TKT-009@0.1.0, TKT-010@0.1.0, TKT-011@0.1.0, TKT-012@0.1.0, TKT-013@0.1.0 | qwen-3.6-plus |
-| TKT-015@0.1.0 | Observability Hardening | TKT-003@0.1.0, TKT-004@0.1.0 | glm-5.1 |
-| TKT-016@0.1.0 | KBJU Sidecar Boot Entrypoint + Bridge Plugin | TKT-001@0.1.0 | codex-gpt-5.5 |
-| TKT-017@0.1.0 | G1 Breach Detector (C12) | TKT-002@0.1.0, TKT-016@0.1.0 | glm-5.1 |
-| TKT-018@0.1.0 | G2 Stall Watchdog (C13) | TKT-016@0.1.0 | glm-5.1 |
-| TKT-019@0.1.0 | G3 PR-Agent Telemetry (C14) | — | glm-5.1 |
-| TKT-020@0.1.0 | G4 Config-Driven Allowlist (C15) | TKT-016@0.1.0 | glm-5.1 |
+| ID | Title | Depends on |
+|---|---|---|
+| TKT-001@0.1.0 | TypeScript OpenClaw Project Scaffold | — |
+| TKT-002@0.1.0 | Tenant PostgreSQL Store | TKT-001@0.1.0 |
+| TKT-003@0.1.0 | Observability Cost Guard | TKT-001@0.1.0, TKT-002@0.1.0 |
+| TKT-004@0.1.0 | Telegram Entrypoint Routing | TKT-001@0.1.0, TKT-002@0.1.0, TKT-003@0.1.0 |
+| TKT-005@0.1.0 | Onboarding Target Calculator | TKT-001@0.1.0, TKT-002@0.1.0, TKT-004@0.1.0 |
+| TKT-006@0.1.0 | Food Lookup KBJU Estimator | TKT-001@0.1.0, TKT-002@0.1.0, TKT-003@0.1.0 |
+| TKT-007@0.1.0 | Voice Transcription Adapter | TKT-001@0.1.0, TKT-003@0.1.0, TKT-004@0.1.0 |
+| TKT-008@0.1.0 | Photo Recognition Adapter | TKT-001@0.1.0, TKT-003@0.1.0, TKT-006@0.1.0 |
+| TKT-009@0.1.0 | Meal Draft Confirmation Flow | TKT-002@0.1.0, TKT-003@0.1.0, TKT-004@0.1.0, TKT-005@0.1.0, TKT-006@0.1.0, TKT-007@0.1.0, TKT-008@0.1.0 |
+| TKT-010@0.1.0 | History Mutation Flow | TKT-002@0.1.0, TKT-004@0.1.0, TKT-009@0.1.0 |
+| TKT-011@0.1.0 | Summary Recommendation Scheduler | TKT-002@0.1.0, TKT-003@0.1.0, TKT-005@0.1.0, TKT-006@0.1.0, TKT-010@0.1.0 |
+| TKT-012@0.1.0 | Right To Delete Audit | TKT-002@0.1.0, TKT-003@0.1.0, TKT-004@0.1.0, TKT-010@0.1.0, TKT-011@0.1.0 |
+| TKT-013@0.1.0 | Deployment Packaging | TKT-001@0.1.0, TKT-002@0.1.0, TKT-003@0.1.0 |
+| TKT-014@0.1.0 | Pilot KPI Smoke Suite | TKT-003@0.1.0, TKT-005@0.1.0, TKT-009@0.1.0, TKT-010@0.1.0, TKT-011@0.1.0, TKT-012@0.1.0, TKT-013@0.1.0 |
+| TKT-015@0.1.0 | Observability Hardening | TKT-003@0.1.0, TKT-004@0.1.0 |
+| TKT-016@0.1.0 | KBJU Sidecar Boot Entrypoint + Bridge Plugin | TKT-001@0.1.0 |
+| TKT-017@0.1.0 | G1 Breach Detector (C12) | TKT-002@0.1.0, TKT-016@0.1.0 |
+| TKT-018@0.1.0 | G2 Stall Watchdog (C13) | TKT-016@0.1.0 |
+| TKT-020@0.1.0 | G4 Config-Driven Allowlist (C15) | TKT-016@0.1.0 |
 
 Execution notes:
 - The DAG is acyclic: TKT-001@0.1.0 seeds the scaffold; TKT-002@0.1.0 and TKT-003@0.1.0 establish the storage/observability base; user-facing flows layer on top; TKT-014@0.1.0 closes end-to-end readiness.
-- Executor mix for v0.5.0: TKT-016@0.1.0 uses codex-gpt-5.5 because it touches boot/deployment paths; TKT-017@0.1.0..TKT-020@0.1.0 default to glm-5.1. Codex remains reserved for boot-critical or RLS/deletion-critical work.
+- Executor model assignment is the orchestrator's runtime decision; tickets do not pre-assign.
 
 ## 12. Risks & Open Questions
 - R1: KBJU estimates may miss ADR-005@0.1.0 proposed K7 bounds for mixed dishes and unweighed portions. Mitigation: confirmation/edit before persistence, K7 labelling sample, and accuracy target ratification at Phase 11.
@@ -2003,11 +1871,9 @@ Execution notes:
 - Q_TO_BUSINESS_1: At Phase 11 PR handoff, PO ratifies or revises the ADR-005@0.1.0 proposed K7 target: +/-25% calories and +/-30% macros per meal after correction opportunity; +/-15% daily calories and +/-20% daily macros on days with >=3 confirmed meals.
 - Q_TO_BUSINESS_2: Before deploying real pilot data, PO selects the durable-storage jurisdiction from ADR-007@0.1.0. Architecture recommendation is EU durable storage with transient remote inference unless PO chooses otherwise.
 
-
-
 ### 11.1 Mandatory process-startup / boot-smoke tests
 
-Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dockerfile `CMD`, Docker Compose service topology, OpenClaw Gateway bridge plugin, startup config parsing, or the health endpoint MUST add or update a process-startup test. For TKT-016@0.1.0 the canonical placement is `tests/deployment/bootEntrypoint.test.ts` or an equivalent `tests/deployment/**` file that starts the compiled process/HTTP server with test dependencies, asserts `GET /kbju/health` returns HTTP 200 with `X-Kbju-Bridge-Version: 1.0`, asserts the bridge plugin registers `inbound_claim` / `kbju_cron` / `kbju_callback`, and asserts a malformed or missing required env var exits non-zero without hanging. This preserves BACKLOG-011 process-retro: boot-path work is not mergeable on unit tests alone.
+Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dockerfile `CMD`, Docker Compose service topology, OpenClaw Gateway bridge plugin, startup config parsing, or the health endpoint MUST add or update a process-startup test. For TKT-016@0.1.0 the canonical placement is `tests/deployment/bootEntrypoint.test.ts` or an equivalent `tests/deployment/**` file that starts the compiled process/HTTP server with test dependencies, asserts `GET /kbju/health` returns HTTP 200 with `X-Kbju-Bridge-Version: 1.0`, asserts the bridge plugin registers `inbound_claim` / `kbju_cron` / `kbju_callback`, and asserts a malformed or missing required env var exits non-zero without hanging.
 
 ### 12.1 v0.5.0 Risks (HYBRID + cross-cutting concerns)
 - R7: HYBRID HTTP bridge adds process-boundary latency (~1-5ms localhost) and serialization overhead. Mitigation: colocated containers on same Docker network; keep request payloads under 4 KB; monitor p95 bridge latency.
@@ -2035,7 +1901,7 @@ Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dock
 ---
 
 ## Handoff Checklist
-- [x] §0 Recon Report present, ≥3 candidates audited per major capability (§0.2 skill catalogue, §0.4 architectural fork-candidates per RV-SPEC-002@0.1.0 F-M1)
+- [x] §0 Recon Report present, ≥3 candidates audited per major capability (§0.2 skill catalogue, §0.4 architectural fork-candidates)
 - [x] Trace matrix covers every PRD Goal
 - [x] Each component has clear Inputs / Outputs / failure modes
 - [x] All referenced ADRs exist and are `proposed` or `accepted`
@@ -2063,19 +1929,3 @@ Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dock
 
 ## revision_log
 
-### 2026-05-06 — v0.6.1 amendment cycle (RV-SPEC-013@0.1.0)
-
-Remediated all 8 findings from RV-SPEC-013@0.1.0 pass_with_changes verdict:
-
-- **F-M1**: ADR-015@0.1.0 amended Decision now has formal `## Why the losers lost` h2 between the current `## Decision` and the rejected-historic-Decision block (§5).
-- **F-M2**: Renamed `### 1.4 PRD-NEXT research findings` to `#### 0.10.7 PRD-NEXT research findings` (Option b — keep adjacent to §0.10 Recon Delta). Rationale: the content is Q-RM-2 evidence sourced from §0.10.3 cluster detail; it logically belongs inside §0.10, not under §1 Context. Cross-references to §1.4 were internal sub-labels of §0.10.3, not refs to the orphan section; no external cross-references needed updating.
-- **F-M3**: DAG asymmetry resolved: removed TKT-025@0.1.0 from TKT-021@0.1.0.blocks (transitive via TKT-022@0.1.0); removed all blocks claims from TKT-028@0.1.0 and documented soft-dep rationale in TKT-028@0.1.0 §3 Constraints (C21 settings service is runtime config, handlers can build/test with mocked settings).
-- **F-M4**: TKT-024@0.1.0 split into three sub-tickets for C17 Water Logger, C19 Workout Logger, C20 Mood Logger — three tickets at 0.1.0, sequential single Executor (`deepseek-v4-pro`). Rationale: C19 has different LLM surface, test surface, and failure modes from C17/C20; splitting prevents a C19 vision-surface bug from blocking C17/C20 shipment.
-- **F-M5**: §9.4 extended with prompt-injection mitigations for C16 (forced-output label set + chain-fallback), C19 (JSON schema + deterministic post-validator), C20 (score-range guardrail + comment truncation), C22 (post-validated event-rows, no untrusted-text surface).
-- **F-M6**: §10.3 cost delta added — monthly delta ~$0.11/month vs $10/month ceiling, headroom ~$9.89 — well within budget.
-- **F-L1**: ADR-014@0.1.0, ADR-016@0.1.0, ADR-017@0.1.0 `## Why the losers lost` heading applied uniformly (h2 sibling of `## Decision`) for consistency with ADR-018@0.1.0 and ADR-015@0.1.0 (post-F-M1).
-- **F-L2**: ADR-018@0.1.0 format note added explaining per-site pick tables deviation from standard single A/B/C Options structure.
-
-**Q1 answer** (TKT-024@0.1.0 atomicity): Split into three sub-tickets (C17 Water Logger, C19 Workout Logger, C20 Mood Logger) with sequential single Executor (`deepseek-v4-pro`). C19 vision-surface complexity would block C17/C20 from shipping in a bundled ticket; splitting preserves independent shipment velocity. Single Executor runs all three sequentially to avoid OmniRoute key contention and to keep the executor dispatch overhead bounded for a 2-user pilot.
-
-**Q2 answer** (§1.4 placement): Placement was an editing artifact from the v0.6.0 mid-PR amendment cycle (ADR-015@0.1.0 flip + ADR-018@0.1.0 addition). Content is Q-RM-2 synthesis sourced from §0.10.3, so it logically belongs inside §0.10. Option (b) renumber to `#### 0.10.7` chosen as minimal-change fix.

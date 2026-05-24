@@ -1,16 +1,18 @@
 ---
 id: TKT-030
-title: "C19 Workout Logger — closed-enum extraction + forced-output JSON schema + photo support"
+title: C19 Workout Logger — closed-enum extraction + forced-output JSON schema + photo
+  support
 version: 0.1.0
 status: ready
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-component: "C19"
-depends_on: ["TKT-021@0.1.0", "TKT-022@0.1.0"]
-blocks: ["TKT-027@0.1.0"]
+component: C19
+depends_on:
+- TKT-021@0.1.0
+- TKT-022@0.1.0
+blocks:
+- TKT-027@0.1.0
 estimate: L
-assigned_executor: "deepseek-v4-pro"
-author_model: "deepseek-v4-pro"
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -24,7 +26,7 @@ Land the C19 Workout Logger that extracts canonical workout events from text / v
 ## 2. In Scope
 
 - `src/modality/workout/logger.ts`: text / voice / photo → `workout_events` row insert with the ADR-016@0.1.0 closed-enum forced-output prompt (G3).
-- Closed-enum extraction via ADR-018@0.1.0 LLM pick (default `accounts/fireworks/models/qwen3-vl-30b-a3b`; fallback `accounts/fireworks/models/deepseek-v3p2`).
+- Closed-enum extraction via ADR-018@0.1.0 LLM pick (default `accounts/fireworks/models/qwen3-vl-30b-a3b`; fallback `accounts/fireworks/models/executor`).
 - Deterministic post-validator on extracted fields: `workout_type` ∈ {running, walking, cycling, strength_training, yoga, swimming, hiking, other}, `duration` ≥ 0, `distance` ≥ 0, `sets` ≥ 0, `repetitions` ≥ 0.
 - Photo support: vision-model extraction of workout type + visual context (ADR-016@0.1.0 §Decision vision surface).
 - Russian-language reply copy in `src/modality/workout/copy.ru.ts`.
@@ -40,7 +42,7 @@ Land the C19 Workout Logger that extracts canonical workout events from text / v
 
 ## 4. Execution Notes
 
-- Executor: `deepseek-v4-pro`. Sequential with TKT-029@0.1.0 and TKT-031@0.1.0.
+- Executor: `executor`. Sequential with TKT-029@0.1.0 and TKT-031@0.1.0.
 - LLM calls: reuses OmniRoute (ADR-002@0.1.0) with ADR-018@0.1.0 picks. Photo extraction uses vision-capable model.
 - Shared infra: event-row insert pattern mirrors TKT-029@0.1.0; closed-enum type rendering map is shared via `src/summary/copy.ru.ts` (TKT-027@0.1.0).
 

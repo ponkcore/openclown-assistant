@@ -1,16 +1,16 @@
 ---
 id: TKT-026
-title: "PRD-003 redaction allowlist extension + emit-boundary enforcement"
+title: PRD-003 redaction allowlist extension + emit-boundary enforcement
 version: 0.1.0
 status: ready
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-component: "C10"
-depends_on: ["TKT-021@0.1.0"]
-blocks: ["TKT-027@0.1.0"]
+component: C10
+depends_on:
+- TKT-021@0.1.0
+blocks:
+- TKT-027@0.1.0
 estimate: M
-assigned_executor: "codex-gpt-5.5"
-author_model: "claude-opus-4.7-thinking"
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -64,7 +64,7 @@ Extend the ARCH-001@0.5.0 §8.1 redaction allowlist + §10.7 emit-boundary polic
 - The new forbidden fields apply to ALL emit channels: structured logs, metric labels, alert payloads.
 - Allowed-in-emit fields for PRD-003@0.1.3 events: `event_name`, `user_id_hash` (already an existing allowed field per ARCH-001@0.5.0 §8.1), `modality` (∈ {water, sleep, workout, mood}), `event_outcome` (∈ {persisted, sanity_warn_pending, sanity_warn_corrected, ambiguous_clarified}), numeric fields explicitly ratified by ARCH-001@0.6.0 §8.1 (volume_ml, duration_min, distance_km, score, etc.).
 - All tests parameterised; no hard-coded user IDs in test fixtures.
-- `assigned_executor: "codex-gpt-5.5"` justified: redaction is security-critical (per `docs/prompts/architect.md` §Phase 8 executor-assignment rule "security-critical / algorithmically dense") — a leak here directly breaches PRD-003@0.1.3 §5 US-7.
+- `assigned_executor: "executor"` justified: redaction is security-critical (per `docs/prompts/architect.md` §Phase 8 executor-assignment rule "security-critical / algorithmically dense") — a leak here directly breaches PRD-003@0.1.3 §5 US-7.
 
 ## 8. Definition of Done
 - [ ] All Acceptance Criteria pass.
@@ -72,20 +72,3 @@ Extend the ARCH-001@0.5.0 §8.1 redaction allowlist + §10.7 emit-boundary polic
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
 - [ ] Executor filled §10 Execution Log.
 - [ ] Ticket frontmatter `status: in_review` in a separate commit.
-
-## 9. Questions
-<!-- (empty) -->
-
-## 10. Execution Log
-<!-- (empty) -->
-
----
-
-## Handoff Checklist
-- [x] Goal is one sentence.
-- [x] NOT-In-Scope has ≥1 explicit item (4 items).
-- [x] Acceptance Criteria are machine-checkable.
-- [x] Constraints explicitly list forbidden actions (additive only, no mechanism change, allowed-field allowlist per emit).
-- [x] All references version-pinned.
-- [x] `depends_on: ["TKT-021@0.1.0"]` (audit helpers query the new tables).
-- [x] `assigned_executor: "codex-gpt-5.5"` justified (security-critical redaction).

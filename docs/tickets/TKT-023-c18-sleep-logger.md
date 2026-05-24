@@ -1,16 +1,18 @@
 ---
 id: TKT-023
-title: "C18 Sleep Logger with paired-event state machine + sanity-floor + DST-safe attribution"
+title: C18 Sleep Logger with paired-event state machine + sanity-floor + DST-safe
+  attribution
 version: 0.1.0
 status: ready
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-component: "C18"
-depends_on: ["TKT-021@0.1.0", "TKT-022@0.1.0"]
-blocks: ["TKT-027@0.1.0"]
+component: C18
+depends_on:
+- TKT-021@0.1.0
+- TKT-022@0.1.0
+blocks:
+- TKT-027@0.1.0
 estimate: L
-assigned_executor: "codex-gpt-5.5"
-author_model: "claude-opus-4.7-thinking"
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -23,7 +25,7 @@ Land the C18 Sleep Logger implementing the ADR-017@0.1.0 paired-event state mach
 ## 2. In Scope
 - New module `src/modality/sleep/logger.ts` exporting the state-machine handler per ADR-017@0.1.0 §Decision (six paths: evening-no-pair, evening-replace-pair, morning-with-pair, morning-no-pair, single-event-morning-duration, hourly-GC).
 - DST-safe `attribution_date_local` computation using `luxon` (already an Architect-locked dependency choice in ADR-017@0.1.0; verify whether luxon is already in `package.json` and add only if absent — single new runtime dep is acceptable per ADR-017@0.1.0 §Decision; otherwise reuse).
-- Hourly GC cron skill `src/skills/sleep-gc/index.ts` reusing C8 Cron Dispatcher to delete `sleep_pairing_state` rows where `expires_at_utc < now()`.
+- Hourly GC cron skill `src/skills/sleep-gc/index.ts` reusing C8 Cron Dispatcher to delete `sleep_pairing_state` rows where `expires_at_utc < now`.
 - Russian-language reply copy for each state-machine branch (ratified by PO before sign-off; baseline copy in §6 of this ticket).
 - Smoke test for DST transitions in three diverse zones: `Europe/Moscow` (no DST since 2014), `Europe/Belgrade` (EU DST), `America/Los_Angeles` (US DST).
 
@@ -67,12 +69,12 @@ Land the C18 Sleep Logger implementing the ADR-017@0.1.0 paired-event state mach
 
 ## 7. Constraints
 - Do NOT introduce a new tz library if `luxon` (or equivalent) is already in `package.json`. If absent, add `luxon` as the single new dep; add no others.
-- Do NOT use `Date.now()` for `start_ts_utc` / `end_ts_utc` — use `new Date(message.message.date * 1000)` (Telegram envelope timestamp, in seconds), promoted to UTC ISO 8601 before insert. The state-machine MUST be deterministic against the inbound Telegram timestamp.
+- Do NOT use `Date.now` for `start_ts_utc` / `end_ts_utc` — use `new Date(message.message.date * 1000)` (Telegram envelope timestamp, in seconds), promoted to UTC ISO 8601 before insert. The state-machine MUST be deterministic against the inbound Telegram timestamp.
 - Do NOT modify `sleep_records` or `sleep_pairing_state` schemas; that's TKT-021@0.1.0 territory.
 - All SQL parameterised; no string-concatenated queries.
 - All hot-path logs via `ctx.log` (openclaw observability); no `console.log` per `docs/knowledge/openclaw.md` Hard Constraints.
 - The `is_nap` column is computed at insert (`duration_min ≤ 240`); do NOT treat it as user-controllable.
-- `assigned_executor: "codex-gpt-5.5"` justified: temporal logic with DST + tz semantics + multi-branch state machine is typing-heavy and edge-case-dense (per `docs/prompts/architect.md` §Phase 8 executor-assignment rule "complex async, edge-case type").
+- `assigned_executor: "executor"` justified: temporal logic with DST + tz semantics + multi-branch state machine is typing-heavy and edge-case-dense (per `docs/prompts/architect.md` §Phase 8 executor-assignment rule "complex async, edge-case type").
 
 ## 8. Definition of Done
 - [ ] All Acceptance Criteria pass.
@@ -80,20 +82,3 @@ Land the C18 Sleep Logger implementing the ADR-017@0.1.0 paired-event state mach
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
 - [ ] Executor filled §10 Execution Log.
 - [ ] Ticket frontmatter `status: in_review` in a separate commit.
-
-## 9. Questions
-<!-- (empty) -->
-
-## 10. Execution Log
-<!-- (empty) -->
-
----
-
-## Handoff Checklist
-- [x] Goal is one sentence, no conjunctions.
-- [x] NOT-In-Scope has ≥1 explicit item (7 explicit items).
-- [x] Acceptance Criteria are machine-checkable (test files, manual-smoke transcripts, DST timestamps).
-- [x] Constraints explicitly list forbidden actions.
-- [x] All references version-pinned.
-- [x] `depends_on: ["TKT-021@0.1.0", "TKT-022@0.1.0"]` (needs tables + router classifier output).
-- [x] `assigned_executor: "codex-gpt-5.5"` justified (temporal + DST + state machine).
