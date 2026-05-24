@@ -1,11 +1,10 @@
 ---
 id: ARCH-XXX
-title: ""
+title: ''
 version: 0.1.0
 status: draft
-prd_ref: PRD-XXX@X.Y.Z        # version-pinned
-owner: "@OpenClown-bot"
-author_model: "gpt-5.5-xhigh"
+prd_ref: PRD-XXX@X.Y.Z
+owner: '@po'
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 adrs: []
@@ -59,13 +58,13 @@ graph LR
 ## 3. Components
 ### 3.1 <Component name>
 - Responsibility: <1 sentence>
-- Inputs: ...
-- Outputs: ...
+- Inputs:...
+- Outputs:...
 - LLM usage: none | <model, purpose>
 - State: stateless | <where stored>
 - Failure modes: <external API down / LLM timeout / rate-limited / malformed input / concurrent invocation>
 
-### 3.2 ...
+### 3.2...
 
 ## 4. Data Flow
 <Step-by-step; what data is produced where.>
@@ -111,11 +110,11 @@ EntityName:
 ## 11. Work Breakdown (tickets for Executor)
 | ID | Title | Depends on | Assigned executor |
 |---|---|---|---|
-| TKT-XXX | … | — | glm-5.1 |
+| TKT-XXX | … | — | executor |
 
 ## 12. Risks & Open Questions
-- R1: ...
-- Q_TO_BUSINESS_1: ... ← escalation upstream
+- R1:...
+- Q_TO_BUSINESS_1:... ← escalation upstream
 
 ---
 

@@ -1,6 +1,6 @@
 # Architecture Specs (ArchSpecs)
 
-Owner: **Technical Architect** (GPT-5.5 xhigh via Codex CLI; backup: Opus 4.6 thinking via Windsurf).
+Owner: **Technical Architect** (planner via Codex CLI; backup: Opus 4.6 thinking via Windsurf).
 
 ## Rules
 

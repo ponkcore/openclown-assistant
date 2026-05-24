@@ -1,20 +1,26 @@
 ---
 id: TKT-004
-title: "Telegram Entrypoint Routing"
+title: Telegram Entrypoint Routing
 status: done
 arch_ref: ARCH-001@0.2.0
-component: "C1 Access-Controlled Telegram Entrypoint"
-depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-003@0.1.0"]
-blocks: ["TKT-005@0.1.0", "TKT-007@0.1.0", "TKT-008@0.1.0", "TKT-009@0.1.0", "TKT-010@0.1.0", "TKT-012@0.1.0"]
+component: C1 Access-Controlled Telegram Entrypoint
+depends_on:
+- TKT-001@0.1.0
+- TKT-002@0.1.0
+- TKT-003@0.1.0
+blocks:
+- TKT-005@0.1.0
+- TKT-007@0.1.0
+- TKT-008@0.1.0
+- TKT-009@0.1.0
+- TKT-010@0.1.0
+- TKT-012@0.1.0
 estimate: M
-assigned_executor: "glm-5.1"
 created: 2026-04-26
 updated: 2026-04-28
 closed_at: 2026-04-28
-closed_by: "orchestrator (PO-delegated)"
-closure_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/21"
-closure_commit: "2de9050"
-review_ref: "RV-CODE-004"
+closed_by: orchestrator (PO-delegated)
+review_ref: null
 ---
 
 # TKT-004: Telegram Entrypoint Routing
@@ -55,7 +61,7 @@ Implement the allowlisted Telegram entrypoint router for Russian bot flows.
 - [x] `src/telegram/entrypoint.ts` exporting the C1 router
 - [x] `tests/telegram/entrypoint.test.ts`
 - [x] `tests/telegram/typing.test.ts`
-- [x] `src/observability/kpiEvents.ts` (KPI-event-name additions only, no other modifications) — post-hoc ratified per Path 1 (TKT-003@0.1.0 Q-TKT-003-01 Option A precedent); D-I6 scope-violation flag from Devin Review on iter-1 head 471a3e0 ratified inline.
+- [x] `src/observability/kpiEvents.ts` (KPI-event-name additions only, no other modifications) — post-hoc ratified per Path 1 (TKT-003@0.1.0 Option A precedent); D-I6 scope-violation flag from orchestrator Review on iter-1 head 471a3e0 ratified inline.
 
 ## 6. Acceptance Criteria (machine-checkable)
 - [ ] `npm test -- tests/telegram/entrypoint.test.ts tests/telegram/typing.test.ts` passes.
@@ -79,26 +85,3 @@ Implement the allowlisted Telegram entrypoint router for Russian bot flows.
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body
 - [ ] Executor filled §10 Execution Log
 - [ ] Ticket frontmatter `status: in_review` in a separate commit
-
-## 9. Questions (empty at creation; Executor appends here ONLY if blocked — do NOT start code)
-<!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-004-NN.md -->
-
-## 10. Execution Log (Executor fills as work proceeds)
-<!-- 2026-04-27 18:14 glm-5.1: started -->
-<!-- 2026-04-27 18:14 glm-5.1: all 6 §5 Outputs implemented, 125 tests green, typecheck/lint/validate_docs pass -->
-<!-- 2026-04-27 19:02 glm-5.1: iter-2 fix-list complete (RV-CODE-004 F-M1+F-M4 / F-M2 / F-M3 / F-L1; Devin Review D-I1 / D-I2 / D-I3 / D-I4; F-L2 / D-I5 deferred to follow-up) -->
-<!-- 2026-04-27 19:34 glm-5.1: iter-3 fix-list complete (D-I7 type predicate, D-I8 log level for provider_failure; D-I9 deferred to observability-hardening follow-up TKT) -->
-<!-- 2026-04-28 14:18 glm-5.1: iter-4 fix-list complete (D-I10 chat validation in normalizeMessage + normalizeCallbackQuery) -->
-<!-- 2026-04-28 15:05 glm-5.1: iter-5 fix-list complete (D-I11 sendWithRetry traceability — signature accepts requestId/userId, threaded through 7 callsites) -->
-<!-- 2026-04-28 15:47 orchestrator-clerical: closed (status: in_review → done); RV-CODE-004 approved after 5 fix-iters; impl PR #21 merged at 2de9050; review PR #22 merged at 02f66e5; D-I6 §5 scope ratified Path 1 (kpiEvents.ts KPI-event-name additions only, mirrors TKT-003@0.1.0 Q-TKT-003-01 Option A precedent); D-I5 + D-I9 + F-L2 deferred to observability-hardening follow-up TKT -->
-
----
-
-## Handoff Checklist
-- [x] Goal is one sentence, no conjunctions
-- [x] NOT-In-Scope has ≥1 explicit item
-- [x] Acceptance Criteria are machine-checkable (no "looks good")
-- [x] Constraints explicitly list forbidden actions
-- [x] All ArchSpec / ADR references are version-pinned
-- [x] `depends_on` accurately reflects prerequisites; no cycles
-- [x] `assigned_executor` is justified (especially Codex — explain why GLM cannot)

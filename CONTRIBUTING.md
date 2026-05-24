@@ -1,28 +1,20 @@
 # Contributing — Process Rules
 
-This file defines **how humans and LLMs collaborate** in this repo. These are not suggestions. CI enforces the machine-checkable parts; Reviewers (Kimi + Qodo PR-Agent) enforce the rest. The Product Owner is the final authority.
+This file defines **how the three roles collaborate** in this repo. These are not suggestions. CI enforces the machine-checkable parts; the orchestrator's reviewer subagent enforces the rest. The Product Owner is the final authority.
 
 ## Roles and write zones
 
-| Role | Model(s) | Runtime | MAY write | MUST NOT write |
-|---|---|---|---|---|
-| Product Owner (human) | — | — | Anything (final authority) | — |
-| Business Planner (primary) | GPT-5.5 thinking | ChatGPT Plus (web) | `docs/prd/` | `docs/architecture/`, `docs/tickets/`, `src/`, anything else |
-| Business Planner (alternative) | Claude Opus 4.7 thinking | Devin | Same as primary | Same as primary |
-| Technical Architect (primary) | GPT-5.5 xhigh | Codex CLI (on VPS or laptop) | `docs/architecture/`, `docs/tickets/` | `docs/prd/`, `src/`, `tests/`, `infra/`, repo root |
-| Technical Architect (alternative) | GPT-5.5 thinking | opencode CLI (verify thinking-mode is supported by the runtime) | Same as primary | Same as primary |
-| Technical Architect (backup) | Opus 4.6 thinking | Windsurf | Same as primary | Same as primary |
-| Reviewer (LLM) | Kimi K2.6 | opencode + OmniRoute | `docs/reviews/` | Everything else, **NEVER `status: approved`** (PO sets that based on Reviewer verdict) |
-| Reviewer (auto bot) | Qodo PR-Agent (DeepSeek V4 Pro via OmniRoute) | GitHub Actions | inline PR comments + AI-generated description sections (via `use_description_markers`) + on-demand `/review` `/describe` `/improve` `/ask` `/help` commands invoked from PR comments | Repo source files; substantive artifact bodies |
-| Devin Orchestrator (PO assistant) | Devin (webapp) | Devin session | `docs/session-log/`, `docs/backlog/` (light edits / new entries), ticket frontmatter promotions (`status`, `arch_ref`, `version`, `updated`, `assigned_executor` post-hoc to match actual run, `completed_at`, `completed_by`, `completed_note`) + light reference-pinning in ticket body during promotion + closure-PRs spanning TKT / RV / BACKLOG bodies after Reviewer verdict (including §10 Execution Log post-Executor closure entries; RV frontmatter promotion to `status: approved` with `approved_at` / `approved_after_iters` / `approved_by` / `approved_note`; clerical RV file rename when the original Reviewer-chosen numbering violates the TKT-N↔RV-CODE-N convention; duplicate-§10 boilerplate removal when the empty template H2 collides with the Executor-filled §10 H2) + cross-TKT shared-interface conflict resolution + ratification audit + final merge-safe sign-off | `src/`, `tests/`, formal artifact bodies (PRD/ARCH/ADR/RV), substantive ticket body edits beyond reference-pinning, `docs/prompts/` |
-| Ticket Orchestrator (per-TKT) | GPT-5.5 thinking / Codex CLI + ChatGPT Plus | opencode (PO's Windows PC) / Codex CLI | Per-ticket clerical sub-PRs scoped to the single TKT it owns, frontmatter promotion of that TKT, BACKLOG entries scoped to that TKT, NUDGE files for Executor / Reviewer dispatch (paste-text, not committed) | code, formal artifact bodies (PRD/ARCH/ADR/RV), substantive ticket body edits, `docs/prompts/`, anything outside its assigned TKT's scope, repo-wide config (`AGENTS.md`, `CONTRIBUTING.md`, `.pr_agent.toml`, GitHub Actions, `docs/meta/`, session-log templates) |
-| Code Executor (default) | GLM 5.1 | opencode + OmniRoute | `src/`, `tests/`, append-only to `docs/tickets/<id>.md#10 Execution Log`, the assigned Ticket file's `status` frontmatter field only (transitions `ready → in_progress`, `in_progress → in_review`, `in_progress → blocked`, `blocked → in_progress`), create files in `docs/questions/` | `docs/prd/`, `docs/architecture/`, any other field on the Ticket file (Goal, ACs, Outputs, etc.), anything outside the assigned ticket's §5 Outputs |
-| Code Executor (parallel) | Qwen 3.6 Plus | opencode + OmniRoute | Same as default | Same as default |
-| Code Executor (specialist) | Codex GPT-5.5 | Codex CLI | Same as default | Same as default |
+| Role | Where it runs | MAY write | MUST NOT write |
+|---|---|---|---|
+| Product Owner (human) | — | Anything (final authority) | — |
+| Business Planner | Any LLM in any runtime; PO chooses per session | `docs/prd/`, `docs/roadmap/` (with explicit PO authorisation per session) | `docs/architecture/`, `docs/tickets/`, `src/`, anything else |
+| Technical Architect | Any LLM in any runtime; PO chooses per session | `docs/architecture/`, `docs/tickets/` | `docs/prd/`, `docs/roadmap/`, `src/`, `tests/`, `infra/`, repo root |
+| Sisyphus orchestrator | opencode + oh-my-openagent (PO's machine) | Ticket frontmatter promotion only (`status`, `§10 Execution Log`), backlog entries, question files. Delegates code → executor subagent and reviews → reviewer subagent. | PRD bodies, ArchSpec bodies, ADR bodies, prompts, knowledge files, AGENTS.md, CONTRIBUTING.md, opencode.json, `.opencode/**`, `.github/**`, `infra/**`, `scripts/**` |
+| Executor subagent | opencode subagent | `src/`, `tests/`, `packages/`, files explicitly listed in the assigned ticket's `§5 Outputs`, ticket frontmatter `status` (transitions only) and `§10 Execution Log` (append-only) | All other ticket fields, all other docs zones, repo-wide config, all other tickets |
+| Reviewer subagent | opencode subagent (model family ≠ executor) | `docs/reviews/` only | Everything else, **NEVER `status: approved` on the artefact under review** (that is the PO's call) |
+| Architect-consult subagent | opencode subagent | Read-only — never edits any file | All files |
 
-The **Devin Orchestrator** row formalises the Devin-on-PO's-account session that coordinates the four pipeline roles + the per-TKT Ticket Orchestrator. It is a PO-delegated coordination role, not a pipeline role; it does not appear in the PRD → ArchSpec → Code → Review chain. See `docs/meta/devin-session-handoff.md` for the full role prompt and `docs/session-log/README.md` for handoff continuity rules. Devin Orchestrator edits to files outside its declared write-zone (e.g. `CONTRIBUTING.md` itself, `docs/prompts/`, formal artifact bodies) require **explicit PO authorisation recorded verbatim in the PR body**.
-
-The **Ticket Orchestrator** row formalises a per-ticket execution-orchestration role delegated from the Devin Orchestrator (added 2026-05-01). It runs on opencode + GPT-5.5 thinking on the PO's Windows PC (Codex CLI + ChatGPT Plus subscription as fallback) and owns one TKT cycle from dispatch to closure-ready hand-back. Its central responsibility is the **first cross-reviewer audit pass** (read every Reviewer finding + every PR-Agent inline including "old commit" markers + classify). The Devin Orchestrator runs the **second ratification audit** on hand-back before final merge-safe sign-off. See `docs/prompts/ticket-orchestrator.md` for the full role prompt and `docs/meta/devin-session-handoff.md` § Delegating to Ticket Orchestrator for the bootstrap / hand-back protocol. Ticket Orchestrator edits to files outside its declared write-zone require explicit Devin Orchestrator + PO authorisation (recorded in the clerical PR body).
+The **reviewer model family must differ from the executor model family** (separation of perspectives). Configure this in `.opencode/agents/executor.md` and `.opencode/agents/reviewer.md` or in `~/.config/opencode/oh-my-openagent.json`.
 
 ## Hard rules
 
@@ -30,37 +22,33 @@ The **Ticket Orchestrator** row formalises a per-ticket execution-orchestration 
 2. **Version-pinned references only.** Inside any artifact, reference upstream docs as `ID@X.Y.Z` (e.g. `PRD-001@1.0.0`). Bare `PRD-001` outside code fences is rejected by CI.
 3. **Status gates.**
    - `draft` — anyone in role may edit.
-   - `in_review` — only Reviewer adds comments via a separate `docs/reviews/RV-*.md`.
-   - `approved` — immutable. Any change ⇒ bump version and create a new revision file (or `superseded_by` link).
+   - `in_review` — only the matching reviewer touches the artefact (via a separate `docs/reviews/RV-*.md` file).
+   - `approved` — immutable. Any change ⇒ bump version and create a new revision file (or `superseded_by` link). Only the PO sets `approved`.
    - `superseded` — read-only; `superseded_by` must point to the replacement.
-4. **Non-Goals / NOT In Scope are mandatory.** PRDs list ≥1 Non-Goal. Tickets list ≥1 NOT-In-Scope item. Reviewers reject any artifact without them.
-5. **Architect Phase 0: Recon is mandatory.** Before any design, the Architect MUST read `docs/knowledge/openclaw.md` and `docs/knowledge/awesome-skills.md`, audit fork-candidates, and write a Recon Report into ArchSpec §0. ArchSpec without a Recon Report fails Reviewer SPEC mode automatically.
+4. **Non-Goals / NOT In Scope are mandatory.** PRDs list ≥1 Non-Goal. Tickets list ≥1 NOT-In-Scope item.
+5. **Architect Phase 0 Recon is mandatory.** Before any design, the Architect MUST read `docs/knowledge/openclaw.md` and `docs/knowledge/awesome-skills.md`, audit fork-candidates, and write a Recon Report into ArchSpec §0. ArchSpec without a Recon Report is rejected.
 6. **Executor guardrails.**
-   - Executor may modify ONLY files explicitly listed in the Ticket's §5 Outputs, with one carve-out: the assigned Ticket file's `status` frontmatter field (transitions `ready → in_progress`, `in_progress → in_review`, `in_progress → blocked`, `blocked → in_progress` — these four only) and append-only edits to that file's §10 Execution Log. All other fields on the Ticket file (Goal, ACs, Outputs, etc.) remain read-only to the Executor.
+   - Executor may modify ONLY files explicitly listed in the Ticket's `§5 Outputs`, with one carve-out: the assigned Ticket file's `status` frontmatter field (transitions `ready → in_progress`, `in_progress → in_review`, `in_progress → blocked`, `blocked → in_progress` — these four only) and append-only edits to that file's `§10 Execution Log`. All other fields on the Ticket file (Goal, ACs, Outputs, etc.) remain read-only to the Executor.
    - If a Ticket is ambiguous or contradicts the ArchSpec, Executor MUST stop and create `docs/questions/Q-TKT-XXX-NN.md` before writing code.
    - Executor may NOT add new runtime dependencies unless the Ticket §7 Constraints explicitly allows them.
-7. **Reviewer independence.** Reviewer must be a different model family from the artifact's author (Business Planner for PRD reviews, Architect for ArchSpec reviews, Executor for code reviews). A GPT-written PRD or ArchSpec must not be reviewed by GPT (use Kimi K2.6).
-8. **No secrets in git.** Ever. Use `.env.example` and document in ArchSpec §9 Security. CI does NOT scan secrets — review responsibility falls on Reviewer.
-9. **No direct push to `main`.** All changes via PR. PRs require: docs CI green, Reviewer LLM verdict `pass` or `pass_with_changes`, PR-Agent auto-review (informational), PO approval.
-10. **TO-NUDGE files MUST be valid CommonMark / GitHub Flavored Markdown.** Added 2026-05-02 in closure-PR #91 per `BACKLOG-011 §TKT-NEW-to-nudge-must-be-valid-markdown-formatting`. The Ticket Orchestrator drafts paste-text NUDGE files dispatched into Executor / Reviewer opencode sessions as the first user message; these MUST use proper Markdown (`## H2` / `### H3` headings, ` ```language ` triple-backtick code-fences for command blocks and contract excerpts, `-` or `1.` lists, `**bold**` for critical constraints, `> blockquote` for ArchSpec / TKT excerpts) and MUST NOT use ad-hoc structural markers (e.g. `<<<HEADING>>>`, `==== SECTION ====`, ASCII-art separators) which render as unstructured plain text in the opencode chat UI and undermine Executor / Reviewer comprehension. See `docs/prompts/ticket-orchestrator.md` § TO-NUDGE Formatting Contract for the full spec including required leading header inside a `markdown`-tagged code-fence and trailing explicit gate ("Wait for me ('go') before you ..."). The TO must verify the rendered preview before pasting into PO chat.
-11. **TO hand-back MUST include a TO Operational Notes section.** Added 2026-05-02 in closure-PR #91 per `BACKLOG-011 §TKT-NEW-to-do-postmortem-loop-formal-channel`. The Ticket Orchestrator's hand-back to the Devin Orchestrator MUST include a `TO Operational Notes (for Devin Orchestrator postmortem capture)` section listing procedural / pipeline observations from the cycle that are NOT Reviewer code findings (e.g. Executor model failure modes, opencode session interruptions, PR-Agent CI behavior anomalies, mid-cycle takeover events, PO-mediated decisions). If no operational anomalies, write affirmatively: "No operational anomalies this cycle." See `docs/prompts/ticket-orchestrator.md` § Operational Notes capture protocol and `docs/meta/devin-session-handoff.md` §11.3 hand-back format for the full spec including what does/does-not belong and pass-2 integration. This closes the TO → Devin Orchestrator feedback loop so procedural insights reach the closure-PR drafting step.
+7. **Reviewer independence.** Reviewer must be a different model family from the executor. Family separation is enforced by orchestrator routing; a same-family reviewer must refuse and ask Sisyphus to re-route.
+8. **No secrets in git.** Ever. Use `.env.example` and document in ArchSpec §9 Security. Permission rules in `opencode.json` block `.env*` writes by default; do not work around them.
+9. **No direct push to `main`.** All changes via PR. Each Ticket gets its own PR. PRs require: docs CI green, reviewer subagent verdict `pass` or `pass_with_changes`, local typecheck + lint + tests green.
+10. **One TKT, one PR.** Do not aggregate multiple tickets into one PR; do not split one ticket across multiple PRs.
 
 ## Handoff contracts
-
-Each artifact ends with a "Handoff Checklist". CI validates the frontmatter; the Reviewer validates the checklist by reading the artifact.
 
 | From → To | What goes across | Gate |
 |---|---|---|
 | PO → Business Planner | This-epic ask, in chat | — |
-| Business Planner → Reviewer (SPEC for PRD) | One PRD, status `in_review` | Business Planner runs `validate_docs.py` |
-| Reviewer (SPEC for PRD) → PO | One review file, verdict | — |
-| PO → Architect | One PRD, status `approved` | PO sets status after Reviewer verdict |
-| Architect → Reviewer (SPEC for ArchSpec) | ArchSpec + ADRs + Tickets, status `in_review` | Architect runs `validate_docs.py` |
-| Reviewer (SPEC for ArchSpec) → PO | One review file, verdict | — |
-| PO → Executor | One Ticket, status `ready`, `assigned_executor` set | PO promotes status |
-| Executor → Reviewer (CODE) | One PR, Ticket status `in_review` | CI green + Executor self-review |
-| Reviewer (CODE) → PO | One review file, verdict | — |
-| PO | Merge | — |
+| Business Planner → PO | One PRD on a branch, status `draft` | BP runs `validate_docs.py` |
+| PO → Architect | One PRD, status `approved` | PO sets status |
+| Architect → PO | ArchSpec + ADRs + Tickets, status `draft` | Architect runs `validate_docs.py` |
+| PO → Sisyphus orchestrator | One ArchSpec, status `approved`; tickets ready | PO sets statuses; PO invokes `/prd-run PRD-NNN@X.Y.Z` |
+| Sisyphus → executor | One Ticket, status `ready`, all `depends_on` done | Orchestrator gates per `tkt-cycle` skill |
+| Executor → reviewer (via orchestrator) | One PR, ticket status `in_review` | Local CI green + executor self-review |
+| Reviewer → orchestrator | One review file, verdict `pass` / `pass_with_changes` / `fail` | Reviewer runs from a different model family |
+| Orchestrator | Merge to `main`, flip ticket `status: done`, append §10 Execution Log | Verdict `pass` or `pass_with_changes` (Mediums backlogged), CI green |
 
 ## Change requests
 
@@ -75,31 +63,13 @@ If PO wants to change an already-`approved` PRD:
 
 ## Parallelism
 
-- Tickets may be executed in parallel **only if** `depends_on` is empty or all listed dependencies are `done`.
-- The default Executor (GLM) and the parallel Executor (Qwen) must never work on the same Ticket.
-- The specialist Executor (Codex) is assigned by the Architect per-Ticket, not opportunistically.
-
-## PR-Agent manual commands
-
-Qodo PR-Agent (DeepSeek V4 Pro via OmniRoute) auto-runs `/review` + `/describe` on every non-skipped PR. It also responds to **manual commands** posted as a PR comment by anyone with `pull-requests: write` (PO, DO, Executor self-iteration). Useful invocations for this repo:
-
-| Command | When to use |
-|---|---|
-| `/review` | Force a fresh review on the current HEAD (e.g. after pushing a fix). Bypasses the title-prefix skip filter. Useful on `clerical:` PRs where the auto-skip would otherwise hide PR-Agent. |
-| `/describe` | Re-generate the AI walkthrough section of the PR description. Run after a force-push or a substantive scope change so the description matches the new diff. |
-| `/improve` | Generate inline code suggestions (committable directly from the GitHub UI). Off by default in CI to keep tail latency down; invoke per-PR when reviewing an Executor TKT diff. |
-| `/ask <question>` | Ask DeepSeek a targeted question grounded in the PR diff + conversation history. Examples for this repo: «Verify all RV-SPEC-008 findings are closed in v0.1.2», «Are any forbidden infrastructure terms introduced?», «Does this PR touch any file outside the role write-zone implied by the title prefix?». |
-| `/help` | List all PR-Agent commands available. |
-| `/update_changelog` | Append a CHANGELOG entry derived from the diff. Currently no `CHANGELOG.md` in repo, so unused. |
-
-Manual commands always run regardless of `ignore_pr_title` or the workflow `if:` skip-filter — they are the escape hatch for clerical / session-log PRs that need a one-off review. Keep their use intentional; each call is an extra LLM round-trip through OmniRoute.
-
-The PR-Agent review categories are tuned per `.pr_agent.toml` `[pr_reviewer].extra_instructions` (docs-as-code branch + code branch) — DeepSeek V4 Pro picks the right lens by inspecting the diff. The current docs-as-code lens surfaces: stale version-pin detection, cross-reference proof validity, HARD SCOPE compliance, frontmatter discipline, RV-SPEC closure verification, NG/AC consistency, anti-hallucination scan for forbidden infrastructure terms.
+- Tickets may be executed in parallel **only if** `depends_on` is empty or all listed dependencies are `done`, AND their `§5 Outputs` paths are disjoint.
+- The orchestrator defaults to sequential execution. Parallelism requires explicit PO authorisation per run.
+- The reviewer model family must differ from the executor's regardless of parallelism.
 
 ## LLM hygiene
 
-- Every LLM session starts with a **fresh context**. Paste the role's prompt (from `docs/prompts/`) first, then the artifact to work on, then the question.
-- Every LLM session also starts with a **fresh clone** of `origin/main` (Executor and Reviewer prompts both bake in a `REPO BOOTSTRAP — always-fresh-clone` procedure; see `docs/prompts/executor.md` and `docs/prompts/reviewer.md`). This eliminates stale-branch / dirty-working-tree drift across tickets and across runtimes. Mid-session re-cloning is forbidden — the discipline is session-startup, not recovery.
+- Every LLM session starts with a **fresh context**. The orchestrator skills (`tkt-cycle`, `prd-orchestration`) include a bootstrap step that re-reads `AGENTS.md`, `CONTRIBUTING.md`, the relevant ticket / PRD / ArchSpec, and the §4 Inputs cited in the ticket.
 - Never dump the entire repo into context — only what the artifact's §4 Inputs (or equivalent) explicitly references.
-- If an LLM produces output outside its role (Architect writing code, Executor redesigning the queue) → reject without merge. Model drift is real.
-- Per-role context budget: see `docs/knowledge/llm-routing.md` for token windows of each model.
+- If an LLM produces output outside its role (Architect writing code, Executor redesigning the queue) → the reviewer rejects without merge. Model drift is real.
+- The PO swaps models for executor / reviewer / architect-consult freely; the only hard rule is reviewer family ≠ executor family.

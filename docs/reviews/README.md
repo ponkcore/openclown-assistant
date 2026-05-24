@@ -1,6 +1,6 @@
 # Reviews (RV)
 
-Owner: **Reviewer LLM** (Kimi K2.6 via opencode + OmniRoute) + **Devin Review** (auto-bot on every PR).
+Owner: **reviewer** (reviewer via opencode + OmniRoute) + **orchestrator Review** (auto-bot on every PR).
 
 ## Rules
 
@@ -9,7 +9,7 @@ Owner: **Reviewer LLM** (Kimi K2.6 via opencode + OmniRoute) + **Devin Review** 
 - Filename:
   - SPEC: `RV-SPEC-ARCH-NNN-<short-slug>.md` (use `python scripts/new_artifact.py review-spec "ARCH-NNN-..."`).
   - CODE: `RV-CODE-NNN-<short-slug>.md` (use `python scripts/new_artifact.py review-code "PR-NN-..."`).
-- Reviewer LLM MUST be from a different model family than the Architect / Executor it reviews. A GPT-written ArchSpec is reviewed by Kimi, not by GPT. A GLM-written PR is reviewed by Kimi, not by GLM.
+- reviewer MUST be from a different model family than the Architect / Executor it reviews. A GPT-written ArchSpec is reviewed by Kimi, not by GPT. A GLM-written PR is reviewed by Kimi, not by GLM.
 - Findings are severity-graded:
   - **high** — blocks merge.
   - **medium** — should be fixed before next stage; can be a patch bump.

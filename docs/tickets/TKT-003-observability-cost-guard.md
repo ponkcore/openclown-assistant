@@ -1,20 +1,25 @@
 ---
 id: TKT-003
-title: "Observability Cost Guard"
+title: Observability Cost Guard
 status: done
 arch_ref: ARCH-001@0.2.0
-component: "C10 Cost, Degrade, and Observability Service"
-depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0"]
-blocks: ["TKT-006@0.1.0", "TKT-007@0.1.0", "TKT-008@0.1.0", "TKT-009@0.1.0", "TKT-011@0.1.0", "TKT-014@0.1.0"]
+component: C10 Cost, Degrade, and Observability Service
+depends_on:
+- TKT-001@0.1.0
+- TKT-002@0.1.0
+blocks:
+- TKT-006@0.1.0
+- TKT-007@0.1.0
+- TKT-008@0.1.0
+- TKT-009@0.1.0
+- TKT-011@0.1.0
+- TKT-014@0.1.0
 estimate: M
-assigned_executor: "glm-5.1"
 created: 2026-04-26
 updated: 2026-04-27
 closed_at: 2026-04-27
-closed_by: "orchestrator (PO-delegated)"
-closure_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/17"
-closure_commit: "f0c5583"
-review_ref: "RV-CODE-003"
+closed_by: orchestrator (PO-delegated)
+review_ref: null
 ---
 
 # TKT-003: Observability Cost Guard
@@ -77,28 +82,3 @@ Implement C10 observability events, spend guard, degrade flags, metrics export.
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body
 - [ ] Executor filled §10 Execution Log
 - [ ] Ticket frontmatter `status: in_review` in a separate commit
-
-## 9. Questions (empty at creation; Executor appends here ONLY if blocked — do NOT start code)
-<!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-003-NN.md -->
-
-## 10. Execution Log (Executor fills as work proceeds)
-<!-- 2026-04-27 14:00 glm-5.1: started -->
-2026-04-27 11:15 glm-5.1: opened PR #17
-2026-04-27 15:30 glm-5.1: started iter-2 (RV-CODE-003 fix-list, scope expansion src/store/types.ts + src/store/tenantStore.ts authorized inline)
-2026-04-27 16:00 glm-5.1: Q-TKT-003-01 answered (option A); tests/store/tenantStore.test.ts added to iter-2 expanded scope (expectedTenantStoreMethods array only)
-2026-04-27 17:00 glm-5.1: iter-2 fix-list complete (RV-CODE-003 + Devin Review F-DR-D-I1; D-I2 / D-I3 deferred)
-2026-04-27 18:00 glm-5.1: iter-2.5 NOT NULL fix (incrementMonthlySpend COALESCE + bind-param UPDATE) + regression test; PR body rollback/deferred-follow-up updates
-2026-04-27 19:00 glm-5.1: iter-2.6 complete (Devin-Review iter-2.5 fixes — listen error handler + time-dependent test)
-2026-04-27 20:00 glm-5.1: iter-2.7 complete (Devin-Review iter-2.6 fix — label order normalization in metrics registry key())
-2026-04-27 20:36 orchestrator: PR #17 merged via squash-commit f0c5583; PR #18 (RV-CODE-003 review file) merged via squash-commit 58bf45f; status in_review -> done; RV-CODE-003 status changes_requested -> approved (clerical close-out)
-
----
-
-## Handoff Checklist
-- [x] Goal is one sentence, no conjunctions
-- [x] NOT-In-Scope has ≥1 explicit item
-- [x] Acceptance Criteria are machine-checkable (no "looks good")
-- [x] Constraints explicitly list forbidden actions
-- [x] All ArchSpec / ADR references are version-pinned
-- [x] `depends_on` accurately reflects prerequisites; no cycles
-- [x] `assigned_executor` is justified (especially Codex — explain why GLM cannot)

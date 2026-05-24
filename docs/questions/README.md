@@ -1,6 +1,6 @@
 # Questions (Q-TKT)
 
-Owner: **Code Executor** (asks) + **Technical Architect** (answers).
+Owner: **executor** (asks) + **Technical Architect** (answers).
 
 ## Rules
 

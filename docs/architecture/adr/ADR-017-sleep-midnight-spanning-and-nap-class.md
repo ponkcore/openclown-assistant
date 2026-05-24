@@ -1,19 +1,16 @@
 ---
 id: ADR-017
-title: "Sleep record semantics: midnight-spanning attribution and nap-class isolation"
+title: 'Sleep record semantics: midnight-spanning attribution and nap-class isolation'
 status: proposed
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-author_model: "claude-opus-4.7-thinking"
-reviewer_models:
-  - "kimi-k2.6"
-review_refs: []
 source_inputs:
-  - "PRD-003@0.1.3 §5 US-2 (sleep tracking acceptance criteria — midnight-spanning + nap-class normative bullets)"
-  - "PRD-003@0.1.3 §2 G2 (sleep duration sanity floor 30 min / ceiling 24 h)"
-  - "PRD-003@0.1.3 §6 K3 (sanity-floor / ceiling rejection rate <2% rolling-30-day)"
-  - "PRD-003@0.1.3 §8 R2 (sleep edge cases: timezones, naps, fragmented, DST)"
-  - "PRD-003@0.1.3 §7 (onboarding-locked timezone)"
+- PRD-003@0.1.3 §5 US-2 (sleep tracking acceptance criteria — midnight-spanning +
+  nap-class normative bullets)
+- PRD-003@0.1.3 §2 G2 (sleep duration sanity floor 30 min / ceiling 24 h)
+- PRD-003@0.1.3 §6 K3 (sanity-floor / ceiling rejection rate <2% rolling-30-day)
+- 'PRD-003@0.1.3 §8 R2 (sleep edge cases: timezones, naps, fragmented, DST)'
+- PRD-003@0.1.3 §7 (onboarding-locked timezone)
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -179,7 +176,7 @@ Concrete contract for TKT-023@0.1.0 to implement:
 
 | column | type | notes |
 |---|---|---|
-| `record_id` | UUID PK | gen_random_uuid() |
+| `record_id` | UUID PK | gen_random_uuid |
 | `user_id` | bigint NOT NULL | FK to user table; RLS subject |
 | `start_ts_utc` | timestamptz NOT NULL | the sleep start moment (UTC) |
 | `end_ts_utc` | timestamptz NOT NULL | the sleep end moment (UTC) |
@@ -188,7 +185,7 @@ Concrete contract for TKT-023@0.1.0 to implement:
 | `attribution_tz` | text NOT NULL | the IANA tz string used for attribution (snapshot of user profile at insert; immutable thereafter) |
 | `is_nap` | boolean NOT NULL | `duration_min ≤ 240`; trigger-set or app-computed |
 | `is_paired_origin` | boolean NOT NULL | true if record came from a paired evening "лёг" + morning "встал" sequence; false if from a single morning duration report |
-| `created_at` | timestamptz NOT NULL DEFAULT now() | audit trail |
+| `created_at` | timestamptz NOT NULL DEFAULT now | audit trail |
 
 Index: `(user_id, attribution_date_local, is_nap)` for the C22 summary read path.
 
@@ -209,7 +206,7 @@ Pairing state machine (TKT-023@0.1.0):
    row (`UPDATE … WHERE user_id = ?`). Reply with the §5 US-2 4th-AC clarifying message
    ("Кажется, ты уже отметил, что лёг. Старая запись отменена; считаем эту.").
 3. **Inbound morning "встал" / "vstal" event** with existing non-expired pairing row:
-   compute `start_ts = leg_event_ts_utc`, `end_ts = NOW()`,
+   compute `start_ts = leg_event_ts_utc`, `end_ts = NOW`,
    `duration_min = (end_ts - start_ts) / 60`. If `30 ≤ duration_min ≤ 1440`: insert
    into `sleep_records` with `is_paired_origin=true`, `is_nap = duration_min ≤ 240`;
    delete pairing row; reply with confirmation. If outside bounds: do NOT persist;
@@ -221,12 +218,12 @@ Pairing state machine (TKT-023@0.1.0):
    NOT persist a sleep_record from this event alone.
 5. **Inbound single-event morning duration report** ("спал 7 часов"): C18 parses the
    duration via the existing OmniRoute extraction LLM (C5 voice or direct text); if
-   `30 ≤ duration_min ≤ 1440`: compute `end_ts = NOW()`, `start_ts = end_ts -
+   `30 ≤ duration_min ≤ 1440`: compute `end_ts = NOW`, `start_ts = end_ts -
    duration_min`, `is_paired_origin=false`, `is_nap = duration_min ≤ 240`; insert into
    `sleep_records`; reply with confirmation. If outside bounds: §5 US-2 sanity-floor /
    ceiling soft-warn flow.
 6. **Hourly GC cron skill** (reuses C8 Cron Dispatcher) deletes expired rows from
-   `sleep_pairing_state` where `expires_at_utc < now()`.
+   `sleep_pairing_state` where `expires_at_utc < now`.
 
 **Timezone handling:** `attribution_tz` is loaded from the user profile at insert and
 snapshotted into the row (immutable per record). Default `UTC` if the user profile has

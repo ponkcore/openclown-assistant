@@ -1,18 +1,16 @@
 ---
 id: ADR-015
-title: "Modality-input disambiguation strategy (hybrid deterministic-first + LLM-fallback on ambiguous)"
+title: Modality-input disambiguation strategy (hybrid deterministic-first + LLM-fallback
+  on ambiguous)
 status: proposed
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-author_model: "claude-opus-4.7-thinking"
-reviewer_models:
-  - "kimi-k2.6"
-review_refs: []
 source_inputs:
-  - "PRD-003@0.1.3 §8 R1 (modality-input ambiguity risk + ratified mitigation)"
-  - "PRD-003@0.1.3 §5 US-1..US-4 OFF-state acceptance bullets"
-  - "PRD-003@0.1.3 §5 US-3 normative AC for missing-quantifiable-fields workout clarifying reply"
-  - "ARCH-001@0.5.0 §3.4 C4 Meal Logging Orchestrator current routing"
+- PRD-003@0.1.3 §8 R1 (modality-input ambiguity risk + ratified mitigation)
+- PRD-003@0.1.3 §5 US-1..US-4 OFF-state acceptance bullets
+- PRD-003@0.1.3 §5 US-3 normative AC for missing-quantifiable-fields workout clarifying
+  reply
+- ARCH-001@0.5.0 §3.4 C4 Meal Logging Orchestrator current routing
 created: 2026-05-06
 updated: 2026-05-06
 ---

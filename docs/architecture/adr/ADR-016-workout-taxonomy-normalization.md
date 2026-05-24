@@ -1,19 +1,16 @@
 ---
 id: ADR-016
-title: "Workout taxonomy normalization (closed-set with extraction-LLM fallback)"
+title: Workout taxonomy normalization (closed-set with extraction-LLM fallback)
 status: proposed
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-author_model: "claude-opus-4.7-thinking"
-reviewer_models:
-  - "kimi-k2.6"
-review_refs: []
 source_inputs:
-  - "PRD-003@0.1.3 §2 G3 (workout-type extraction success rate ≥80% on PO-ratified 50-event golden set)"
-  - "PRD-003@0.1.3 §5 US-3 (workout-by-text/voice/photo with optional duration/distance/intensity)"
-  - "PRD-003@0.1.3 §6 K2 (canonical-label-correct ≥80% + per-field accuracy ≥70%)"
-  - "ADR-002@0.1.0 OmniRoute extraction LLM (existing primary)"
-  - "ADR-006@0.1.0 Summary recommendation guardrails (forced-output-set pattern reused)"
+- PRD-003@0.1.3 §2 G3 (workout-type extraction success rate ≥80% on PO-ratified 50-event
+  golden set)
+- PRD-003@0.1.3 §5 US-3 (workout-by-text/voice/photo with optional duration/distance/intensity)
+- PRD-003@0.1.3 §6 K2 (canonical-label-correct ≥80% + per-field accuracy ≥70%)
+- ADR-002@0.1.0 OmniRoute extraction LLM (existing primary)
+- ADR-006@0.1.0 Summary recommendation guardrails (forced-output-set pattern reused)
 created: 2026-05-06
 updated: 2026-05-06
 ---

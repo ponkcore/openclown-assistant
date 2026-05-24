@@ -1,16 +1,18 @@
 ---
 id: TKT-031
-title: "C20 Mood Logger — free-form-text inference + score-range guardrail + inline keyboard"
+title: C20 Mood Logger — free-form-text inference + score-range guardrail + inline
+  keyboard
 version: 0.1.0
 status: ready
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-component: "C20"
-depends_on: ["TKT-021@0.1.0", "TKT-022@0.1.0"]
-blocks: ["TKT-027@0.1.0"]
+component: C20
+depends_on:
+- TKT-021@0.1.0
+- TKT-022@0.1.0
+blocks:
+- TKT-027@0.1.0
 estimate: M
-assigned_executor: "deepseek-v4-pro"
-author_model: "deepseek-v4-pro"
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -24,7 +26,7 @@ Land the C20 Mood Logger that infers mood score from free-form Russian text with
 ## 2. In Scope
 
 - `src/modality/mood/logger.ts`: 1–10 numeric / numeric+comment / free-form-text-with-inference → `mood_events` row insert (G4).
-- Free-form-text inference via ADR-018@0.1.0 LLM pick (default `accounts/fireworks/models/deepseek-v3p2`; fallback `accounts/fireworks/models/kimi-k2p6`).
+- Free-form-text inference via ADR-018@0.1.0 LLM pick (default `accounts/fireworks/models/executor`; fallback `accounts/fireworks/models/reviewer`).
 - Score-range guardrail: `mood_score` ∈ [1,10] integer; reject out-of-range → clarifying-reply.
 - Optional comment: truncate to ≤200 chars; drop comment if overlength rather than fail-open.
 - 5-minute pending-confirmation TTL for inferred scores.
@@ -42,7 +44,7 @@ Land the C20 Mood Logger that infers mood score from free-form Russian text with
 
 ## 4. Execution Notes
 
-- Executor: `deepseek-v4-pro`. Sequential with TKT-029@0.1.0 and TKT-030@0.1.0.
+- Executor: `executor`. Sequential with TKT-029@0.1.0 and TKT-030@0.1.0.
 - LLM calls: reuses OmniRoute (ADR-002@0.1.0) with ADR-018@0.1.0 picks. Free-form-text inference is the hardest of the five LLM sites.
 - Shared infra: event-row insert pattern mirrors TKT-029@0.1.0 and TKT-030@0.1.0.
 

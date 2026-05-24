@@ -1,10 +1,9 @@
 ---
 id: PRD-001
-title: "KBJU Coach v0.1"
+title: KBJU Coach v0.1
 version: 0.2.0
 status: approved
-owner: "@yourmomsenpai"
-author_model: "claude-opus-4.7-thinking"
+owner: '@po'
 created: 2026-04-25
 updated: 2026-04-26
 supersedes: null
@@ -197,7 +196,7 @@ The Product Owner and one partner user want a low-friction way to track daily fo
 ---
 
 ## Handoff Checklist (author ticks all before setting status to `approved`)
-- [ ] All sections filled; no TODO / TBD outside §9 Open Questions — K7 target column in §6 reads `TBD by §9 Open Q after Architect feasibility analysis`; this is intentional and tracked in OQ-1, but the assertion as written cannot be ticked. Reviewer LLM is asked to validate that this is the only outstanding TBD.
+- [ ] All sections filled; no TODO / TBD outside §9 Open Questions — K7 target column in §6 reads `TBD by §9 Open Q after Architect feasibility analysis`; this is intentional and tracked in OQ-1, but the assertion as written cannot be ticked. reviewer is asked to validate that this is the only outstanding TBD.
 - [x] Non-Goals explicitly listed (≥1)
 - [x] Each User Story has testable Acceptance Criteria
 - [x] KPIs are measurable (numeric target and window)

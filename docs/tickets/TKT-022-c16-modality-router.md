@@ -1,16 +1,21 @@
 ---
 id: TKT-022
-title: "C16 Modality Router — hybrid deterministic chain + LLM-fallback classifier (ADR-015@0.1.0 amended Option C)"
+title: C16 Modality Router — hybrid deterministic chain + LLM-fallback classifier
+  (ADR-015@0.1.0 amended Option C)
 version: 0.1.0
 status: ready
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-component: "C16"
-depends_on: ["TKT-021@0.1.0"]
-blocks: ["TKT-023@0.1.0", "TKT-029@0.1.0", "TKT-030@0.1.0", "TKT-031@0.1.0", "TKT-025@0.1.0"]
+component: C16
+depends_on:
+- TKT-021@0.1.0
+blocks:
+- TKT-023@0.1.0
+- TKT-029@0.1.0
+- TKT-030@0.1.0
+- TKT-031@0.1.0
+- TKT-025@0.1.0
 estimate: M
-assigned_executor: "glm-5.1"
-author_model: "claude-opus-4.7-thinking"
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -88,7 +93,7 @@ Land the C16 Modality Router that classifies inbound Telegram messages into KBJU
 - LLM zero-match full-classifier MUST return `{label, confidence}`; confidence < 0.6 → AMBIGUOUS branch.
 - AMBIGUOUS → emit clarifying inline-keyboard reply per ARCH-001@0.6.0 §6.2.2 verbatim copy.
 - Single high-confidence label → route to corresponding component without further user prompt.
-- `assigned_executor: "glm-5.1"` justified: TypeScript module-creation + OmniRoute integration + JSON-schema validation + configuration loading + observability wiring — a representative GLM workload per the §Phase 8 default rule. Codex-GPT-5.5 is overkill for the regex+schema layer; DeepSeek is reserved for parallel work.
+- `assigned_executor: "executor"` justified: TypeScript module-creation + OmniRoute integration + JSON-schema validation + configuration loading + observability wiring — a representative GLM workload per the §Phase 8 default rule. Codex-GPT-5.5 is overkill for the regex+schema layer; DeepSeek is reserved for parallel work.
 
 ## 8. Definition of Done
 - [ ] All Acceptance Criteria pass.
@@ -96,20 +101,3 @@ Land the C16 Modality Router that classifies inbound Telegram messages into KBJU
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
 - [ ] Executor filled §10 Execution Log.
 - [ ] Ticket frontmatter `status: in_review` in a separate commit.
-
-## 9. Questions
-<!-- (empty) -->
-
-## 10. Execution Log
-<!-- (empty) -->
-
----
-
-## Handoff Checklist
-- [x] Goal is one sentence, no conjunctions.
-- [x] NOT-In-Scope has ≥1 explicit item (6 explicit items).
-- [x] Acceptance Criteria are machine-checkable.
-- [x] Constraints explicitly list forbidden actions (no LLM hop, no new deps, fixed priority order).
-- [x] All references version-pinned.
-- [x] `depends_on: ["TKT-021@0.1.0"]` (no DB tables to read; but C16 reads modality settings table to gate OFF-state — that table lives in TKT-021@0.1.0 schema). `blocks` lists modality-handler tickets.
-- [x] `assigned_executor: "glm-5.1"` justified.

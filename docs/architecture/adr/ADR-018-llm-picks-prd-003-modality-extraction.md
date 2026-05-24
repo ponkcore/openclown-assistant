@@ -1,21 +1,22 @@
 ---
 id: ADR-018
-title: "LLM picks for PRD-003@0.1.3 modality extraction + C16 router-classifier"
+title: LLM picks for PRD-003@0.1.3 modality extraction + C16 router-classifier
 status: proposed
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-author_model: "claude-opus-4.7-thinking"
-reviewer_models:
-  - "kimi-k2.6"
-review_refs: []
 source_inputs:
-  - "PO Q5 delegation (PR #142 conversation 2026-05-06): «Модели сам подбери. использовать можем модели из фаерворкс https://fireworks.ai/models и бесплатные опенроутер https://openrouter.ai/models?q=free … запускать через https://github.com/diegosouzapw/OmniRoute … сравнивать можешь на arena.ai»"
-  - "ADR-015@0.1.0 (amended) Option C Hybrid — defines C16 classifier site"
-  - "ADR-002@0.1.0 OmniRoute (existing routing infrastructure)"
-  - "ARCH-001@0.6.0 §3.16..§3.20 (C16/C17/C18/C19/C20 components)"
-  - "Fireworks pricing https://fireworks.ai/pricing (engaged 2026-05-06)"
-  - "OpenRouter free models https://openrouter.ai/models?q=free (engaged 2026-05-06; non-temporary filter applied)"
-  - "arena.ai Russian leaderboard https://arena.ai/leaderboard/text/russian (engaged 2026-05-06)"
+- 'PO Q5 delegation (PR #142 conversation 2026-05-06): «Модели сам подбери. использовать
+  можем модели из фаерворкс https://fireworks.ai/models и бесплатные опенроутер https://openrouter.ai/models?q=free
+  … запускать через https://github.com/diegosouzapw/OmniRoute … сравнивать можешь
+  на arena.ai»'
+- ADR-015@0.1.0 (amended) Option C Hybrid — defines C16 classifier site
+- ADR-002@0.1.0 OmniRoute (existing routing infrastructure)
+- ARCH-001@0.6.0 §3.16..§3.20 (C16/C17/C18/C19/C20 components)
+- Fireworks pricing https://fireworks.ai/pricing (engaged 2026-05-06)
+- OpenRouter free models https://openrouter.ai/models?q=free (engaged 2026-05-06;
+  non-temporary filter applied)
+- arena.ai Russian leaderboard https://arena.ai/leaderboard/text/russian (engaged
+  2026-05-06)
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -83,8 +84,8 @@ prompt sites** introduced by PRD-003@0.1.3:
 | Qwen3.6 Plus | 0.50 | 3.00 | 128k | yes | strong (vision-capable) |
 | Deepseek V3.2 | 0.56 | 1.68 | 256k | yes | top-tier on arena.ai (deepseek family ranks top-20 in Russian) |
 | GPT-OSS-120B | 0.15 | 0.60 | 32k | yes | unrated (open-weight 120B) |
-| Kimi K2.6 | 0.95 | 4.00 | 262k | yes | strong (Kimi K2.6 is the same model used by Reviewer pipeline) |
-| GLM 5.1 | 1.40 | 4.40 | 202k | yes | strong (same model used by Executor default) |
+| reviewer | 0.95 | 4.00 | 262k | yes | strong (reviewer is the same model used by Reviewer pipeline) |
+| executor | 1.40 | 4.40 | 202k | yes | strong (same model used by Executor default) |
 | DeepSeek-V4-Pro | 1.74 | 3.48 | 1M | yes | top-tier |
 
 **OpenRouter free non-temporary** (<https://openrouter.ai/models?q=free>; filtered 2026-05-06,
@@ -155,7 +156,7 @@ consistently top-15).
 | Option | $/req est | latency | verdict |
 |---|---|---|---|
 | Deepseek V3.2 (Fireworks) | ~$0.0008 | ~800–1200 ms | **Default**: top arena.ai/Russian for natural-language reasoning |
-| Kimi K2.6 (Fireworks) | ~$0.0014 | ~1000–1500 ms | **Fallback**: stronger nuance, used when V3.2 confidence low |
+| reviewer (Fireworks) | ~$0.0014 | ~1000–1500 ms | **Fallback**: stronger nuance, used when V3.2 confidence low |
 | Qwen3 VL 30B A3B (Fireworks) | ~$0.0003 | ~600–900 ms | cheaper but loses arena.ai/Russian to V3.2 on free-form |
 
 ## Decision
@@ -168,13 +169,13 @@ consistently top-15).
 `accounts/fireworks/models/minimax-m2p7`.
 
 **C18 sleep duration extractor:** default `accounts/fireworks/models/qwen3-vl-30b-a3b`;
-fallback `accounts/fireworks/models/deepseek-v3p2`.
+fallback `accounts/fireworks/models/executor`.
 
 **C19 workout extractor:** default `accounts/fireworks/models/qwen3-vl-30b-a3b`; fallback
-`accounts/fireworks/models/deepseek-v3p2`.
+`accounts/fireworks/models/executor`.
 
-**C20 mood inferrer:** default `accounts/fireworks/models/deepseek-v3p2`; fallback
-`accounts/fireworks/models/kimi-k2p6`.
+**C20 mood inferrer:** default `accounts/fireworks/models/executor`; fallback
+`accounts/fireworks/models/reviewer`.
 
 **Routing-layer:** all five sites called via OmniRoute per ADR-002@0.1.0; OmniRoute
 config records `default_model` + `fallback_model` per site. Failure-mode:
@@ -188,7 +189,7 @@ amended Decision §3.5 path 5. Threshold subject to tuning via TKT-025@0.1.0 gol
 calibration.
 
 **JSON-mode + forced-output:** all five sites use Fireworks `response_format = { "type":
-"json_schema", "json_schema": ... }` per ADR-006@0.1.0 forced-output guardrail. Per-site
+"json_schema", "json_schema":... }` per ADR-006@0.1.0 forced-output guardrail. Per-site
 schemas defined in TKT-022@0.1.0 (C16) and TKT-023@0.1.0 / TKT-029@0.1.0 / TKT-030@0.1.0 / TKT-031@0.1.0 (C17/C18/C19/C20).
 
 ## Why the losers lost (one sentence each)
@@ -196,9 +197,9 @@ schemas defined in TKT-022@0.1.0 (C16) and TKT-023@0.1.0 / TKT-029@0.1.0 / TKT-0
 - **DeepSeek-V4-Pro** ($1.74 in / $3.48 out): premium price for capabilities exceeding the
   modality-extraction problem; reserved for future high-stakes prompts (e.g. PRD-NEXT
   proactive coaching).
-- **GLM 5.1** ($1.40 in / $4.40 out): strong but used by Executor pipeline default
+- **executor** ($1.40 in / $4.40 out): strong but used by Executor pipeline default
   (`docs/AGENTS.md`) — keep separation of concerns (runtime LLM ≠ executor LLM).
-- **Kimi K2.6 as default** ($0.95 in / $4.00 out): strong but used by Reviewer pipeline —
+- **reviewer as default** ($0.95 in / $4.00 out): strong but used by Reviewer pipeline —
   same separation; reserved as fallback only for C20 mood (the hardest open-text site).
 - **OpenRouter free as defaults**: rate limits + variable availability are unsuitable for
   user-facing latency budgets; reserved as emergency-only for C16.

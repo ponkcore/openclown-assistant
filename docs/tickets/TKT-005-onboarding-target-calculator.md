@@ -1,20 +1,23 @@
 ---
 id: TKT-005
-title: "Onboarding Target Calculator"
+title: Onboarding Target Calculator
 status: done
 arch_ref: ARCH-001@0.3.1
-component: "C2 Onboarding and Target Calculator"
-depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-004@0.1.0"]
-blocks: ["TKT-009@0.1.0", "TKT-011@0.1.0", "TKT-014@0.1.0"]
+component: C2 Onboarding and Target Calculator
+depends_on:
+- TKT-001@0.1.0
+- TKT-002@0.1.0
+- TKT-004@0.1.0
+blocks:
+- TKT-009@0.1.0
+- TKT-011@0.1.0
+- TKT-014@0.1.0
 estimate: M
-assigned_executor: "glm-5.1"
 created: 2026-04-26
 updated: 2026-04-30
 closed_at: 2026-04-30
-closed_by: "orchestrator (PO-delegated)"
-closure_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/34"
-closure_commit: "6d82512"
-review_ref: "RV-CODE-005"
+closed_by: orchestrator (PO-delegated)
+review_ref: null
 ---
 
 # TKT-005: Onboarding Target Calculator
@@ -75,26 +78,3 @@ Implement deterministic onboarding state handling with KBJU target calculation.
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body
 - [ ] Executor filled §10 Execution Log
 - [ ] Ticket frontmatter `status: in_review` in a separate commit
-
-## 9. Questions (empty at creation; Executor appends here ONLY if blocked — do NOT start code)
-<!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-005-NN.md -->
-
-## 10. Execution Log (Executor fills as work proceeds)
-<!-- YYYY-MM-DD HH:MM model-id: started -->
-<!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
-2026-04-29 01:00 glm-5.1: claimed TKT-005@0.1.0 — status ready → in_progress
-2026-04-29 02:00 glm-5.1: implemented all 6 §5 Outputs, all ACs green, PR #34 opened, status → in_review
-2026-04-29 03:00 glm-5.1: NUDGE iter-2 — fixed F-H1 + F-M2 + F-M3 + F-M4 per RV-CODE-005; F-M1 + F-L1..L4 deferred to follow-up TKTs per PO
-2026-04-29 21:51 glm-5.1: iter-3 — fix F-H2 (remove redundant 2nd updateStateWithVersionCheck; use updatedState), F-M5 (UNIVERSAL_TIMEZONE_ALIASES allowlist for UTC/Etc/UTC/GMT/Etc/GMT), F-M6 (mock validates expectedVersion); F-M1 + F-L1..L4 + 4 panel flags PO-deferred to TKT-NEW-A/B/D
-2026-04-30 10:00 orchestrator: PR #34 squash-merged at commit 6d82512; PR #35 RV-CODE-005 squash-merged at commit 2eabc14 with iter-4 verdict pass_with_changes; TKT-005@0.1.0 status in_review → done; review_ref RV-CODE-005 pinned; deferred findings (F-M1, F-L1..L4, FLAG_2/4/5/7, plus 2 Devin Review additions: Intl.supportedValuesOf memo + persistOnboardingCompletion race UX) tracked in TKT-NEW-A/B/C/D briefs
-
----
-
-## Handoff Checklist
-- [x] Goal is one sentence, no conjunctions
-- [x] NOT-In-Scope has ≥1 explicit item
-- [x] Acceptance Criteria are machine-checkable (no "looks good")
-- [x] Constraints explicitly list forbidden actions
-- [x] All ArchSpec / ADR references are version-pinned
-- [x] `depends_on` accurately reflects prerequisites; no cycles
-- [x] `assigned_executor` is justified (especially Codex — explain why GLM cannot)

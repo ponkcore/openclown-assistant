@@ -1,13 +1,12 @@
 ---
 id: TKT-XXX
-title: ""
-status: draft              # draft | ready | in_progress | in_review | done | blocked
+title: ''
+status: draft
 arch_ref: ARCH-XXX@X.Y.Z
-component: ""
+component: ''
 depends_on: []
 blocks: []
-estimate: S                # S | M | L
-assigned_executor: "glm-5.1"
+estimate: S
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---

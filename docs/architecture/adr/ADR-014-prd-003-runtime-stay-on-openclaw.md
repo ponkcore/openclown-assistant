@@ -1,18 +1,15 @@
 ---
 id: ADR-014
-title: "PRD-003 runtime decision: stay on openclaw (ARCH-001 extension)"
+title: 'PRD-003 runtime decision: stay on openclaw (ARCH-001 extension)'
 status: proposed
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
-author_model: "claude-opus-4.7-thinking"
-reviewer_models:
-  - "kimi-k2.6"
-review_refs: []
 source_inputs:
-  - "ROADMAP-001@0.1.0 §1.4 PO research mandate (~27 URLs across 5 clusters)"
-  - "ROADMAP-001@0.1.0 §5 Q-RM-7 ratification (architect chooses)"
-  - "ROADMAP-001@0.1.0 §5 Q-RM-9 EXPANSION (PO authorised PRD-002/003 redo if research demands)"
-  - "ARCH-001@0.5.0 §0.5 prior six-runtime audit (PR-C v0.5.0)"
+- ROADMAP-001@0.1.0 §1.4 PO research mandate (~27 URLs across 5 clusters)
+- ROADMAP-001@0.1.0 §5 Q-RM-7 ratification (architect chooses)
+- ROADMAP-001@0.1.0 §5 Q-RM-9 EXPANSION (PO authorised PRD-002/003 redo if research
+  demands)
+- ARCH-001@0.5.0 §0.5 prior six-runtime audit (PR-C v0.5.0)
 created: 2026-05-06
 updated: 2026-05-06
 ---
@@ -27,7 +24,7 @@ research clusters (Hermes Agent primary + community, OpenClaw primary + communit
 forks) and report whether the current runtime lock under PRD-001@0.2.0 §7 should remain, be
 expanded, or be replaced. ROADMAP-001@0.1.0 §5 Q-RM-7 ratification defers the choice to the
 Architect at this dispatch. Q-RM-9 EXPANSION (session-log
-`docs/session-log/2026-05-06-session-2.md` §6) further authorises the Architect to recommend
+the orchestrator session log §6) further authorises the Architect to recommend
 redoing PRD-002@0.2.1 + PRD-003@0.1.3 entirely if research demands.
 
 The runtime question is binary at the artifact level: either ARCH-001@0.6.0 extends the
@@ -249,9 +246,9 @@ This is captured as **Q_TO_BUSINESS_1** in ARCH-001@0.6.0 §12.
 ## References
 
 - ROADMAP-001@0.1.0 §1.4 PO research mandate (verbatim cluster headers + URLs)
-  <https://github.com/OpenClown-bot/openclown-assistant/blob/main/docs/roadmap/ROADMAP-001-v0-2-and-beyond.md>
+  (`docs/roadmap/ROADMAP-001-v0-2-and-beyond.md`)
 - ROADMAP-001@0.1.0 §5.10 Q-RM ratification log; Q-RM-7, Q-RM-9 + Q-RM-9 EXPANSION
-  per `docs/session-log/2026-05-06-session-2.md` §6
+  per the orchestrator session log §6
 - Hermes Agent — primary docs: <https://hermes-agent.nousresearch.com/>,
   <https://hermes-agent.nousresearch.com/docs/user-guide/features/skills>,
   <https://hermes-agent.nousresearch.com/docs/user-guide/getting-started/installation>

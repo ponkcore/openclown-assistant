@@ -1,6 +1,6 @@
 # Product Requirements Documents (PRDs)
 
-Owner: **Business Planner** (GPT-5.5 thinking via ChatGPT Plus web).
+Owner: **Business Planner** (planner via ChatGPT Plus web).
 
 ## Rules
 

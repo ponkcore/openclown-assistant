@@ -2,8 +2,7 @@
 id: RV-SPEC-ARCH-XXX
 type: spec_review
 target_ref: ARCH-XXX@X.Y.Z
-status: in_review          # in_review | approved | changes_requested
-reviewer_model: "kimi-k2.6"
+status: in_review
 created: YYYY-MM-DD
 ---
 

@@ -1,9 +1,8 @@
 ---
 id: ADR-004
-title: "Qwen VL Photo Recognition"
+title: Qwen VL Photo Recognition
 status: proposed
 arch_ref: ARCH-001@0.2.0
-author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
 superseded_by: null
@@ -21,9 +20,9 @@ ARCH-001@0.2.0 C7 must convert Telegram meal photos into candidate food items, p
 - Cons (concrete, with sources): Vision-language models can be prompt-injected by image content; OWASP identifies multimodal prompt injection as a specific risk (<https://genai.owasp.org/llmrisk/llm01-prompt-injection/>). Portion estimation from a single image is inherently uncertain, so every result must remain a draft.
 - Cost / latency / ops burden: With a conservative 6,000 image/input tokens and 800 output tokens, listed model cost is about $0.00138/photo; 120 photos/month is about $0.17. Ops burden is medium due schema validation and photo deletion.
 
-### Option B: Fireworks Kimi K2.6 vision model
-- Description: Use Kimi K2.6 for meal photo understanding.
-- Pros: Fireworks lists Kimi K2.6 as a vision-capable model with 262,144 context (<https://fireworks.ai/models>). It may produce stronger reasoning for ambiguous multi-item plates.
+### Option B: Fireworks reviewer vision model
+- Description: Use reviewer for meal photo understanding.
+- Pros: Fireworks lists reviewer as a vision-capable model with 262,144 context (<https://fireworks.ai/models>). It may produce stronger reasoning for ambiguous multi-item plates.
 - Cons: Listed pricing is $0.95/M input and $4/M output, about 6.3x to 6.7x Option A for comparable token volumes. It is overkill when photo logs are always confirmation-gated.
 - Cost / latency / ops burden: Same 6,000 + 800 token call costs about $0.0089/photo; 120 photos/month is about $1.07.
 
