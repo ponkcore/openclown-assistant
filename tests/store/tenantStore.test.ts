@@ -58,6 +58,8 @@ const expectedTenantStoreMethods = [
   "incrementMonthlySpend",
   "upsertFoodLookupCache",
   "createKbjuAccuracyLabel",
+  "getModalitySettings",
+  "setModalitySetting",
 ] as const satisfies readonly (keyof TenantStore)[];
 
 describe("tenant store typing and transactions", () => {

@@ -71,6 +71,8 @@ function makeStubStore(): TenantStore {
     incrementMonthlySpend: vi.fn().mockResolvedValue({ id: "msc1", user_id: AUTHENTICATED_USER }),
     upsertFoodLookupCache: vi.fn().mockResolvedValue({ id: "flc1", user_id: AUTHENTICATED_USER }),
     createKbjuAccuracyLabel: vi.fn().mockResolvedValue({ id: "kal1", user_id: AUTHENTICATED_USER }),
+    getModalitySettings: vi.fn().mockResolvedValue(null),
+    setModalitySetting: vi.fn().mockResolvedValue({ oldValue: true, newValue: false }),
   };
 }
 
