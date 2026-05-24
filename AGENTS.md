@@ -19,7 +19,7 @@ PO → Sisyphus orchestrator (opencode)   ← invoked once per PRD by `/prd-run`
             │
             ├── executor subagent     (writes code per one TKT, one PR)
             ├── reviewer subagent     (reviews PR, writes RV-CODE-NNN.md)
-            └── architect-consult     (read-only; called rarely on edge cases)
+            └── architect-consult     (write-enabled in docs/architecture; auto-called on RV-CODE escalate-to-architect)
                                         │
                                         ▼
                                    merged on `main`
@@ -35,7 +35,7 @@ PO → Sisyphus orchestrator (opencode)   ← invoked once per PRD by `/prd-run`
 | Sisyphus orchestrator | opencode + oh-my-openagent on PO's machine | `docs/tickets/` (frontmatter promotion only), `docs/reviews/` (via reviewer subagent), `docs/questions/`, `docs/backlog/` | `/prd-run PRD-NNN@X.Y.Z` |
 | Executor (subagent of Sisyphus) | opencode subagent | `src/`, `tests/`, `packages/`, the assigned ticket's `§5 Outputs` files only, ticket frontmatter `status` and `§10 Execution Log` | Spawned by Sisyphus per TKT |
 | Reviewer (subagent of Sisyphus) | opencode subagent (must run on a model from a different family than the executor) | `docs/reviews/` only | Spawned by Sisyphus per PR |
-| Architect-consult (subagent of Sisyphus) | opencode subagent | Read-only — never edits any file | Spawned by Sisyphus on edge cases only |
+| Architect-consult (subagent of Sisyphus) | opencode subagent | `docs/architecture/**`, `docs/backlog/**`, `docs/questions/**` only — never `src/`, `tests/`, tickets, PRDs, ROADMAP, prompts, knowledge, repo config | Auto-called by Sisyphus when reviewer flags an ArchSpec/ADR-localised contract failure (`recommendation: escalate-to-architect`), or when an executor BLOCKED Q-file cites a contradiction in design artefacts. May patch ArchSpec, bump patch version, write new ADRs, log backlog. Returns `confidence: low` when the gap is too wide; PO escalates externally. |
 
 The **Business Planner** and **Technical Architect** are not bound to any specific model. The PO decides per session (ChatGPT Plus web, Claude Opus thinking, Codex CLI, opencode, etc.). Their prompts live at `docs/prompts/business-planner.md` and `docs/prompts/architect.md` and are runtime-agnostic.
 

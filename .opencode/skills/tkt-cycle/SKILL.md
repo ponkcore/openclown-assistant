@@ -114,6 +114,10 @@ Wait for the reviewer's hand-back.
 ## Step 4 — verdict routing
 
 - **fail**: dispatch the executor again with `subagent: executor`, prompt = "address findings F-H1..F-Hn and F-M1..F-Mm in docs/reviews/RV-CODE-NNN-*.md; do not change anything else; iterate on the same branch". After executor returns, dispatch the reviewer again. Cap at **3 review iterations**. If still failing after 3, stop and surface to the user with a summary of the still-open Highs.
+- **fail with `recommendation: escalate-to-architect`**: do NOT dispatch the executor and do NOT stop. The reviewer's signal is that the failing finding lives in the design artefacts (ArchSpec / ADR), not in the diff. Auto-call the `architect-consult` subagent per the `prd-orchestration` skill's `## Architect-consult auto-call protocol`, even when running outside a PRD walk (i.e. `/tkt-run` invoked solo). Three possible architect-consult outcomes:
+   - **arch PR opened, `confidence: high`, `merge-arch-pr-then-iterate-ticket`**: review the arch PR (CI green, validator clean), squash-merge to `main`, `git pull` locally, then re-dispatch the executor on the original ticket branch with prompt "rebase on `main`; the ArchSpec / ADR has been corrected; address findings F-H1..F-Hn now". Re-dispatch reviewer. Cap counts as one iteration toward the 3-review-iteration limit.
+   - **backlog entry only, `confidence: medium`, `accept-with-backlog`**: degrade the original High finding to Medium (the code was right, the spec was the issue). Backlog the deeper fix. Proceed to step 5 with verdict reframed as `pass_with_changes`.
+   - **`confidence: low`, `pause-and-escalate-to-po`**: stop the cycle, surface architect-consult's hand-back + RV file + PR to the user, do not loop, do not partially complete.
 - **pass_with_changes**: judgement call. If all findings are Medium and concern style or local refactor, you may proceed to merge AND log a follow-up backlog entry under `docs/backlog/` with each Medium finding. If a Medium finding concerns correctness or a missed §6 AC, dispatch the executor for one more iteration and then re-review.
 - **pass**: → step 5.
 
@@ -157,13 +161,14 @@ Tell the user:
 
 ## Stop conditions (do not autonomously proceed)
 
-- Executor returns BLOCKED (Q-file).
+- Executor returns BLOCKED (Q-file) AND the contradiction is NOT localised to ArchSpec/ADR text. If it IS localised (typo, spec-vs-implementation drift, missing constraint), auto-call architect-consult per step 4 instead of stopping.
 - Reviewer returns 3 consecutive `fail`s.
 - CI is red after the executor's third iteration.
 - Ticket modifies a file outside `§5 Outputs` and the executor does not self-correct.
 - Merge would target anything other than `main`.
 - A `gh pr merge` would require `--admin` or branch protection bypass.
 - The ticket's `arch_ref` points to a non-`approved` ArchSpec.
+- Architect-consult returns `confidence: low` (twice on the same cycle).
 
 In every stop condition: produce a clear summary to the user, do not loop, do not partially complete.
 
