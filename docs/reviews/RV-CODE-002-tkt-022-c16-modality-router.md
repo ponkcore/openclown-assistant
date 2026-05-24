@@ -153,3 +153,96 @@ The `createC16WrappedTextHandler` (factory.ts:78) accepts `c4Detector: (text: st
 - On parse error: both loaders preserve `lastValidConfig` and emit a `logger.warn` with the file path and error message. ✅
 - `close()` calls `fs.unwatchFile`. ✅
 - Hot-reload tests (router.hot-reload.test.ts:1–242): 10 tests covering initial load, config update via atomic rename, malformed config preservation, fs.watchFile close, and live reload within ≤30s. ✅
+
+## Iteration 2 verdict (Reviewer, 2026-05-24)
+
+### Iter-2 diff scope
+
+Commit `04f798f` ("TKT-022 iter2: address RV-CODE-002 F-M1/F-M2/F-M3") touches 8 files:
+
+| File | Change |
+|---|---|
+| `src/sidecar/factory.ts` | +76 lines: new `createC16ConfigLoaders` helper + `createSidecarDeps` now wires `createC16WrappedTextHandler` with `defaultC4KbjuDetector` and `classifyViaLLM` |
+| `src/modality/router.ts` | +42 lines: exports `defaultC4KbjuDetector` + `FOOD_KEYWORD_LEMMAS` (19 food-keyword lemmas) |
+| `src/modality/router-classifier.ts` | +8 lines: extra-key guardrail in `parseClassifierOutput` |
+| `config/modality-router.json` | −305 / +36 lines: dedup WATER/SLEEP/WORKOUT/MOOD entries, compact format, trailing newline |
+| `tests/modality/router.integration.test.ts` | +291 lines (new): 8 integration tests via `createC16WrappedTextHandler` + `createSidecarDeps` |
+| `tests/modality/router-classifier.test.ts` | +37 lines: extra-key rejection test |
+| `docs/tickets/TKT-022-c16-modality-router.md` | +1 line (execution log append — allowed) |
+| `docs/reviews/RV-CODE-002-tkt-022-c16-modality-router.md` | New file (iter-1 review — allowed) |
+
+No new runtime deps. No files outside §5 Outputs touched (ticket + review exempt). All contract gates still green from iter-1.
+
+### F-M1: production wiring + integration test — **CLOSED**
+
+**Evidence:**
+
+1. **Wiring.** `createSidecarDeps` (`factory.ts:218–231`) now calls `createC16WrappedTextHandler` for both `textMeal` and `voiceMeal` handlers, passing:
+   - `defaultC4KbjuDetector` (exported from `router.ts:185`) as the C4 detector
+   - `classifyViaLLM` (imported from `router-classifier.ts:8`) as the LLM classifier
+   - Real config loaders (`ModalityRouterConfigLoader` + `ClassifierConfigLoader`) via `createC16ConfigLoaders` (`factory.ts:142–174`)
+   - Graceful degradation: if either config file fails to load, the function logs a warning and falls back to un-wrapped stub handlers.
+
+2. **C4 detector delegation check.** `defaultC4KbjuDetector` (`router.ts:160–188`) defines a `FOOD_KEYWORD_LEMMAS` list of 19 food-keyword lemmas and tests them via `buildMatcherRegex`. This IS an inline keyword list, NOT a delegation to an existing C4 detection function. However, inspection of the C4 module (`src/meals/mealOrchestrator.ts`, `src/kbju/foodLookup.ts`, `src/kbju/kbjuEstimator.ts`) confirms that **no existing C4 food-keyword detection function exists** — C4 does LLM-based estimation via OmniRoute/USDA/OpenFoodFacts APIs, not keyword matching. The executor had no existing function to delegate to. The ticket §3 NOT-In-Scope says "Modification of C4 KBJU pattern set" — `defaultC4KbjuDetector` creates a NEW function in C16 without modifying any C4 file. The comment at `router.ts:157` ("Per TKT-022 §7: C4 pattern set is read-only; this function mirrors the C4 trigger keywords without modifying the C4 module itself") accurately describes the situation. This is **acceptable** — not a §3 violation.
+
+3. **Integration tests.** `tests/modality/router.integration.test.ts` (291 lines, 8 test cases):
+   - `createC16WrappedTextHandler` with WATER ("выпил 200мл") → deterministic_single, original handler called ✅
+   - SLEEP ("спал 7 часов") → deterministic_single ✅
+   - WORKOUT ("бегал 5 км") → deterministic_single ✅
+   - MOOD ("настроение 7/10") → deterministic_single ✅
+   - KBJU ("съел 200г творога") → deterministic_single via C4 detector ✅
+   - AMBIGUOUS → clarifying keyboard reply ✅
+   - Metric emission (`kbju_modality_route_outcome`) ✅
+   - `createSidecarDeps` production wiring smoke test ✅
+
+### F-M2: config dedup — **CLOSED**
+
+**Evidence:**
+
+- WATER: two `вод` entries merged into one (`config/modality-router.json:10`). Suffix set union: `["а","ы","у","ой","ою","е","ами","ах"]` — the "ой" duplicate from the second entry is absorbed. ✅
+- SLEEP: two `спал` entries merged into one (`config/modality-router.json:19`). Suffixes: `["","а","и"]` (superset of `["","а","и"]` ∪ `["а"]`). ✅
+- SLEEP `снов`: two entries merged into one (`config/modality-router.json:25`). Suffixes: `["","а","у"]` (superset of `["","а","у"]` ∪ `[]`). ✅
+- File reformatted to compact JSON (one pattern per line). Trailing newline added (F-L4 also resolved as side effect). ✅
+- Golden test file (`router.golden.test.ts`) was NOT modified in iter-2 — the 55 golden test cases (34 deterministic + 21 LLM-fallback) are unmodified. The config preserves all patterns; dedup removed only duplicates. Golden tests remain valid. ✅
+
+### F-M3: schema strictness — **CLOSED**
+
+**Evidence:**
+
+1. **Code.** `parseClassifierOutput` (`router-classifier.ts:103–108`) now has:
+   ```typescript
+   const allowedKeys = new Set(["label", "confidence"]);
+   const objKeys = Object.keys(obj);
+   if (objKeys.length !== 2 || !objKeys.every((k) => allowedKeys.has(k))) {
+     return null;
+   }
+   ```
+   This rejects `{label:"WATER",confidence:0.8,reason:"..."}` (3 keys) and `{label:"WATER",confidence:0.8,label:"X"}` (duplicate key, still 2 keys but `Object.keys` returns unique). ✅
+
+2. **Test.** `router-classifier.test.ts:409–445` ("rejects LLM output with extra keys beyond {label, confidence} (ADR-006 guardrail)"): mocks all three OmniRoute tiers to return `{"label":"WATER","confidence":0.8,"reason":"user said water"}` → `parseClassifierOutput` rejects on every tier → `classifyViaLLM` returns `AMBIGUOUS` with `modelTier: "failure"`. ✅
+
+### New findings introduced by iter-2
+
+**None.** The iter-2 changes are clean and targeted. No new High, Medium, or Low findings.
+
+### Existing Low findings status
+
+- F-L1 (redundant `\s` in lookbehind): untouched, remains Low.
+- F-L2 (misleading `classifierResult` in golden test): untouched, remains Low.
+- F-L3 (`message_text` vs `message_text_ru` naming): untouched, remains Low.
+- F-L4 (missing trailing newline in config): **resolved as side effect** of F-M2 reformatting.
+
+Iteration-2 status:
+- F-M1: closed
+- F-M2: closed
+- F-M3: closed
+
+New findings introduced by iter-2 (if any):
+- none
+
+Updated overall verdict:
+- [ ] pass
+- [x] pass_with_changes (Lows F-L1..F-L3 still standing; backlog after merge)
+- [ ] fail
+
+Recommendation to PO: **merge** — all three Mediums are properly closed, no new issues. Low findings F-L1–F-L3 are non-blocking backlog items.
