@@ -3,7 +3,6 @@ description: Reviews a single Ticket-PR for contract compliance, correctness, an
 mode: subagent
 model: xiaomi-token-plan-sgp/mimo-v2.5-pro
 reasoningEffort: high
-maxTokens: 32000
 permission:
   edit:
     docs/reviews/**: allow

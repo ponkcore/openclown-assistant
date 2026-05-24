@@ -14,6 +14,12 @@
   //   executor (GLM 5.1, Chinese-Claude-like)  ≠
   //   reviewer (MiMo 2.5 Pro, Chinese-reasoning-first)
   // Sisyphus and architect-consult on Opus give Anthropic-side triangulation.
+  //
+  // Note: opencode does not support a `maxTokens` agent field. Any unknown
+  // field is passed straight through to the provider as a model option, and
+  // Fireworks / Anthropic / xiaomi reject `maxTokens` since the wire-format
+  // name is `max_tokens` (snake_case, OpenAI/Anthropic SDK convention).
+  // We do not pin output limits here — provider defaults are fine.
 
   "agents": {
     // ─── Primary agents (UI/CLI tab-cyclable) ────────────────────────────
@@ -23,8 +29,7 @@
     // Sisyphus's ~1100-line prompt better than reasoning-first models.
     "sisyphus": {
       "model": "omniroute/claude-opus-4.7",
-      "reasoningEffort": "high",
-      "maxTokens": 32000
+      "reasoningEffort": "high"
     },
 
     // Deep autonomous worker (AmpCode/Codex style). GPT-native by design;
@@ -34,8 +39,7 @@
     "hephaestus": {
       "model": "fireworks-ai/accounts/fireworks/models/deepseek-v4-pro",
       "variant": "max",
-      "reasoningEffort": "high",
-      "maxTokens": 32000
+      "reasoningEffort": "high"
     },
 
     // Strategic planner with interview mode. Not used by our standard pipeline
@@ -43,16 +47,14 @@
     // available if you ever want to plan a one-off effort inside opencode.
     "prometheus": {
       "model": "omniroute/claude-opus-4.7",
-      "reasoningEffort": "high",
-      "maxTokens": 32000
+      "reasoningEffort": "high"
     },
 
     // Todo-list orchestrator (executes Prometheus plans via /start-work).
     // Not in our standard pipeline. GLM 5.1 is plenty: Atlas mostly walks a
     // todo list and delegates, doesn't need top-tier reasoning.
     "atlas": {
-      "model": "fireworks-ai/accounts/fireworks/models/glm-5p1",
-      "maxTokens": 32000
+      "model": "fireworks-ai/accounts/fireworks/models/glm-5p1"
     },
 
     // ─── Subagents (invoked via task / call_omo_agent) ───────────────────
@@ -63,52 +65,45 @@
     "oracle": {
       "model": "fireworks-ai/accounts/fireworks/models/deepseek-v4-pro",
       "variant": "max",
-      "reasoningEffort": "high",
-      "maxTokens": 32000
+      "reasoningEffort": "high"
     },
 
     // Multi-repo / docs / OSS lookup. Retrieval-style work — speed and big
     // context matter more than IQ. Kimi K2.6's 256K context fits nicely.
     "librarian": {
-      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6",
-      "maxTokens": 16000
+      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6"
     },
 
     // Fast codebase grep through AI. Same profile as librarian.
     "explore": {
-      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6",
-      "maxTokens": 16000
+      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6"
     },
 
     // Vision agent (PDFs, screenshots, diagrams). Kimi K2.6 has native vision
     // (MoonViT, 400M params) and image+video input — no need for a separate
     // vision-specialist provider.
     "multimodal-looker": {
-      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6",
-      "maxTokens": 16000
+      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6"
     },
 
     // Plan gap analyzer (pre-Prometheus output review). Not in our pipeline;
     // kept available for ad-hoc planning sessions.
     "metis": {
-      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6",
-      "maxTokens": 32000
+      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6"
     },
 
     // Plan reviewer ("ruthless"). MiMo's reasoning-first profile matches the
     // role. Same model family as our reviewer subagent — internally consistent.
     "momus": {
       "model": "xiaomi-token-plan-sgp/mimo-v2.5-pro",
-      "reasoningEffort": "high",
-      "maxTokens": 32000
+      "reasoningEffort": "high"
     },
 
     // Default category executor when Sisyphus delegates via task(category=...).
     // Most categories below override this with role-appropriate models;
     // GLM 5.1 is the safe baseline when no category is specified.
     "sisyphus-junior": {
-      "model": "fireworks-ai/accounts/fireworks/models/glm-5p1",
-      "maxTokens": 32000
+      "model": "fireworks-ai/accounts/fireworks/models/glm-5p1"
     }
   },
 
@@ -119,15 +114,13 @@
     // mockups directly. Not a Gemini-class visual specialist, but adequate
     // for our backend-heavy project where this category is rare.
     "visual-engineering": {
-      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6",
-      "maxTokens": 32000
+      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6"
     },
 
     // Maximum reasoning. MiMo's reasoning-first profile fits exactly.
     "ultrabrain": {
       "model": "xiaomi-token-plan-sgp/mimo-v2.5-pro",
-      "reasoningEffort": "high",
-      "maxTokens": 32000
+      "reasoningEffort": "high"
     },
 
     // Deep coding / complex logic. DeepSeek V4 Pro max gives autonomous
@@ -135,36 +128,31 @@
     "deep": {
       "model": "fireworks-ai/accounts/fireworks/models/deepseek-v4-pro",
       "variant": "max",
-      "reasoningEffort": "high",
-      "maxTokens": 32000
+      "reasoningEffort": "high"
     },
 
     // Trivial single-file edits, typos, simple modifications. GLM 5.1 is
     // the cheap-fast option that still knows the codebase.
     "quick": {
-      "model": "fireworks-ai/accounts/fireworks/models/glm-5p1",
-      "maxTokens": 16000
+      "model": "fireworks-ai/accounts/fireworks/models/glm-5p1"
     },
 
     // Unclassified medium-effort work. Kimi K2.6 default.
     "unspecified-low": {
-      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6",
-      "maxTokens": 32000
+      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6"
     },
 
     // Unclassified high-effort work. Goes to the highest-quality model in
     // our roster.
     "unspecified-high": {
       "model": "omniroute/claude-opus-4.7",
-      "reasoningEffort": "high",
-      "maxTokens": 32000
+      "reasoningEffort": "high"
     },
 
     // Documentation, prose, technical writing. Kimi K2.6 — Moonshot tunes
     // these models for natural-language production.
     "writing": {
-      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6",
-      "maxTokens": 32000
+      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p6"
     }
 
     // `artistry` left to inherit globals — not relevant for this project.
