@@ -4,7 +4,7 @@ import type { QueryResultRow } from "pg";
 import type { TenantQueryable } from "./tenantStore.js";
 
 export const TENANT_STORE_SCHEMA_COMPONENT = "C3 Tenant-Scoped Store";
-export const TENANT_STORE_SCHEMA_VERSION = "TKT-002@0.1.0";
+export const TENANT_STORE_SCHEMA_VERSION = "TKT-021@0.1.0";
 
 export interface RunMigrationsOptions {
   schemaPath?: string;
@@ -38,6 +38,17 @@ export async function runMigrations(db: TenantQueryable, options: RunMigrationsO
   // partial failure, re-running runMigrations is safe because every
   // CREATE / ALTER is idempotent.
   await db.query(schemaSql);
+
+  // Apply additive migration files from migrations/ directory.
+  // Each file is idempotent (IF NOT EXISTS guards) and is applied
+  // in sorted order. These files duplicate DDL already in schema.sql
+  // so that the migrations/ directory serves as a standalone
+  // migration path for incremental deployments.
+  const migrationFiles = await loadMigrationFiles();
+  for (const sql of migrationFiles) {
+    await db.query(sql);
+  }
+
   await validateSchemaVersion(db, options.expectedVersion ?? TENANT_STORE_SCHEMA_VERSION);
 }
 
@@ -53,6 +64,24 @@ export async function validateSchemaVersion(
   if (observedVersion !== expectedVersion) {
     throw new SchemaVersionError(expectedVersion, observedVersion);
   }
+}
+
+async function loadMigrationFiles(): Promise<string[]> {
+  const migrationsDir = resolve(process.cwd(), "migrations");
+  let entries: string[];
+  try {
+    const { readdir } = await import("node:fs/promises");
+    entries = (await readdir(migrationsDir)).filter((e) => e.endsWith(".sql")).sort();
+  } catch {
+    // migrations/ directory is optional; if it does not exist, return empty
+    return [];
+  }
+  const sqls: string[] = [];
+  for (const entry of entries) {
+    const sql = await readFile(resolve(migrationsDir, entry), "utf8");
+    sqls.push(sql);
+  }
+  return sqls;
 }
 
 async function loadSchemaSql(schemaPath?: string): Promise<string> {

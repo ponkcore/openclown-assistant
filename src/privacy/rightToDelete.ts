@@ -89,6 +89,14 @@ export function createDeletionSqlByTable(): Record<string, string> {
     confirmed_meals: "DELETE FROM confirmed_meals WHERE user_id = $1",
     meal_drafts: "DELETE FROM meal_drafts WHERE user_id = $1",
     transcripts: "DELETE FROM transcripts WHERE user_id = $1",
+    // PRD-003@0.1.3 §5 US-7 modality tables (TKT-021)
+    water_events: "DELETE FROM water_events WHERE user_id = $1",
+    sleep_records: "DELETE FROM sleep_records WHERE user_id = $1",
+    sleep_pairing_state: "DELETE FROM sleep_pairing_state WHERE user_id = $1",
+    workout_events: "DELETE FROM workout_events WHERE user_id = $1",
+    mood_events: "DELETE FROM mood_events WHERE user_id = $1",
+    modality_settings_audit: "DELETE FROM modality_settings_audit WHERE user_id = $1",
+    modality_settings: "DELETE FROM modality_settings WHERE user_id = $1",
     users: "DELETE FROM users WHERE id = $1",
   };
 }

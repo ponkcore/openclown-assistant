@@ -2,7 +2,7 @@
 id: TKT-021
 title: PRD-003 modality data model migrations + RLS + right-to-delete cascade
 version: 0.1.0
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C-data-model
@@ -80,3 +80,8 @@ Land the four modality storage schemas (water / sleep / workout / mood) plus the
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
 - [ ] Executor filled §10 Execution Log.
 - [ ] Ticket frontmatter `status: in_review` in a separate commit.
+
+## 10. Execution Log
+- 2026-05-24T21:55:00Z opencode-executor: started
+- 2026-05-24T22:00:00Z opencode-executor: all outputs implemented; tests 20 pass (12 modality_schema + 8 right_to_delete); lint clean; typecheck clean
+- 2026-05-24T22:01:00Z opencode-executor: in_review; tests 20 pass; lint clean; typecheck clean

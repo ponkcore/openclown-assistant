@@ -130,6 +130,13 @@ function createMockRightToDeleteRepository(
             monthly_spend_counters: 1,
             food_lookup_cache: 1,
             kbju_accuracy_labels: 1,
+            water_events: 1,
+            sleep_records: 1,
+            sleep_pairing_state: 1,
+            workout_events: 1,
+            mood_events: 1,
+            modality_settings_audit: 1,
+            modality_settings: 1,
             users: 1,
           };
         },
