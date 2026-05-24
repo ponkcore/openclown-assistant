@@ -100,6 +100,14 @@ function parseClassifierOutput(raw: string, allowedSet: readonly ModalityLabel[]
     return null;
   }
 
+  // Per ADR-006@0.1.0 forced-output guardrail: reject responses with extra keys.
+  // Only {label, confidence} is allowed — no unexpected content in the routing path.
+  const allowedKeys = new Set(["label", "confidence"]);
+  const objKeys = Object.keys(obj);
+  if (objKeys.length !== 2 || !objKeys.every((k) => allowedKeys.has(k))) {
+    return null;
+  }
+
   return { label, confidence };
 }
 

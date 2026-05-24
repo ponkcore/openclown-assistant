@@ -117,6 +117,8 @@ export const CLARIFYING_KEYBOARD_CALLBACK_DATA: readonly string[] = [
 
 export type C4KbjuDetector = (text: string) => boolean;
 
+
+
 // ── Deterministic matcher ─────────────────────────────────────────────────
 
 /**
@@ -147,6 +149,46 @@ function buildMatcherRegex(pattern: MatcherPattern): RegExp {
  * For chains with delegateToC4=true, use the C4 detector hook.
  * For keyword chains, test all patterns (OR semantics: any match fires).
  */
+/**
+ * Default C4 KBJU detector. Uses the same food-word keyword matching
+ * that the C4 Meal Orchestrator applies to inbound text. This is the
+ * built-in implementation used when no custom C4 detector is injected.
+ *
+ * Per TKT-022 §7: C4 pattern set is read-only; this function mirrors
+ * the C4 trigger keywords without modifying the C4 module itself.
+ */
+export const FOOD_KEYWORD_LEMMAS: readonly MatcherPattern[] = [
+  { lemma: "съел", suffixPatterns: ["", "а", "и"] },
+  { lemma: "ел", suffixPatterns: ["", "а", "и"] },
+  { lemma: "куриц", suffixPatterns: ["а", "е", "ей", "у", "ы"] },
+  { lemma: "рис", suffixPatterns: ["", "а", "у", "ом", "е"] },
+  { lemma: "творог", suffixPatterns: ["", "а", "у", "е"] },
+  { lemma: "кефир", suffixPatterns: ["", "а", "у", "е"] },
+  { lemma: "хлеб", suffixPatterns: ["", "а", "у", "е"] },
+  { lemma: "мяс", suffixPatterns: ["о", "а", "у", "е"] },
+  { lemma: "рыб", suffixPatterns: ["а", "у", "е", "ы"] },
+  { lemma: "яблок", suffixPatterns: ["о", "а", "у", "и"] },
+  { lemma: "банан", suffixPatterns: ["", "а", "у", "ы"] },
+  { lemma: "каш", suffixPatterns: ["а", "у", "и", "е"] },
+  { lemma: "молок", suffixPatterns: ["о", "а", "у", "е"] },
+  { lemma: "грамм", suffixPatterns: ["", "а", "ы", "ов"] },
+  { lemma: "ккал" },
+  { lemma: "белк", suffixPatterns: ["", "а", "и", "ов"] },
+  { lemma: "жир", suffixPatterns: ["", "а", "у", "ы"] },
+  { lemma: "углевод", suffixPatterns: ["", "а", "ы", "ов"] },
+  { lemma: "г." },
+];
+
+// Pre-compiled regexes for default C4 detection (built once)
+const _c4Regexes: RegExp[] = FOOD_KEYWORD_LEMMAS.map((p) => buildMatcherRegex(p));
+
+export function defaultC4KbjuDetector(text: string): boolean {
+  const lower = text.toLowerCase();
+  return _c4Regexes.some((re) => re.test(lower));
+}
+
+// ── Deterministic chain matching ────────────────────────────────────────
+
 function chainMatches(
   chain: MatcherChain,
   text: string,

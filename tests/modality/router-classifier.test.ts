@@ -406,6 +406,43 @@ describe("classifyViaLLM degradation chain", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  
+  it("rejects LLM output with extra keys beyond {label, confidence} (ADR-006 guardrail)", async () => {
+    const { loader, cleanup } = makeClassifierConfigLoader();
+    const metrics = makeMetrics();
+    const logger = makeLogger();
+
+    // All tiers return valid label+confidence PLUS an extra key
+    mockCallOmniRoute.mockResolvedValue({
+      providerAlias: "omniroute",
+      modelAlias: "some-model",
+      rawResponseText: '{"label":"WATER","confidence":0.8,"reason":"user said water"}',
+      inputUnits: 50,
+      outputUnits: 5,
+      estimatedCostUsd: 0.0001,
+      outcome: "success",
+    });
+
+    const result = await classifyViaLLM(
+      "текст",
+      candidateSet,
+      "req-extra-key",
+      "user-extra",
+      loader,
+      logger,
+      metrics,
+      "http://localhost:11434",
+      "test-key",
+      makeSpendTracker() as any,
+      false
+    );
+
+    // Extra key → parseClassifierOutput rejects on all tiers → AMBIGUOUS with failure
+    expect(result.modality).toBe("AMBIGUOUS");
+    expect(result.modelTier).toBe("failure");
+    cleanup();
+  });
+
   it("classifier returns the label from LLM even with low confidence (threshold checked by router)", async () => {
     const { loader, cleanup } = makeClassifierConfigLoader();
     const metrics = makeMetrics();

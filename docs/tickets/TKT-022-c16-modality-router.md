@@ -105,3 +105,4 @@ Land the C16 Modality Router that classifies inbound Telegram messages into KBJU
 ## 10. Execution Log
 - 2026-05-24T00:00:00Z opencode-executor: started
 - 2026-05-24T00:31:00Z opencode-executor: in_review; tests 102 pass; lint clean; typecheck clean
+- 2026-05-24T00:55:00Z opencode-executor iter2: addressed F-M1 (production wiring + integration test), F-M2 (config dedup), F-M3 (schema strictness)

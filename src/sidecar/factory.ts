@@ -3,6 +3,7 @@ import type { NormalizedTelegramUpdate } from "../telegram/types.js";
 import type { RussianReplyEnvelope } from "../shared/types.js";
 import type { MetricsRegistry } from "../observability/metricsEndpoint.js";
 import type { Allowlist } from "../security/allowlist.js";
+import path from "node:path";
 
 export function createHandlerStub(
   replyText: string
@@ -59,12 +60,13 @@ function createNullMetricsRegistry(): MetricsRegistry {
 
 import {
   routeModality,
+  ModalityRouterConfigLoader,
+  defaultC4KbjuDetector,
   CLARIFYING_REPLY_TEXT,
   CLARIFYING_KEYBOARD_BUTTONS,
   CLARIFYING_KEYBOARD_CALLBACK_DATA,
-  type ModalityRouterConfigLoader,
 } from "../modality/router.js";
-import type { ClassifierConfigLoader } from "../modality/router-classifier.js";
+import { ClassifierConfigLoader, classifyViaLLM } from "../modality/router-classifier.js";
 
 /**
  * Create a C16-wrapped handler that routes text/voice messages through
@@ -82,7 +84,7 @@ export function createC16WrappedTextHandler(
   c4Detector: (text: string) => boolean,
   logger: import("../shared/types.js").OpenClawLogger,
   metricsRegistry: MetricsRegistry,
-  callClassifier: typeof import("../modality/router-classifier.js").classifyViaLLM
+  callClassifier: typeof classifyViaLLM
 ): (update: NormalizedTelegramUpdate) => Promise<RussianReplyEnvelope | null> {
   return async (update: NormalizedTelegramUpdate): Promise<RussianReplyEnvelope | null> => {
     const text = update.text ?? "";
@@ -127,19 +129,97 @@ export function createC16WrappedTextHandler(
   };
 }
 
+// ── Config loader defaults ────────────────────────────────────────────────
+
+const ROUTER_CONFIG_PATH = path.resolve("config/modality-router.json");
+const CLASSIFIER_CONFIG_PATH = path.resolve("config/modality-router-classifier.json");
+
+/**
+ * Create C16 router and classifier config loaders.
+ * Returns null loaders if config files are absent (graceful degradation).
+ */
+function createC16ConfigLoaders(
+  metricsRegistry: MetricsRegistry,
+  logger: import("../shared/types.js").OpenClawLogger
+): {
+  configLoader: ModalityRouterConfigLoader | null;
+  classifierConfigLoader: ClassifierConfigLoader | null;
+} {
+  let configLoader: ModalityRouterConfigLoader | null = null;
+  let classifierConfigLoader: ClassifierConfigLoader | null = null;
+
+  try {
+    configLoader = new ModalityRouterConfigLoader(
+      ROUTER_CONFIG_PATH,
+      metricsRegistry,
+      logger
+    );
+  } catch {
+    logger.warn("C16 router config could not be loaded; modality routing disabled");
+  }
+
+  try {
+    classifierConfigLoader = new ClassifierConfigLoader(
+      CLASSIFIER_CONFIG_PATH,
+      logger
+    );
+  } catch {
+    logger.warn("C16 classifier config could not be loaded; modality routing disabled");
+  }
+
+  return { configLoader, classifierConfigLoader };
+}
+
 export function createSidecarDeps(pilotUserIds: string[], allowlist?: Allowlist): C1Deps {
+  const metricsRegistry = createNullMetricsRegistry();
+  const logger: import("../shared/types.js").OpenClawLogger = {
+    info: (msg) => console.log(`[sidecar:info] ${msg}`),
+    warn: (msg) => console.warn(`[sidecar:warn] ${msg}`),
+    error: (msg) => console.error(`[sidecar:error] ${msg}`),
+    critical: (msg) => console.error(`[sidecar:critical] ${msg}`),
+  };
+
+  // Create base stub handlers
+  const baseHandlers = createStubHandlers();
+
+  // Attempt to wire C16 modality router into text + voice handlers
+  const { configLoader, classifierConfigLoader } = createC16ConfigLoaders(metricsRegistry, logger);
+
+  let textMealHandler = baseHandlers.textMeal;
+  let voiceMealHandler = baseHandlers.voiceMeal;
+
+  if (configLoader && classifierConfigLoader) {
+    textMealHandler = createC16WrappedTextHandler(
+      baseHandlers.textMeal,
+      configLoader,
+      classifierConfigLoader,
+      defaultC4KbjuDetector,
+      logger,
+      metricsRegistry,
+      classifyViaLLM
+    );
+    voiceMealHandler = createC16WrappedTextHandler(
+      baseHandlers.voiceMeal,
+      configLoader,
+      classifierConfigLoader,
+      defaultC4KbjuDetector,
+      logger,
+      metricsRegistry,
+      classifyViaLLM
+    );
+  }
+
   return {
-    handlers: createStubHandlers(),
+    handlers: {
+      ...baseHandlers,
+      textMeal: textMealHandler,
+      voiceMeal: voiceMealHandler,
+    },
     sendMessage: async () => {},
     sendChatAction: async () => {},
-    logger: {
-      info: (msg) => console.log(`[sidecar:info] ${msg}`),
-      warn: (msg) => console.warn(`[sidecar:warn] ${msg}`),
-      error: (msg) => console.error(`[sidecar:error] ${msg}`),
-      critical: (msg) => console.error(`[sidecar:critical] ${msg}`),
-    },
+    logger,
     pilotUserIds,
-    metricsRegistry: createNullMetricsRegistry(),
+    metricsRegistry,
     allowlist,
   };
 }
