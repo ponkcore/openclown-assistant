@@ -1,0 +1,40 @@
+{
+  "path": "zero_match_llm_ambiguous",
+  "cases": [
+    {
+      "name": "zero: овацииииии → AMBIGUOUS (low conf)",
+      "input": "вчера вечером было прям овацииииии",
+      "expectedModality": "AMBIGUOUS",
+      "expectedOutcome": "zero_match_llm_ambiguous",
+      "llmMock": { "modality": "AMBIGUOUS", "confidence": 0.5, "modelTier": "default" }
+    },
+    {
+      "name": "zero: пил чай → AMBIGUOUS (low conf)",
+      "input": "пил чай без сахара",
+      "expectedModality": "AMBIGUOUS",
+      "expectedOutcome": "zero_match_llm_ambiguous",
+      "llmMock": { "modality": "WATER", "confidence": 0.55, "modelTier": "default" }
+    },
+    {
+      "name": "zero: что-то произошло → AMBIGUOUS",
+      "input": "что-то произошло",
+      "expectedModality": "AMBIGUOUS",
+      "expectedOutcome": "zero_match_llm_ambiguous",
+      "llmMock": { "modality": "AMBIGUOUS", "confidence": 0.4, "modelTier": "default" }
+    },
+    {
+      "name": "zero: может быть → AMBIGUOUS (very low conf)",
+      "input": "может быть сегодня",
+      "expectedModality": "AMBIGUOUS",
+      "expectedOutcome": "zero_match_llm_ambiguous",
+      "llmMock": { "modality": "MOOD", "confidence": 0.35, "modelTier": "default" }
+    },
+    {
+      "name": "zero: примерно так → AMBIGUOUS (AMBIGUOUS label)",
+      "input": "примерно так",
+      "expectedModality": "AMBIGUOUS",
+      "expectedOutcome": "zero_match_llm_ambiguous",
+      "llmMock": { "modality": "AMBIGUOUS", "confidence": 0.3, "modelTier": "default" }
+    }
+  ]
+}

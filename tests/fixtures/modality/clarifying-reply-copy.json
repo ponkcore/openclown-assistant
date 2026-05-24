@@ -1,0 +1,65 @@
+{
+  "path": "ambiguous_clarified",
+  "cases": [
+    {
+      "name": "clarifying: кефир с водой → AMBIGUOUS (LLM returns ambiguous)",
+      "input": "кефир с водой",
+      "expectedModality": "AMBIGUOUS",
+      "expectedOutcome": "ambiguous_clarified",
+      "llmMock": { "modality": "AMBIGUOUS", "confidence": 0.2, "modelTier": "default" },
+      "expectedClarifyingReply": "Не разобралась, что записать. Уточни:",
+      "expectedKeyboardButtons": ["вода", "еда", "сон", "тренировка", "настроение", "отмена"],
+      "expectedKeyboardCallbackData": ["modality:water", "modality:kbju", "modality:sleep", "modality:workout", "modality:mood", "modality:cancel"],
+      "expectedKeyboardRows": 2,
+      "expectedButtonsPerRow": 3
+    },
+    {
+      "name": "clarifying: 3-match low confidence → ambiguous_clarified",
+      "input": "вода кефир тренировка",
+      "expectedModality": "AMBIGUOUS",
+      "expectedOutcome": "ambiguous_clarified",
+      "llmMock": { "modality": "WATER", "confidence": 0.45, "modelTier": "default" },
+      "expectedClarifyingReply": "Не разобралась, что записать. Уточни:",
+      "expectedKeyboardButtons": ["вода", "еда", "сон", "тренировка", "настроение", "отмена"],
+      "expectedKeyboardCallbackData": ["modality:water", "modality:kbju", "modality:sleep", "modality:workout", "modality:mood", "modality:cancel"],
+      "expectedKeyboardRows": 2,
+      "expectedButtonsPerRow": 3
+    },
+    {
+      "name": "clarifying: молоко и вода → ambiguous (LLM ambiguous)",
+      "input": "молоко и вода",
+      "expectedModality": "AMBIGUOUS",
+      "expectedOutcome": "ambiguous_clarified",
+      "llmMock": { "modality": "AMBIGUOUS", "confidence": 0.15, "modelTier": "fallback" },
+      "expectedClarifyingReply": "Не разобралась, что записать. Уточни:",
+      "expectedKeyboardButtons": ["вода", "еда", "сон", "тренировка", "настроение", "отмена"],
+      "expectedKeyboardCallbackData": ["modality:water", "modality:kbju", "modality:sleep", "modality:workout", "modality:mood", "modality:cancel"],
+      "expectedKeyboardRows": 2,
+      "expectedButtonsPerRow": 3
+    },
+    {
+      "name": "clarifying: выпил воды и съел → ambiguous (low conf on multi-match)",
+      "input": "выпил воды и съел банан",
+      "expectedModality": "AMBIGUOUS",
+      "expectedOutcome": "ambiguous_clarified",
+      "llmMock": { "modality": "WATER", "confidence": 0.3, "modelTier": "default" },
+      "expectedClarifyingReply": "Не разобралась, что записать. Уточни:",
+      "expectedKeyboardButtons": ["вода", "еда", "сон", "тренировка", "настроение", "отмена"],
+      "expectedKeyboardCallbackData": ["modality:water", "modality:kbju", "modality:sleep", "modality:workout", "modality:mood", "modality:cancel"],
+      "expectedKeyboardRows": 2,
+      "expectedButtonsPerRow": 3
+    },
+    {
+      "name": "clarifying: хлеб вода сон → ambiguous (LLM ambiguous on 3-match)",
+      "input": "хлеб вода сон",
+      "expectedModality": "AMBIGUOUS",
+      "expectedOutcome": "ambiguous_clarified",
+      "llmMock": { "modality": "AMBIGUOUS", "confidence": 0.1, "modelTier": "default" },
+      "expectedClarifyingReply": "Не разобралась, что записать. Уточни:",
+      "expectedKeyboardButtons": ["вода", "еда", "сон", "тренировка", "настроение", "отмена"],
+      "expectedKeyboardCallbackData": ["modality:water", "modality:kbju", "modality:sleep", "modality:workout", "modality:mood", "modality:cancel"],
+      "expectedKeyboardRows": 2,
+      "expectedButtonsPerRow": 3
+    }
+  ]
+}

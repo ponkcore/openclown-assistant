@@ -2,7 +2,7 @@
 id: TKT-025
 title: Modality-input disambiguation golden tests + R1 misclassification telemetry
 version: 0.1.0
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C16+observability
@@ -83,3 +83,7 @@ Land the PRD-003@0.1.3 §8 R1 rolling-30-day modality-misclassification rate tel
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
 - [ ] Executor filled §10 Execution Log.
 - [ ] Ticket frontmatter `status: in_review` in a separate commit.
+
+## 10. Execution Log
+- 2026-05-25T00:00:00Z opencode-executor: started
+- 2026-05-25T00:21:00Z opencode-executor: in_review; tests 62 pass (47 golden-full + 15 aggregator); lint clean; typecheck clean

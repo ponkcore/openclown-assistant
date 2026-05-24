@@ -75,6 +75,9 @@ export const PROMETHEUS_METRIC_NAMES = {
   kbju_allowlist_size: "kbju_allowlist_size",
   kbju_modality_route_outcome: "kbju_modality_route_outcome",
   kbju_modality_router_llm_call: "kbju_modality_router_llm_call",
+  kbju_modality_misclassification_rate: "kbju_modality_misclassification_rate",
+  kbju_modality_llm_fallback_rate: "kbju_modality_llm_fallback_rate",
+  kbju_modality_llm_failure_rate: "kbju_modality_llm_failure_rate",
 } as const;
 
 export type PrometheusMetricName = (typeof PROMETHEUS_METRIC_NAMES)[keyof typeof PROMETHEUS_METRIC_NAMES];
