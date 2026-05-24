@@ -7,7 +7,7 @@ status: in_review
 created: 2026-05-25
 ---
 
-# Code Review — PR #7 (TKT-025)
+# Code Review — PR #7 (TKT-025@0.1.0)
 
 ## Summary
 
