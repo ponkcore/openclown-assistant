@@ -43,6 +43,8 @@ import type {
   ModalitySettingsRow,
   ModalityToggleName,
   ModalitySettingToggleResult,
+  WaterEventSource,
+  WaterEventRow,
   UserProfileRow,
   UserRow,
   UserTargetRow,
@@ -294,7 +296,14 @@ export class TenantPostgresStore implements TenantStore {
   public async setModalitySetting(userId: string, modality: ModalityToggleName, value: boolean): Promise<ModalitySettingToggleResult> {
     return this.withTransaction(userId, (repository) => repository.setModalitySetting(userId, modality, value));
   }
+
+  // ── C17 Water Events (TKT-029@0.1.0) ───────────────────────────────────
+
+  public async insertWaterEvent(userId: string, source: WaterEventSource, volumeMl: number, rawText: string | null): Promise<{ event_id: string }> {
+    return this.withTransaction(userId, (repository) => repository.insertWaterEvent(userId, source, volumeMl, rawText));
+  }
 }
+
 
 class TenantScopedRepositoryImpl implements TenantScopedRepository {
   public constructor(private readonly db: TenantQueryable) {}
@@ -952,6 +961,23 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
 
     return { oldValue, newValue: value };
   }
+
+  // ── C17 Water Events (TKT-029@0.1.0) ───────────────────────────────────
+
+  public async insertWaterEvent(
+    userId: string,
+    source: WaterEventSource,
+    volumeMl: number,
+    rawText: string | null,
+  ): Promise<{ event_id: string }> {
+    const result = await this.db.query<{ event_id: string }>(
+      `INSERT INTO water_events (event_id, user_id, ts_utc, volume_ml, source, raw_text, created_at)
+       VALUES (gen_random_uuid(), $1, now(), $2, $3, $4, now())
+       RETURNING event_id`,
+      [userId, volumeMl, source, rawText],
+    );
+    return expectOne(result, "water_events");
+  }
 }
 
 function expectOne<Row extends QueryResultRow>(result: QueryResult<Row>, entityName: string): Row {
@@ -1169,6 +1195,13 @@ export class BreachDetectingTenantStore implements TenantStore {
   public async setModalitySetting(userId: string, modality: ModalityToggleName, value: boolean): Promise<ModalitySettingToggleResult> {
     this.guard(userId, "write", "modality_settings");
     return this.inner.setModalitySetting(userId, modality, value);
+  }
+
+  // ── C17 Water Events (TKT-029@0.1.0) ───────────────────────────────────
+
+  public async insertWaterEvent(userId: string, source: WaterEventSource, volumeMl: number, rawText: string | null): Promise<{ event_id: string }> {
+    this.guard(userId, "write", "water_events");
+    return this.inner.insertWaterEvent(userId, source, volumeMl, rawText);
   }
 }
 

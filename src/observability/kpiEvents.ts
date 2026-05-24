@@ -33,6 +33,7 @@ export const KPI_EVENT_NAMES = {
   allowlist_size: "kbju_allowlist_size",
   modality_route_outcome: "kbju_modality_route_outcome",
   modality_router_llm_call: "kbju_modality_router_llm_call",
+  modality_event_persisted: "kbju_modality_event_persisted",
 } as const;
 
 export type KpiEventName = (typeof KPI_EVENT_NAMES)[keyof typeof KPI_EVENT_NAMES];
@@ -78,6 +79,7 @@ export const PROMETHEUS_METRIC_NAMES = {
   kbju_modality_misclassification_rate: "kbju_modality_misclassification_rate",
   kbju_modality_llm_fallback_rate: "kbju_modality_llm_fallback_rate",
   kbju_modality_llm_failure_rate: "kbju_modality_llm_failure_rate",
+  kbju_modality_event_persisted: "kbju_modality_event_persisted",
 } as const;
 
 export type PrometheusMetricName = (typeof PROMETHEUS_METRIC_NAMES)[keyof typeof PROMETHEUS_METRIC_NAMES];
@@ -92,6 +94,7 @@ export const ALLOWED_METRIC_LABELS: readonly string[] = [
   "le",
   "tenant_id",
   "retry_count",
+  "modality",
 ] as const;
 
 export type AllowedMetricLabel = (typeof ALLOWED_METRIC_LABELS)[number];
@@ -110,6 +113,7 @@ export const FORBIDDEN_METRIC_LABELS: readonly string[] = [
   "workout_raw_description",
   "sleep_text_input",
   "sleep_voice_transcript",
+  "raw_text",
 ] as const;
 
 export const LOG_SCHEMA_VERSION = "1";
@@ -142,6 +146,8 @@ export const LOG_FORBIDDEN_FIELDS: readonly string[] = [
   "workout_raw_description",
   "sleep_text_input",
   "sleep_voice_transcript",
+  "raw_text",
   "callback_payload_meal_text",
   "provider_response_raw",
+  "raw_text",
 ] as const;

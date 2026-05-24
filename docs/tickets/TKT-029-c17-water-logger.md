@@ -2,7 +2,7 @@
 id: TKT-029
 title: C17 Water Logger — volume extraction + quick-preset inline keyboard + telemetry
 version: 0.1.0
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C17
@@ -51,3 +51,8 @@ Land the C17 Water Logger that persists water-event rows with volume extraction 
 - [ ] Voice → transcribed text → volume extraction → insert.
 - [ ] Telemetry counter with `{modality: "water", source}` labels emitted on every insert.
 - [ ] Unit tests ≥80% coverage.
+## 10. Execution Log
+
+- 2026-05-25T00:00:00Z opencode-executor: started
+- 2026-05-25T02:47:00Z opencode-executor: implementation complete; preset values 250/500/750 ml chosen (PO did not ratify specific values — ARCH-001 §6.2 Q_TO_BUSINESS_6 defers to ticket sign-off); ADR-018@0.1.0 §Decision C17 fallback = minimax-m2p7 (not qwen3-vl-30b-a3b); TKT-029 inherits TKT-028@0.1.0 carve-out — TenantScopedRepository extended with insertWaterEvent for type-safe data access; no private-field reach; raw_text added to LOG_FORBIDDEN_FIELDS and FORBIDDEN_METRIC_LABELS per TKT-026 redaction surface; confidence checked before range to give LOW_CONFIDENCE_REPLY on full-chain LLM failure (volume_ml=0)
+- 2026-05-25T02:47:30Z opencode-executor: in_review; tests 26 pass; lint clean; typecheck clean; pre-existing healthCheck.test.ts 1 fail (not touched)

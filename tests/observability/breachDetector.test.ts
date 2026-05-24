@@ -73,6 +73,7 @@ function makeStubStore(): TenantStore {
     createKbjuAccuracyLabel: vi.fn().mockResolvedValue({ id: "kal1", user_id: AUTHENTICATED_USER }),
     getModalitySettings: vi.fn().mockResolvedValue(null),
     setModalitySetting: vi.fn().mockResolvedValue({ oldValue: true, newValue: false }),
+    insertWaterEvent: vi.fn().mockResolvedValue({ event_id: "e1" }),
   };
 }
 
