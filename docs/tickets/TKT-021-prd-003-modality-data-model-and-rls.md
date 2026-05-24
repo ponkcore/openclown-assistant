@@ -2,7 +2,7 @@
 id: TKT-021
 title: PRD-003 modality data model migrations + RLS + right-to-delete cascade
 version: 0.1.0
-status: in_review
+status: done
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C-data-model
@@ -85,3 +85,4 @@ Land the four modality storage schemas (water / sleep / workout / mood) plus the
 - 2026-05-24T21:55:00Z opencode-executor: started
 - 2026-05-24T22:00:00Z opencode-executor: all outputs implemented; tests 20 pass (12 modality_schema + 8 right_to_delete); lint clean; typecheck clean
 - 2026-05-24T22:01:00Z opencode-executor: in_review; tests 20 pass; lint clean; typecheck clean
+- 2026-05-24T20:04:00Z opencode-orchestrator: merged in commit e5fff04 (PR #4); RV-CODE-001 verdict=pass_with_changes (orchestrator override after architect-consult HIGH on F-H1; F-H1/F-M1/F-M2 backlogged in BACKLOG-001)
