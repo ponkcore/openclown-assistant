@@ -2,7 +2,7 @@
 id: TKT-026
 title: PRD-003 redaction allowlist extension + emit-boundary enforcement
 version: 0.1.0
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C10
@@ -72,3 +72,7 @@ Extend the ARCH-001@0.5.0 §8.1 redaction allowlist + §10.7 emit-boundary polic
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
 - [ ] Executor filled §10 Execution Log.
 - [ ] Ticket frontmatter `status: in_review` in a separate commit.
+
+## 10. Execution Log
+- 2026-05-25T00:00:00Z opencode-executor: started; ticket §5 file-name mapping: "redactionAllowlist.ts" → kpiEvents.ts (existing redaction lists), "emit.ts" → events.ts + metricsEndpoint.ts (existing emit-boundary code), prd003AuditHelper.ts created as new file per §5 intent.
+- 2026-05-25T01:30:00Z opencode-executor: in_review; tests 46 pass; lint clean; typecheck clean. No code changes needed in events.ts or metricsEndpoint.ts — existing emit-boundary mechanism iterates LOG_FORBIDDEN_FIELDS automatically and picks up the five new entries.

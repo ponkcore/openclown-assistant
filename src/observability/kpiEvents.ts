@@ -105,6 +105,11 @@ export const FORBIDDEN_METRIC_LABELS: readonly string[] = [
   "chat_id",
   "first_name",
   "last_name",
+  "mood_comment_text",
+  "workout_text",
+  "workout_raw_description",
+  "sleep_text_input",
+  "sleep_voice_transcript",
 ] as const;
 
 export const LOG_SCHEMA_VERSION = "1";
@@ -132,6 +137,11 @@ export const LOG_FORBIDDEN_FIELDS: readonly string[] = [
   "username",
   "first_name",
   "last_name",
+  "mood_comment_text",
+  "workout_text",
+  "workout_raw_description",
+  "sleep_text_input",
+  "sleep_voice_transcript",
   "callback_payload_meal_text",
   "provider_response_raw",
 ] as const;
