@@ -1,0 +1,93 @@
+{
+  "chains": [
+    {
+      "modality": "KBJU",
+      "delegateToC4": true
+    },
+    {
+      "modality": "WATER",
+      "patterns": [
+        {
+          "lemma": "вод",
+          "suffixPatterns": [
+            "а",
+            "ы",
+            "у"
+          ]
+        },
+        {
+          "lemma": "мл"
+        },
+        {
+          "lemma": "литр",
+          "suffixPatterns": [
+            "",
+            "а",
+            "ов"
+          ]
+        }
+      ]
+    },
+    {
+      "modality": "SLEEP",
+      "patterns": [
+        {
+          "lemma": "спал",
+          "suffixPatterns": [
+            "",
+            "а"
+          ]
+        },
+        {
+          "lemma": "лёг"
+        },
+        {
+          "lemma": "сны"
+        }
+      ]
+    },
+    {
+      "modality": "WORKOUT",
+      "patterns": [
+        {
+          "lemma": "бегал",
+          "suffixPatterns": [
+            "",
+            "а"
+          ]
+        },
+        {
+          "lemma": "км"
+        }
+      ]
+    },
+    {
+      "modality": "MOOD",
+      "patterns": [
+        {
+          "lemma": "настроени",
+          "suffixPatterns": [
+            "е"
+          ]
+        }
+      ]
+    }
+  ],
+  "ambiguousClarifyingReply": "Не разобралась, что записать. Уточни:",
+  "ambiguousKeyboardButtons": [
+    "вода",
+    "еда",
+    "сон",
+    "тренировка",
+    "настроение",
+    "отмена"
+  ],
+  "ambiguousKeyboardCallbackData": [
+    "modality:water",
+    "modality:kbju",
+    "modality:sleep",
+    "modality:workout",
+    "modality:mood",
+    "modality:cancel"
+  ]
+}

@@ -31,6 +31,8 @@ export const KPI_EVENT_NAMES = {
   allowlist_reload: "kbju_allowlist_reload",
   allowlist_blocked: "kbju_allowlist_blocked",
   allowlist_size: "kbju_allowlist_size",
+  modality_route_outcome: "kbju_modality_route_outcome",
+  modality_router_llm_call: "kbju_modality_router_llm_call",
 } as const;
 
 export type KpiEventName = (typeof KPI_EVENT_NAMES)[keyof typeof KPI_EVENT_NAMES];
@@ -71,6 +73,8 @@ export const PROMETHEUS_METRIC_NAMES = {
   kbju_allowlist_reload: "kbju_allowlist_reload",
   kbju_allowlist_blocked: "kbju_allowlist_blocked",
   kbju_allowlist_size: "kbju_allowlist_size",
+  kbju_modality_route_outcome: "kbju_modality_route_outcome",
+  kbju_modality_router_llm_call: "kbju_modality_router_llm_call",
 } as const;
 
 export type PrometheusMetricName = (typeof PROMETHEUS_METRIC_NAMES)[keyof typeof PROMETHEUS_METRIC_NAMES];

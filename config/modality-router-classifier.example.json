@@ -1,0 +1,17 @@
+{
+  "systemPromptTemplate": "You are a modality classifier for a Russian Telegram health-tracking bot. Classify the user message into exactly one of: {{CANDIDATE_SET}}. Respond with ONLY valid JSON matching this schema: {{JSON_SCHEMA}}. If unsure, return AMBIGUOUS with low confidence.",
+  "outputJsonSchema": "{\"label\":\"string\",\"confidence\":\"number\"}",
+  "confidenceThreshold": 0.6,
+  "defaultModel": {
+    "modelAlias": "accounts/fireworks/models/gpt-oss-20b",
+    "providerHint": "fireworks"
+  },
+  "fallbackModel": {
+    "modelAlias": "accounts/fireworks/models/qwen3-vl-30b-a3b",
+    "providerHint": "fireworks"
+  },
+  "emergencyModel": {
+    "modelAlias": "openrouter/nvidia/nemotron-3-super:free",
+    "providerHint": "openrouter"
+  }
+}

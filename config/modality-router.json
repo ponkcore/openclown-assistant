@@ -1,0 +1,387 @@
+{
+  "chains": [
+    {
+      "modality": "KBJU",
+      "delegateToC4": true
+    },
+    {
+      "modality": "WATER",
+      "patterns": [
+        {
+          "lemma": "вод",
+          "suffixPatterns": [
+            "а",
+            "ы",
+            "у",
+            "ой",
+            "ою",
+            "е",
+            "ой",
+            "ами",
+            "ах"
+          ]
+        },
+        {
+          "lemma": "вод",
+          "suffixPatterns": [
+            "а",
+            "ы",
+            "у",
+            "е",
+            "ой",
+            "ою"
+          ]
+        },
+        {
+          "lemma": "ml"
+        },
+        {
+          "lemma": "мл"
+        },
+        {
+          "lemma": "литр",
+          "suffixPatterns": [
+            "",
+            "а",
+            "у",
+            "ов",
+            "ах",
+            "ы"
+          ]
+        },
+        {
+          "lemma": "стакан",
+          "suffixPatterns": [
+            "",
+            "а",
+            "у",
+            "ов",
+            "ах",
+            "ы"
+          ]
+        },
+        {
+          "lemma": "выпил",
+          "suffixPatterns": [
+            "",
+            "а",
+            "и"
+          ]
+        },
+        {
+          "lemma": "пол-литр"
+        },
+        {
+          "lemma": "поллитр"
+        },
+        {
+          "lemma": "0.5 л"
+        },
+        {
+          "lemma": "0.5л"
+        },
+        {
+          "lemma": "250 мл"
+        },
+        {
+          "lemma": "л.",
+          "suffixPatterns": [
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "modality": "SLEEP",
+      "patterns": [
+        {
+          "lemma": "спал",
+          "suffixPatterns": [
+            "",
+            "а",
+            "и"
+          ]
+        },
+        {
+          "lemma": "спал",
+          "suffixPatterns": [
+            "а"
+          ]
+        },
+        {
+          "lemma": "лёг",
+          "suffixPatterns": [
+            "",
+            "ла",
+            "ли"
+          ]
+        },
+        {
+          "lemma": "встал",
+          "suffixPatterns": [
+            "",
+            "а",
+            "и"
+          ]
+        },
+        {
+          "lemma": "проснул",
+          "suffixPatterns": [
+            "ся",
+            "ась",
+            "ись"
+          ]
+        },
+        {
+          "lemma": "сон",
+          "suffixPatterns": [
+            "",
+            "а",
+            "у",
+            "ов",
+            "ы"
+          ]
+        },
+        {
+          "lemma": "снов",
+          "suffixPatterns": [
+            "",
+            "а",
+            "у"
+          ]
+        },
+        {
+          "lemma": "поспал",
+          "suffixPatterns": [
+            "",
+            "а",
+            "и"
+          ]
+        },
+        {
+          "lemma": "вздремн",
+          "suffixPatterns": [
+            "ул",
+            "ула",
+            "ули"
+          ]
+        },
+        {
+          "lemma": "дрем",
+          "suffixPatterns": [
+            "а",
+            "ать",
+            "лю",
+            "лет"
+          ]
+        },
+        {
+          "lemma": "час",
+          "suffixPatterns": [
+            "",
+            "а",
+            "ов",
+            "ы"
+          ]
+        },
+        {
+          "lemma": "ч.",
+          "suffixPatterns": [
+            ""
+          ]
+        },
+        {
+          "lemma": "сны"
+        },
+        {
+          "lemma": "снов"
+        }
+      ]
+    },
+    {
+      "modality": "WORKOUT",
+      "patterns": [
+        {
+          "lemma": "бегал",
+          "suffixPatterns": [
+            "",
+            "а",
+            "и"
+          ]
+        },
+        {
+          "lemma": "кило",
+          "suffixPatterns": [
+            "",
+            "метр",
+            "метров",
+            "метра"
+          ]
+        },
+        {
+          "lemma": "км"
+        },
+        {
+          "lemma": "минут",
+          "suffixPatterns": [
+            "",
+            "а",
+            "ы"
+          ]
+        },
+        {
+          "lemma": "подтянул",
+          "suffixPatterns": [
+            "ся",
+            "ась",
+            "ись"
+          ]
+        },
+        {
+          "lemma": "отжал",
+          "suffixPatterns": [
+            "ся",
+            "ась",
+            "ись"
+          ]
+        },
+        {
+          "lemma": "присед",
+          "suffixPatterns": [
+            "",
+            "а",
+            "ы",
+            "аний"
+          ]
+        },
+        {
+          "lemma": "жим",
+          "suffixPatterns": [
+            "",
+            "а",
+            "ы"
+          ]
+        },
+        {
+          "lemma": "трениров",
+          "suffixPatterns": [
+            "ка",
+            "ку",
+            "ки",
+            "ался",
+            "алась"
+          ]
+        },
+        {
+          "lemma": "5×5"
+        },
+        {
+          "lemma": "3×10"
+        },
+        {
+          "lemma": "йог",
+          "suffixPatterns": [
+            "а",
+            "ой",
+            "у"
+          ]
+        },
+        {
+          "lemma": "ходьб",
+          "suffixPatterns": [
+            "а",
+            "у",
+            "ы"
+          ]
+        },
+        {
+          "lemma": "плаван",
+          "suffixPatterns": [
+            "ие",
+            "ия",
+            "ием"
+          ]
+        },
+        {
+          "lemma": "вел",
+          "suffixPatterns": [
+            "осипед",
+            "осипеде",
+            "осипедом"
+          ]
+        }
+      ]
+    },
+    {
+      "modality": "MOOD",
+      "patterns": [
+        {
+          "lemma": "настроени",
+          "suffixPatterns": [
+            "е",
+            "я",
+            "ем",
+            "ю"
+          ]
+        },
+        {
+          "lemma": "энергия",
+          "suffixPatterns": [
+            "",
+            "и"
+          ]
+        },
+        {
+          "lemma": "mood"
+        },
+        {
+          "lemma": "1/10"
+        },
+        {
+          "lemma": "2/10"
+        },
+        {
+          "lemma": "3/10"
+        },
+        {
+          "lemma": "4/10"
+        },
+        {
+          "lemma": "5/10"
+        },
+        {
+          "lemma": "6/10"
+        },
+        {
+          "lemma": "7/10"
+        },
+        {
+          "lemma": "8/10"
+        },
+        {
+          "lemma": "9/10"
+        },
+        {
+          "lemma": "10/10"
+        }
+      ]
+    }
+  ],
+  "ambiguousClarifyingReply": "Не разобралась, что записать. Уточни:",
+  "ambiguousKeyboardButtons": [
+    "вода",
+    "еда",
+    "сон",
+    "тренировка",
+    "настроение",
+    "отмена"
+  ],
+  "ambiguousKeyboardCallbackData": [
+    "modality:water",
+    "modality:kbju",
+    "modality:sleep",
+    "modality:workout",
+    "modality:mood",
+    "modality:cancel"
+  ]
+}
