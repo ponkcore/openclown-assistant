@@ -2,7 +2,7 @@
 id: TKT-025
 title: Modality-input disambiguation golden tests + R1 misclassification telemetry
 version: 0.1.0
-status: in_review
+status: done
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C16+observability
@@ -89,3 +89,4 @@ Land the PRD-003@0.1.3 §8 R1 rolling-30-day modality-misclassification rate tel
 - 2026-05-25T00:21:00Z opencode-executor: in_review; tests 62 pass (47 golden-full + 15 aggregator); lint clean; typecheck clean
 - 2026-05-25T00:39:00Z opencode-executor iter2: addressed F-M1 (wrapped registry in metricsEndpoint.ts:214-215 via createModalityInstrumentedRegistry), F-M2 (added end-to-end integration test tests/observability/modalityRouterAggregator.integration.test.ts proving AC line 68); F-L1 noted — status change was not in separate commit, no rebase to avoid rewriting pushed history. All changes within src/observability/ only per TKT-025@0.1.0 §5 Output 8.
 - 2026-05-25T01:12:00Z opencode-executor iter3: wired createMetricsRegistry into src/sidecar/factory.ts (line 176-177: replaced createNullMetricsRegistry with createMetricsRegistry + createModalityInstrumentedRegistry) and src/deployment/healthCheck.ts (added setMetricsRegistry setter + registry-driven /metrics render) and src/main.ts (added setMetricsRegistry(deps.metricsRegistry) call in startServer) to satisfy AC68 (PO-authorised carve-out of TKT-025@0.1.0 §5 Output 8 for metrics wiring path). Added production-deps integration test proving all 3 gauges present with non-null values after exercising all 5 routing paths. F-L1 noted — no rebase.
+- 2026-05-24T22:22:00Z opencode-orchestrator: merged in commit 526293a (PR #7); RV-CODE-003 verdict iter3=pass after iter2=fail (F-H1 closed by iter3 production wiring)
