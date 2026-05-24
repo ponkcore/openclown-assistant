@@ -36,7 +36,11 @@ DOCS_ROOT = REPO_ROOT / "docs"
 # (ROADMAP-NNN-*.md) — strategic-direction artifacts that span multiple
 # PRDs and may evolve over time without strict semver. See
 # docs/roadmap/README.md.
-FREEFORM_DIRS = {"prompts", "knowledge", "personality", "roadmap"}
+# `drafts` holds PO-pending content drafts produced by Sisyphus (e.g.
+# PRD-NNN-content-drafts.md): keyword chains, copy strings, golden test
+# sets that the executor reads as ticket inputs and the PO refines on
+# their own schedule.
+FREEFORM_DIRS = {"prompts", "knowledge", "personality", "roadmap", "drafts"}
 # Free-form top-level docs/*.md files (non-artifact reference material).
 FREEFORM_TOPLEVEL: set[str] = set()
 
@@ -197,6 +201,11 @@ def validate_artifact(art: Artifact, known_ids: set[str]) -> list[str]:
                         target_artifact_ids.add(m.group(1))
 
     body_no_fences = re.sub(r"```.*?```", "", art.body, flags=re.DOTALL)
+    # Inline-code spans (single backticks) are file paths / config keys / shell
+    # tokens, not artefact references. A path like `docs/drafts/PRD-003-...md`
+    # would otherwise trip the `bare_re` unpinned-reference rule. Strip them
+    # before scanning for cross-references.
+    body_no_fences = re.sub(r"`[^`\n]+`", "", body_no_fences)
     for m in REF_RE.finditer(body_no_fences):
         kind, num, _ver = m.group(1), m.group(2), m.group(3)
         ref_id = f"{kind}-{num}"
