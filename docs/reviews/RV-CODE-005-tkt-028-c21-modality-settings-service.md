@@ -66,3 +66,64 @@ Recommendation to PO: request changes from Executor (add `getModalitySettings`/`
 - **Tenant isolation (new tables):** No new tables introduced (tables are from TKT-021@0.1.0). RLS is already enabled on `modality_settings` and `modality_settings_audit` (`schema.sql:495-496`). The new code reads/writes through the RLS-scoped transaction.
 
 - **Version-pinned references:** All references in this review use `@X.Y.Z` format: TKT-028@0.1.0, ARCH-001@0.6.2, PRD-003@0.1.3, TKT-021@0.1.0.
+
+---
+
+## Iteration 2 verdict (Reviewer, 2026-05-25)
+
+### Iter-2 scope
+
+Diff SHA range: `0ea548a..e63239e` on branch `tkt/TKT-028-c21-modality-settings-service`.
+Files changed: `src/store/types.ts` (+24), `src/store/tenantStore.ts` (+79), `src/modality/settings/service.ts` (+44/−75), `tests/store/tenantStore.test.ts` (+2), `tests/observability/breachDetector.test.ts` (+2), `docs/tickets/TKT-028-c21-modality-settings-service.md` (+1 §10 log).
+
+PO-authorised one-time carve-out of TKT-028@0.1.0 §5 Outputs to include `src/store/types.ts` and `src/store/tenantStore.ts`.
+
+### F-H1 closure verification
+
+**1. TenantScopedRepository extension (`src/store/types.ts`):** ✅ CLOSED.
+- `ModalitySettingsRow` exported at line 280: `{ user_id, water_on, sleep_on, workout_on, mood_on, updated_at }` — matches TKT-021@0.1.0 schema columns.
+- `ModalityToggleName` exported at line 289: `"water" | "sleep" | "workout" | "mood"` — matches PRD-003@0.1.3 §3 NG6 (KBJU excluded).
+- `ModalitySettingToggleResult` exported at line 292: `{ oldValue: boolean; newValue: boolean }`.
+- `TenantScopedRepository` interface extended at lines 556–557 with `getModalitySettings(userId: string): Promise<ModalitySettingsRow | null>` and `setModalitySetting(userId: string, modality: ModalityToggleName, value: boolean): Promise<ModalitySettingToggleResult>`.
+
+**2. TenantScopedRepositoryImpl implementation (`src/store/tenantStore.ts`):** ✅ CLOSED.
+- `getModalitySettings` (line 904): parameterised `SELECT user_id, water_on, sleep_on, workout_on, mood_on, updated_at FROM modality_settings WHERE user_id = $1`. Returns `rows[0] ?? null`. Clean.
+- `setModalitySetting` (line 912): (a) reads current row via parameterised SELECT (line 926); (b) UPSERTs new value via `INSERT ... ON CONFLICT (user_id) DO UPDATE SET ...` (line 941); (c) INSERTs audit row into `modality_settings_audit` with `user_id, modality, old_value, new_value, ts_utc` (line 948); (d) returns `{ oldValue, newValue: value }` (line 953).
+- **Transaction:** All queries execute inside ONE transaction. `TenantPostgresStore.setModalitySetting` (line 294) delegates to `this.withTransaction(userId, (repository) => repository.setModalitySetting(...))`. The `withTransaction` method (line 115) does `BEGIN` → `action(repository)` → `COMMIT`, with `rollbackSafely` on error. The `TenantScopedRepositoryImpl` receives the same pg `Client` as `this.db`, so all three queries share the transaction boundary. This matches the existing idiom (e.g. `createUser`, `deleteUser`, `incrementMonthlySpend` all follow the same `withTransaction → this.db.query()` pattern).
+
+**3. Cast and helper removed (`src/modality/settings/service.ts`):** ✅ CLOSED.
+- `extractQueryable` function: removed entirely. No `as unknown as`, no `TenantQueryable` import, no `.db.query(` access anywhere in service.ts (verified via `grep -n`).
+- Production adapter `createTenantStoreSettingsDb` (line 162): calls `tenantStore.getModalitySettings(userId)` and `tenantStore.setModalitySetting(userId, modality as ModalityToggleName, value)` — clean, type-safe delegation to the `TenantStore` interface.
+
+**4. Cascading impl coverage:** ✅ CLOSED.
+- `TenantPostgresStore` (lines 290–295): delegates both methods via `this.withTransaction`.
+- `BreachDetectingTenantStore` (lines 1162–1171): `getModalitySettings` calls `this.guard(userId, "read", "modality_settings")` then `this.inner.getModalitySettings(userId)`; `setModalitySetting` calls `this.guard(userId, "write", "modality_settings")` then `this.inner.setModalitySetting(userId, modality, value)`. Breach-detector mode will not silently drop the new methods.
+
+**5. Audit row correctness (`src/store/tenantStore.ts:948`):** ✅ CLOSED.
+- `modality_settings_audit` DDL (TKT-021@0.1.0 migration `003_prd003_modality_tables.sql`): `audit_id UUID PRIMARY KEY DEFAULT gen_random_uuid()` — server-side generated via PG default.
+- INSERT omits `audit_id` from column list → PG applies `DEFAULT gen_random_uuid()`. All required fields populated: `user_id`, `modality`, `old_value`, `new_value`, `ts_utc` (via `now()`).
+- Audit INSERT (line 948) occurs AFTER the UPSERT (line 941). Both within the same `withTransaction` BEGIN/COMMIT. If the audit INSERT fails, the UPSERT rolls back atomically.
+
+**6. Out-of-zone diff sweep:** ✅ CLOSED.
+- Files in iter-2 diff: `docs/tickets/TKT-028-c21-modality-settings-service.md` (§10 append), `src/modality/settings/service.ts`, `src/store/types.ts`, `src/store/tenantStore.ts`, `tests/store/tenantStore.test.ts`, `tests/observability/breachDetector.test.ts`.
+- `types.ts` and `tenantStore.ts` are PO-authorised carve-out. Test files are cascading mock additions. No unauthorized files.
+
+### Iteration-2 status
+
+- F-H1: **closed** — `extractQueryable`, `(as unknown as)` cast, and direct `.db.query()` access all removed. service.ts now delegates cleanly to `TenantStore` interface methods.
+- F-M1: unchanged, deferred to future TKT (RouteKind extension — `/settings` still logs as `meal_content_received`; out of TKT-028@0.1.0 scope)
+- F-L1: unchanged (ARCH-001@0.6.2 §3.21 `getSettings` DB-failure fallback to cached/ALL_ON default still not implemented)
+
+### New findings introduced by iter-2
+
+- **F-L2 (`src/modality/settings/service.ts:175`):** `modality as ModalityToggleName` is a safe narrowing cast (`ModalityName` and `ModalityToggleName` are structurally identical: both `"water" | "sleep" | "workout" | "mood"`), but represents a type duplication. The local `ModalityName` alias in service.ts could be replaced by importing `ModalityToggleName` directly from `src/store/types.ts`, eliminating the cast. No correctness risk. *Severity:* Low.
+
+### Updated overall verdict
+
+- [ ] pass
+- [x] pass_with_changes (F-M1 + F-L1 deferred; F-L2 nit; backlog after merge)
+- [ ] fail
+
+### Recommendation to PO
+
+**merge** — F-H1 is closed. The iter-2 fix correctly adds proper repository methods, removes the type-safety violation, delegates through all three store layers (`TenantPostgresStore`, `TenantScopedRepositoryImpl`, `BreachDetectingTenantStore`), and implements audit logging within a single transaction boundary. F-M1 (RouteKind extension) and F-L1 (DB-failure fallback) are pre-existing and out of scope for TKT-028@0.1.0 — backlogged.
