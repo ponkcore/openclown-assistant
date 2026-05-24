@@ -2,7 +2,7 @@
 id: TKT-028
 title: C21 Modality Settings Service with /settings command + ≤30s propagation
 version: 0.1.0
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C21
@@ -78,3 +78,7 @@ Land the C21 Modality Settings Service exposing a `/settings` Telegram command s
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
 - [ ] Executor filled §10 Execution Log.
 - [ ] Ticket frontmatter `status: in_review` in a separate commit.
+
+## 10. Execution Log
+- 2026-05-25T00:00:00Z opencode-executor: started
+- 2026-05-25T01:55:00Z opencode-executor: in_review; tests 25 pass; lint clean; typecheck clean

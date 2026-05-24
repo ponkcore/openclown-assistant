@@ -16,10 +16,18 @@ import {
   MSG_VOICE_TOO_LONG,
 } from "./messages.js";
 import { isOperationAllowed } from "../security/allowlist.js";
+import type { SettingsCommandHandler } from "../modality/settings/telegramCommand.js";
 
 export const MAX_VOICE_DURATION_SECONDS = 15;
 
 const SERVICE_NAME = "kbju-telegram-entrypoint";
+
+// ── C21 /settings handler (additive routing per TKT-028@0.1.0) ────────────
+let settingsHandler: SettingsCommandHandler | null = null;
+
+export function registerSettingsHandler(handler: SettingsCommandHandler): void {
+  settingsHandler = handler;
+}
 
 const MSG_BLOCKED_USER = "Извините, бот пока в закрытом тестировании.";
 
@@ -248,6 +256,15 @@ export async function routeMessage(
     }
   }
 
+  // C21 /settings command — additive routing per TKT-028@0.1.0.
+  // Intercepts /settings before it falls into the text_meal switch-case.
+  if (settingsHandler && update.text?.startsWith("/settings")) {
+    await invokeWithTyping(deps, update, () =>
+      settingsHandler!.handleSettingsCommand(update)
+    );
+    return;
+  }
+
   switch (update.routeKind) {
     case "start":
       await invokeWithTyping(deps, update, () => deps.handlers.start(update));
@@ -346,6 +363,15 @@ export async function routeCallbackQuery(
     deps.allowlist &&
     !isOperationAllowed(update.routeKind, deps.allowlist.getMode())
   ) {
+    return;
+  }
+
+  // C21 /settings callback — additive routing per TKT-028@0.1.0.
+  // Intercepts "settings:" callback data before the generic callback handler.
+  if (settingsHandler && update.callbackData?.startsWith("settings:")) {
+    await invokeWithTyping(deps, update, () =>
+      settingsHandler!.handleSettingsCallback(update)
+    );
     return;
   }
 
