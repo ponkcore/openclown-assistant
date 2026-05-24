@@ -3,7 +3,6 @@ description: Read-only architectural consultant. Use sparingly when the orchestr
 mode: subagent
 model: omniroute/claude-opus-4.7
 reasoningEffort: high
-maxTokens: 32000
 permission:
   edit: deny
   bash:

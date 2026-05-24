@@ -2,7 +2,6 @@
 description: Implements a single approved Ticket (TKT-NNN) end-to-end. Reads docs/tickets/TKT-NNN.md, implements §5 Outputs only, runs tests, appends §10 Execution Log, flips status fields. Use when Sisyphus dispatches one ticket for code work.
 mode: subagent
 model: fireworks-ai/accounts/fireworks/models/glm-5p1
-maxTokens: 32000
 permission:
   edit:
     "src/**": allow
