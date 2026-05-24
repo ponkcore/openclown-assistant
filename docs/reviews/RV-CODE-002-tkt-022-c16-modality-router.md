@@ -29,7 +29,7 @@ Recommendation to PO: **iterate** — the executor should wire `createC16Wrapped
 - [x] All Acceptance Criteria from TKT-022@0.1.0 §6 are verifiably satisfied (file:line or test name cited below)
 - [x] CI green (lint clean via `tsc --noEmit`, typecheck clean, 102 tests pass including entrypoint regression)
 - [x] Definition of Done complete
-- [x] Ticket frontmatter `status: in_review` in the diff (TKT-022-c16-modality-router.md line 6)
+- [x] Ticket frontmatter `status: in_review` in the diff (`TKT-022-c16-modality-router.md` line 6)
 
 ## Findings
 
