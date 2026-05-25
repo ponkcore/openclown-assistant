@@ -60,3 +60,39 @@ Recommendation to PO: approve with changes — Mediums can be fixed in a follow-
 - **Secrets:** No credentials committed or leaked. All `api_key_env` references are environment variable names (not values). The migrated manifests contain no `api_key_env` field. The registry's `getApiKey()` reads `process.env` at call time.
 - **Observability:** Improved. The extractors now emit `call_type` in log events (e.g. `src/photo/photoRecognitionAdapter.ts:199` logs `call_type: config.call_type` on registry error, line 270 logs it on provider call start). A 3am operator can trace which `call_type` alias was resolved, then look up the actual model in `config/llm.json`. The stale `omniRouteBaseUrl`/`omniRouteApiKey` parameters have been removed from logger interfaces, reducing operator confusion about where model config lives.
 - **Rollback:** Straightforward. Reverting this PR restores the old manifest format with `defaultModel`/`fallbackModel`/`emergencyModel` and the old extractor code calling `callOmniRoute` with hard-coded model IDs. The registry (`src/llm/registry.ts`) is unchanged by this PR (no diff on `src/llm/registry.ts`). No schema migration or database change required.
+
+## Iteration 2 — re-review
+
+**Head commit:** `26b465d` — TKT-035@0.1.0: iter 2 — remove dead VISION_MODEL_ALIAS (RV-CODE-019 F-M2)
+
+**Re-reviewed:** 2026-05-26
+
+### Updated Verdict
+- [x] pass
+- [ ] pass_with_changes
+- [ ] fail
+
+**Justification:** F-M2 (dead `VISION_MODEL_ALIAS` constant) is cleanly resolved — the constant is deleted from `src/photo/types.ts` and zero consumers remain (`grep -rn "VISION_MODEL_ALIAS" src/ tests/` returns no results). F-M1 (photo adapter raw-fetch bypass) is deferred to backlog with executor acknowledgment — acceptable as a pre-existing layering gap that this PR improves (now uses `registry.resolve()`). F-M3 is satisfied with the two named pre-existing failures. F-L1 moot — the executor's §10 Execution Log now names them. No new findings. All iter-1 contract-compliance checks hold.
+
+**Recommendation:** `merge`
+
+### Per-finding status
+
+| Finding | Severity | Status | Evidence |
+|---------|----------|--------|----------|
+| F-M1 (photo adapter raw fetch bypass) | Medium | **Deferred to backlog** | `src/photo/photoRecognitionAdapter.ts` unchanged in iter-2; orchestrator to open BACKLOG-007 separately |
+| F-M2 (dead VISION_MODEL_ALIAS) | Medium | **Resolved** | `src/photo/types.ts` line 8 removed (`26b465d`); zero grep results across `src/ tests/` |
+| F-M3 (2 unnamed pre-existing failures) | Medium | **Satisfied** | §10 Execution Log now names them: `healthCheck.ts > startMetricsServer rejects 0.0.0.0 wildcard` and `Allowlist > failure modes > hot-reloads mode changes from file` |
+| F-L1 (exec log missing failure names) | Low | **Moot** | §10 Execution Log now names them on the iter-2 entry |
+
+### Iter-2 diff audit
+- `26b465d` modifies only `src/photo/types.ts` (removes one line: `export const VISION_MODEL_ALIAS = "qwen3-vl-30b-a3b-instruct";`) and `docs/tickets/TKT-035-*.md` (§10 Execution Log append). No other files touched.
+- Original two-commit split (`beb3e92` + `96888cb`) preserved.
+- CI: 1333 tests pass, lint clean, typecheck clean (same 2 pre-existing failures as iter-1).
+
+### Hard checks re-confirmed
+- [x] Scope: iter-2 fix modifies only `src/photo/types.ts` (an existing §5 Outputs file) and the ticket execution log — no new files.
+- [x] NOT-In-Scope: no new call-type aliases, prompts, or JSON schemas touched.
+- [x] Dependencies: `package.json`/`package-lock.json` unchanged.
+- [x] ACs still met: no regression; F-M2 removal does not affect runtime behaviour.
+- [x] DoD: iter-2 execution log entry appended per convention.
