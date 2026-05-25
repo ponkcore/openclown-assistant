@@ -1,7 +1,7 @@
 ---
 id: TKT-038
 title: Multi-stage Dockerfile (build-in-image)
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: Deployment / ADR-019
@@ -71,3 +71,5 @@ Replace the single-stage `Dockerfile` (which COPYs prebuilt `dist/`) with a two-
 
 ## 10. Execution Log
 <!-- executor fills as work proceeds -->
+- 2026-05-25T00:00:00Z opencode-executor: started
+- 2026-05-25T19:10:00Z opencode-executor: in_review; tests 23 pass; lint clean; typecheck clean; docker build+run verified (uid=1000(node), image ~233 MB)

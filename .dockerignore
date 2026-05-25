@@ -1,0 +1,54 @@
+# Node / build artefacts
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Tests (not needed in image build)
+tests/
+
+# Documentation
+docs/
+
+# Git
+.git/
+.github/
+
+# CI / infra
+incidents/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Secrets — NEVER include in build context
+.env
+.env.*
+
+# Python (validators only)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Test coverage / reports
+coverage/
+.nyc_output/
+htmlcov/
+.pytest_cache/
+
+# Local artifacts
+*.log
+*.sqlite
+*.db
+data/
+tmp/
+.cache/
+
+# Sisyphus / Dev tools
+.sisyphus/
+.devin/
+backups/
