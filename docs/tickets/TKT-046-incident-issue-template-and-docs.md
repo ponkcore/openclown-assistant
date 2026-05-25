@@ -1,7 +1,7 @@
 ---
 id: TKT-046
 title: GitHub incident issue template + docs/incidents/{README,TEMPLATE}.md
-status: in_review
+status: done
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: docs/incidents / .github/ISSUE_TEMPLATE
@@ -10,6 +10,9 @@ blocks: []
 estimate: S
 created: 2026-05-25
 updated: 2026-05-25
+closed_at: 2026-05-25
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-014
 ---
 
 # TKT-046: GitHub incident issue template + docs/incidents/{README,TEMPLATE}.md
@@ -68,3 +71,4 @@ Land the artefact-side of the incident pipeline: a GitHub `incident.md` issue te
 <!-- executor fills as work proceeds -->
 - 2026-05-25T00:00:00Z opencode-executor: started
 - 2026-05-25T00:00:00Z opencode-executor: in_review; validate_docs passes; lint clean; all AC met
+- 2026-05-25T17:47:00Z opencode-orchestrator: merged in commit 2143ac4; RV-CODE-014 verdict=pass (0H/0M/0L); status=done
