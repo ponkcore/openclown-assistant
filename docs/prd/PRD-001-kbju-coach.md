@@ -2,7 +2,7 @@
 id: PRD-001
 title: KBJU Coach v0.1
 version: 0.3.0
-status: draft
+status: approved
 owner: '@po'
 created: 2026-04-25
 updated: 2026-05-25
