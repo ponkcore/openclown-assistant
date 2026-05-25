@@ -1,7 +1,8 @@
 ---
 description: Reviews a single Ticket-PR for contract compliance, correctness, and red-team risks. Reads the PR diff, the source TKT, and the ArchSpec/ADR sections cited in §4 Inputs. Writes the verdict to docs/reviews/RV-CODE-NNN-*.md and commits it. Use when Sisyphus has just got a hand-back from the executor.
 mode: subagent
-model: xiaomi-token-plan-sgp/mimo-v2.5-pro
+model: fireworks-ai/accounts/fireworks/models/deepseek-v4-pro
+variant: max
 reasoningEffort: high
 permission:
   edit:
