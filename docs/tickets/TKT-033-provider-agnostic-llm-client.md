@@ -1,8 +1,8 @@
 ---
 id: TKT-033
 title: 'Provider-agnostic LLM client + model registry + LLM_* env-var rename'
-status: in_review
-arch_ref: ARCH-001@0.7.0
+status: done
+arch_ref: ARCH-001@0.7.1
 prd_ref: PRD-001@0.3.0
 component: C23 LLM Gateway / src/llm
 depends_on: []
@@ -13,6 +13,9 @@ blocks:
 estimate: L
 created: 2026-05-25
 updated: 2026-05-25
+closed_at: 2026-05-25
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-018
 ---
 
 # TKT-033: Provider-agnostic LLM client + model registry + LLM_* env-var rename
@@ -101,3 +104,4 @@ Refactor `src/llm/omniRouteClient.ts` into a generic `src/llm/llmClient.ts` driv
 - 2026-05-25T20:40:00Z opencode-executor (RETRY): added fs.watchFile hot-reload test with atomic rename (AC 5); 32 new LLM tests pass (1333 total pass); lint clean; typecheck clean; arch_ref stays ARCH-001@0.7.0 per ticket read-only rule (dispatch noted 0.7.1 bump — architect-consult patch not yet landed in this branch)
 
 - 2026-05-25T20:52:00Z opencode-executor: iter 2; addressed RV-CODE-018 F-H1 (relaxed `src/shared/config.ts` to accept `LLM_*` env-var aliases per ADR-024@0.1.0 §Backward compatibility); 6 new parseConfig tests (new-only boot, legacy-only boot, both-absent fails, prefers-new, blank-fallthrough, LLM_ENV_ALIASES export); 1340 total pass; lint clean; typecheck clean
+- 2026-05-25T20:57Z opencode-orchestrator: merged in commit d28bd8a; RV-CODE-018 verdict=pass after iter 2 (F-H1 fixed; F-L1+F-L2 deferred to v0.8.0 deprecation cleanup); arch_ref bumped to ARCH-001@0.7.1; status=done; unblocks TKT-034@0.1.0 + TKT-035@0.1.0 + TKT-036@0.1.0
