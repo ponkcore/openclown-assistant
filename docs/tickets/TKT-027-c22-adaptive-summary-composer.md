@@ -94,3 +94,4 @@ Land the C22 Adaptive Summary Composer that folds active modality sections into 
 ## 10. Execution Log
 - 2026-05-25T00:00:00Z opencode-executor: started
 - 2026-05-25T15:15:00Z opencode-executor: in_review; tests 32 pass; lint clean; typecheck clean; latency claim: 4 parallel SELECT via Promise.all within ≤5% overhead budget
+- 2026-05-25T15:40:00Z opencode-executor iter2: closed F-M1 (Promise.all → Promise.allSettled with per-rejection structured-log emit; failed modality query → empty section, KBJU + other sections still delivered per ARCH-001@0.6.2 §3.22 mode (a)). Added unit test asserting transient water-table failure does not block KBJU delivery. F-L1..F-L5 left as-is.

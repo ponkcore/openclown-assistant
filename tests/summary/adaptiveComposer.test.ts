@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { composeAdaptiveSummary, type AdaptiveComposerDeps, type AdaptiveComposerInput } from "../../src/summary/adaptiveComposer.js";
 import type { TenantStore, WaterEventRow, SleepRecordRow, WorkoutEventRow, MoodEventRow } from "../../src/store/types.js";
 import type { ModalitySettings, SettingsDb } from "../../src/modality/settings/service.js";
+import type { OpenClawLogger } from "../../src/shared/types.js";
 
 // ── Test fixtures ─────────────────────────────────────────────────────────
 
@@ -30,6 +31,15 @@ const workoutEvents: WorkoutEventRow[] = [
 const moodEvents: MoodEventRow[] = [
   { event_id: "m1", user_id: USER_ID, ts_utc: "2026-05-25T09:00:00Z", score: 7, comment_text: null, source: "keyboard", inferred_from_text: false, raw_text: null, created_at: "2026-05-25T09:00:00Z" },
 ];
+
+function makeMockLogger(): OpenClawLogger {
+  return {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    critical: vi.fn(),
+  };
+}
 
 function makeMockStore(overrides: Partial<TenantStore> = {}): TenantStore {
   return {
@@ -105,18 +115,20 @@ function makeInput(overrides: Partial<AdaptiveComposerInput> = {}): AdaptiveComp
 describe("composeAdaptiveSummary", () => {
   let store: TenantStore;
   let settingsDb: SettingsDb;
+  let logger: OpenClawLogger;
   let deps: AdaptiveComposerDeps;
 
   beforeEach(() => {
     store = makeMockStore();
     settingsDb = makeMockSettingsDb({ waterOn: true, sleepOn: true, workoutOn: true, moodOn: true });
-    deps = { store, settingsDb };
+    logger = makeMockLogger();
+    deps = { store, settingsDb, logger };
   });
 
   // 1. KBJU-only (all modalities OFF)
   it("returns KBJU-only when all modalities are OFF", async () => {
     settingsDb = makeMockSettingsDb({ waterOn: false, sleepOn: false, workoutOn: false, moodOn: false });
-    deps = { store, settingsDb };
+    deps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary(makeInput(), deps);
     expect(result.text).toBe(KBJU_TEXT);
@@ -133,7 +145,7 @@ describe("composeAdaptiveSummary", () => {
   // 3. KBJU + water
   it("includes water section when water ON and events exist", async () => {
     store = makeMockStore({ getWaterEventsInWindow: vi.fn().mockResolvedValue(waterEvents) });
-    deps = { store, settingsDb };
+    deps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary(makeInput(), deps);
     expect(result.sections).toEqual(["water"]);
@@ -149,7 +161,7 @@ describe("composeAdaptiveSummary", () => {
       getWaterEventsInWindow: vi.fn().mockResolvedValue(waterEvents),
       getSleepRecordsInWindow: vi.fn().mockResolvedValue(sleepRecords),
     });
-    deps = { store, settingsDb };
+    deps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary(makeInput(), deps);
     expect(result.sections).toEqual(["water", "sleep"]);
@@ -165,7 +177,7 @@ describe("composeAdaptiveSummary", () => {
       getWorkoutEventsInWindow: vi.fn().mockResolvedValue(workoutEvents),
       getMoodEventsInWindow: vi.fn().mockResolvedValue(moodEvents),
     });
-    deps = { store, settingsDb };
+    deps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary(makeInput(), deps);
     expect(result.sections).toEqual(["water", "sleep", "workout", "mood"]);
@@ -183,7 +195,7 @@ describe("composeAdaptiveSummary", () => {
       getWorkoutEventsInWindow: vi.fn().mockResolvedValue([]),
       getMoodEventsInWindow: vi.fn().mockResolvedValue(moodEvents),
     });
-    deps = { store, settingsDb };
+    deps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary(makeInput(), deps);
     expect(result.sections).toEqual(["sleep", "mood"]);
@@ -196,7 +208,7 @@ describe("composeAdaptiveSummary", () => {
   // 7. Water ON but zero events → suppressed (zero-event suppression)
   it("suppresses water section when ON but zero events", async () => {
     store = makeMockStore({ getWaterEventsInWindow: vi.fn().mockResolvedValue([]) });
-    deps = { store, settingsDb };
+    deps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary(makeInput(), deps);
     expect(result.sections).toEqual([]);
@@ -207,7 +219,7 @@ describe("composeAdaptiveSummary", () => {
   it("suppresses water section when OFF even if events exist", async () => {
     settingsDb = makeMockSettingsDb({ waterOn: false, sleepOn: false, workoutOn: false, moodOn: false });
     store = makeMockStore({ getWaterEventsInWindow: vi.fn().mockResolvedValue(waterEvents) });
-    deps = { store, settingsDb };
+    deps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary(makeInput(), deps);
     expect(result.sections).toEqual([]);
@@ -220,7 +232,7 @@ describe("composeAdaptiveSummary", () => {
     store = makeMockStore({
       getWaterEventsInWindow: vi.fn().mockResolvedValue(waterEvents),
     });
-    deps = { store, settingsDb };
+    deps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary(makeInput(), deps);
     expect(result.sections).toEqual(["water"]);
@@ -236,7 +248,7 @@ describe("composeAdaptiveSummary", () => {
     ];
     settingsDb = makeMockSettingsDb({ waterOn: false, sleepOn: false, workoutOn: false, moodOn: true });
     store = makeMockStore({ getMoodEventsInWindow: vi.fn().mockResolvedValue(multiMood) });
-    deps = { store, settingsDb };
+    deps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary(makeInput(), deps);
     expect(result.sections).toEqual(["mood"]);
@@ -251,7 +263,7 @@ describe("composeAdaptiveSummary", () => {
     ];
     settingsDb = makeMockSettingsDb({ waterOn: false, sleepOn: false, workoutOn: true, moodOn: false });
     store = makeMockStore({ getWorkoutEventsInWindow: vi.fn().mockResolvedValue(strengthEvent) });
-    deps = { store, settingsDb };
+    deps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary(makeInput(), deps);
     expect(result.text).toContain("Силовая");
@@ -262,9 +274,41 @@ describe("composeAdaptiveSummary", () => {
   it("mood section with single event shows simple score", async () => {
     settingsDb = makeMockSettingsDb({ waterOn: false, sleepOn: false, workoutOn: false, moodOn: true });
     store = makeMockStore({ getMoodEventsInWindow: vi.fn().mockResolvedValue(moodEvents) });
-    deps = { store, settingsDb };
+    deps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary(makeInput(), deps);
     expect(result.text).toContain("Настроение: 7/10");
+  });
+
+  // 13. F-M1: transient water-table failure does not block KBJU delivery
+  //     (ARCH-001@0.6.2 §3.22 failure mode (a))
+  it("transient water query failure suppresses water section but delivers KBJU and other sections", async () => {
+    const waterError = new Error("water_events table unavailable");
+    store = makeMockStore({
+      getWaterEventsInWindow: vi.fn().mockRejectedValue(waterError),
+      getSleepRecordsInWindow: vi.fn().mockResolvedValue(sleepRecords),
+      getWorkoutEventsInWindow: vi.fn().mockResolvedValue(workoutEvents),
+      getMoodEventsInWindow: vi.fn().mockResolvedValue(moodEvents),
+    });
+    deps = { store, settingsDb, logger };
+
+    const result = await composeAdaptiveSummary(makeInput(), deps);
+
+    // KBJU is still present (unconditional)
+    expect(result.text).toContain(KBJU_TEXT);
+    // Water section is suppressed (query failed → fell back to [] → zero-event suppression)
+    expect(result.sections).not.toContain("water");
+    expect(result.text).not.toContain("Вода:");
+    // Other sections are still present
+    expect(result.sections).toEqual(["sleep", "workout", "mood"]);
+    expect(result.text).toContain("Сон:");
+    expect(result.text).toContain("Тренировка:");
+    expect(result.text).toContain("Настроение:");
+    // Structured-log observability event emitted
+    expect(logger.warn).toHaveBeenCalledWith("c22_modality_query_failed", expect.objectContaining({
+      modality: "water",
+      error_name: "Error",
+      error_message: "water_events table unavailable",
+    }));
   });
 });

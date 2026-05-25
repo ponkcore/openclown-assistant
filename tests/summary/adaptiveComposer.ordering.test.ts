@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { composeAdaptiveSummary, type AdaptiveComposerDeps } from "../../src/summary/adaptiveComposer.js";
 import type { TenantStore, WaterEventRow, SleepRecordRow, WorkoutEventRow, MoodEventRow } from "../../src/store/types.js";
 import type { ModalitySettings, SettingsDb } from "../../src/modality/settings/service.js";
+import type { OpenClawLogger } from "../../src/shared/types.js";
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -22,6 +23,15 @@ const workoutEvents: WorkoutEventRow[] = [
 const moodEvents: MoodEventRow[] = [
   { event_id: "m1", user_id: USER_ID, ts_utc: "2026-05-25T09:00:00Z", score: 7, comment_text: null, source: "keyboard", inferred_from_text: false, raw_text: null, created_at: "2026-05-25T09:00:00Z" },
 ];
+
+function makeMockLogger(): OpenClawLogger {
+  return {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    critical: vi.fn(),
+  };
+}
 
 function makeMockStore(overrides: Partial<TenantStore> = {}): TenantStore {
   return {
@@ -60,6 +70,8 @@ function makeMockSettingsDb(settings: ModalitySettings): SettingsDb {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe("adaptiveComposer deterministic section ordering", () => {
+  const logger = makeMockLogger();
+
   it("all four sections appear in KBJU → water → sleep → workout → mood order", async () => {
     const store = makeMockStore({
       getWaterEventsInWindow: vi.fn().mockResolvedValue(waterEvents),
@@ -68,7 +80,7 @@ describe("adaptiveComposer deterministic section ordering", () => {
       getMoodEventsInWindow: vi.fn().mockResolvedValue(moodEvents),
     });
     const settingsDb = makeMockSettingsDb({ waterOn: true, sleepOn: true, workoutOn: true, moodOn: true });
-    const deps: AdaptiveComposerDeps = { store, settingsDb };
+    const deps: AdaptiveComposerDeps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary({
       userId: USER_ID, startUtc: START_UTC, endUtc: END_UTC,
@@ -98,7 +110,7 @@ describe("adaptiveComposer deterministic section ordering", () => {
       getMoodEventsInWindow: vi.fn().mockResolvedValue(moodEvents),
     });
     const settingsDb = makeMockSettingsDb({ waterOn: true, sleepOn: false, workoutOn: false, moodOn: true });
-    const deps: AdaptiveComposerDeps = { store, settingsDb };
+    const deps: AdaptiveComposerDeps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary({
       userId: USER_ID, startUtc: START_UTC, endUtc: END_UTC,
@@ -122,7 +134,7 @@ describe("adaptiveComposer deterministic section ordering", () => {
       getWorkoutEventsInWindow: vi.fn().mockResolvedValue(workoutEvents),
     });
     const settingsDb = makeMockSettingsDb({ waterOn: false, sleepOn: true, workoutOn: true, moodOn: false });
-    const deps: AdaptiveComposerDeps = { store, settingsDb };
+    const deps: AdaptiveComposerDeps = { store, settingsDb, logger };
 
     const result = await composeAdaptiveSummary({
       userId: USER_ID, startUtc: START_UTC, endUtc: END_UTC,

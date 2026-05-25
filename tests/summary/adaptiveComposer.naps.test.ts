@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { composeAdaptiveSummary, type AdaptiveComposerDeps } from "../../src/summary/adaptiveComposer.js";
 import type { TenantStore, SleepRecordRow } from "../../src/store/types.js";
 import type { ModalitySettings, SettingsDb } from "../../src/modality/settings/service.js";
+import type { OpenClawLogger } from "../../src/shared/types.js";
 import { renderNapDecomposition } from "../../src/summary/copy.ru.js";
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
@@ -43,6 +44,15 @@ function makeNap(overrides: Partial<SleepRecordRow> = {}): SleepRecordRow {
   };
 }
 
+function makeMockLogger(): OpenClawLogger {
+  return {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    critical: vi.fn(),
+  };
+}
+
 function makeMockStore(sleepRecords: SleepRecordRow[]): TenantStore {
   return {
     withTransaction: vi.fn().mockResolvedValue(undefined),
@@ -79,6 +89,8 @@ function makeMockSettingsDb(settings: ModalitySettings): SettingsDb {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe("nap-class decomposition", () => {
+  const logger = makeMockLogger();
+
   // Pure function tests for renderNapDecomposition
   describe("renderNapDecomposition", () => {
     it("only night sleep: renders '1 ночной сон'", () => {
@@ -116,7 +128,7 @@ describe("nap-class decomposition", () => {
       const records = [makeNightSleep()];
       const store = makeMockStore(records);
       const settingsDb = makeMockSettingsDb({ waterOn: false, sleepOn: true, workoutOn: false, moodOn: false });
-      const deps: AdaptiveComposerDeps = { store, settingsDb };
+      const deps: AdaptiveComposerDeps = { store, settingsDb, logger };
 
       const result = await composeAdaptiveSummary({
         userId: USER_ID, startUtc: START_UTC, endUtc: END_UTC,
@@ -132,7 +144,7 @@ describe("nap-class decomposition", () => {
       const records = [makeNap()];
       const store = makeMockStore(records);
       const settingsDb = makeMockSettingsDb({ waterOn: false, sleepOn: true, workoutOn: false, moodOn: false });
-      const deps: AdaptiveComposerDeps = { store, settingsDb };
+      const deps: AdaptiveComposerDeps = { store, settingsDb, logger };
 
       const result = await composeAdaptiveSummary({
         userId: USER_ID, startUtc: START_UTC, endUtc: END_UTC,
@@ -147,7 +159,7 @@ describe("nap-class decomposition", () => {
       const records = [makeNightSleep(), makeNap({ record_id: "np2" })];
       const store = makeMockStore(records);
       const settingsDb = makeMockSettingsDb({ waterOn: false, sleepOn: true, workoutOn: false, moodOn: false });
-      const deps: AdaptiveComposerDeps = { store, settingsDb };
+      const deps: AdaptiveComposerDeps = { store, settingsDb, logger };
 
       const result = await composeAdaptiveSummary({
         userId: USER_ID, startUtc: START_UTC, endUtc: END_UTC,
