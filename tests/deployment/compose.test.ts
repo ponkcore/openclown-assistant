@@ -34,6 +34,8 @@ describe("docker-compose.yml", () => {
       (line) => line.trim().startsWith("- ") && line.includes(":") && !line.includes("${")
     );
     const hostBindMounts = volumeLines.filter((line) => {
+      // Exclude read-only config file bind mounts (e.g. Caddyfile:ro per ADR-020@0.1.0)
+      if (line.includes(":ro")) return false;
       const match = line.trim().match(/-\s+(.+):/);
       if (!match) return false;
       const source = match[1].trim();
@@ -144,5 +146,158 @@ describe("Dockerfile", () => {
 
   it("does not define image-level HEALTHCHECK", () => {
     expect(dockerfileContent).not.toContain("HEALTHCHECK");
+  });
+});
+
+
+describe("docker-compose.yml — caddy service (ADR-020@0.1.1)", () => {
+  const content = readCompose();
+
+  function extractCaddySection(): string {
+    const caddyStart = content.indexOf("  caddy:");
+    if (caddyStart < 0) return "";
+    // The caddy service ends at the next top-level key (a line starting with
+    // a non-space character) or at EOF.
+    const afterCaddy = content.substring(caddyStart);
+    const nextTopLevel = afterCaddy.search(/\n[a-z]/);
+    const caddySection = nextTopLevel > 0
+      ? afterCaddy.substring(0, nextTopLevel)
+      : afterCaddy;
+    return caddySection;
+  }
+
+  it("caddy service exists", () => {
+    expect(content).toContain("  caddy:");
+  });
+
+  it("caddy uses caddy:2-alpine image", () => {
+    expect(content).toMatch(/image:\s*caddy:2-alpine/);
+  });
+
+  it("caddy exposes ports 80 and 443", () => {
+    expect(content).toMatch(/-\s*"80:80"/);
+    expect(content).toMatch(/-\s*"443:443"/);
+  });
+
+  it("caddy mounts Caddyfile read-only", () => {
+    expect(content).toContain("./Caddyfile:/etc/caddy/Caddyfile:ro");
+  });
+
+  it("caddy uses caddy_data named volume for /data", () => {
+    expect(content).toContain("caddy_data:/data");
+  });
+
+  it("caddy uses caddy_config named volume for /config", () => {
+    expect(content).toContain("caddy_config:/config");
+  });
+
+  it("caddy_data and caddy_config are declared as top-level named volumes", () => {
+    expect(content).toMatch(/^  caddy_data:\s*$/m);
+    expect(content).toMatch(/^  caddy_config:\s*$/m);
+  });
+
+  it("caddy sets KBJU_PUBLIC_DOMAIN from env", () => {
+    expect(content).toContain("KBJU_PUBLIC_DOMAIN: ${KBJU_PUBLIC_DOMAIN}");
+  });
+
+  it("caddy depends on openclaw-gateway", () => {
+    const section = extractCaddySection();
+    expect(section).toContain("depends_on");
+    expect(section).toContain("openclaw-gateway");
+  });
+
+  it("caddy has a healthcheck using curl to /health", () => {
+    const section = extractCaddySection();
+    expect(section).toContain("healthcheck");
+    expect(section).toContain("curl");
+    expect(section).toContain("http://localhost/health");
+  });
+
+  it("caddy has restart: unless-stopped", () => {
+    const section = extractCaddySection();
+    expect(section).toContain("restart: unless-stopped");
+  });
+
+  it("caddy is on the internal network", () => {
+    const section = extractCaddySection();
+    expect(section).toContain("- internal");
+  });
+
+  it("caddy does not use host networking", () => {
+    expect(content).not.toMatch(/network_mode:\s*host/);
+  });
+
+  it("no host bind mount for production data — Caddyfile is the only host-path bind and it is read-only", () => {
+    const section = extractCaddySection();
+    const volumeLines = section
+      .split("\n")
+      .filter((l) => l.trim().startsWith("- ") && l.includes(":"));
+    const hostBindMounts = volumeLines.filter((l) => {
+      const match = l.trim().match(/-\s+(.+):/);
+      if (!match) return false;
+      const src = match[1].trim();
+      return src.startsWith("/") || src.startsWith("./") || src.startsWith("~");
+    });
+    expect(hostBindMounts.length).toBe(1);
+    expect(hostBindMounts[0]).toContain(":ro");
+  });
+});
+
+describe("Caddyfile (ADR-020@0.1.1)", () => {
+  const caddyfilePath = resolve(ROOT, "Caddyfile");
+  const caddyContent = readFileSync(caddyfilePath, "utf-8");
+
+  it("exists and is non-empty", () => {
+    expect(caddyContent.length).toBeGreaterThan(0);
+  });
+
+  it("references {\$KBJU_PUBLIC_DOMAIN}", () => {
+    expect(caddyContent).toContain("{$KBJU_PUBLIC_DOMAIN}");
+  });
+
+  it("reverse-proxies /telegram to openclaw-gateway", () => {
+    expect(caddyContent).toMatch(/reverse_proxy\s+\/telegram\s+openclaw-gateway/);
+  });
+
+  it("reverse-proxies /telegram/* to openclaw-gateway", () => {
+    expect(caddyContent).toMatch(/reverse_proxy\s+\/telegram\/\*\s+openclaw-gateway/);
+  });
+
+  it("/health endpoint returns kbju-caddy-ok 200", () => {
+    expect(caddyContent).toContain('respond "kbju-caddy-ok" 200');
+  });
+});
+
+describe("docker-compose.cf-tunnel.yml (ADR-020@0.1.1 §Override path)", () => {
+  const cfTunnelPath = resolve(ROOT, "docker-compose.cf-tunnel.yml");
+  const cfContent = readFileSync(cfTunnelPath, "utf-8");
+
+  it("exists and is non-empty", () => {
+    expect(cfContent.length).toBeGreaterThan(0);
+  });
+
+  it("caddy service has profiles: [\"disabled\"]", () => {
+    expect(cfContent).toContain("caddy:");
+    expect(cfContent).toMatch(/profiles:\s*\["disabled"\]/);
+  });
+
+  it("cloudflared service exists", () => {
+    expect(cfContent).toContain("cloudflared:");
+  });
+
+  it("cloudflared uses the cloudflare/cloudflared image", () => {
+    expect(cfContent).toMatch(/image:\s*cloudflare\/cloudflared/);
+  });
+
+  it("cloudflared command references CLOUDFLARED_TUNNEL_TOKEN", () => {
+    expect(cfContent).toContain("CLOUDFLARED_TUNNEL_TOKEN");
+  });
+
+  it("cloudflared has restart: unless-stopped", () => {
+    expect(cfContent).toContain("restart: unless-stopped");
+  });
+
+  it("cloudflared is on the internal network", () => {
+    expect(cfContent).toContain("- internal");
   });
 });
