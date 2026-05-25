@@ -1,7 +1,7 @@
 ---
 id: TKT-047
 title: 'Mood-comment overflow alignment (200 silent → 280 with friendly notice)'
-status: in_review
+status: done
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: C20 Mood Logger
@@ -10,6 +10,9 @@ blocks: []
 estimate: S
 created: 2026-05-25
 updated: 2026-05-25
+closed_at: 2026-05-25
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-015
 ---
 
 # TKT-047: Mood-comment overflow alignment (200 silent → 280 with friendly notice)
@@ -79,3 +82,4 @@ Align `src/modality/mood/` shipped behaviour with the canonical contract picked 
 - 2026-05-25T12:00:00Z opencode-executor: started
 
 - 2026-05-25T12:30:00Z opencode-executor: in_review; tests 37 pass; lint clean; typecheck clean. No divergence between ARCH-001@0.7.0 §6.2.2 C20 and TKT-047@0.1.0 §5 Outputs — both agree on the {score} placeholder pattern per existing copy.ru.ts convention. Truncation uses Array.from(s).slice(0,280).join("") per §7 constraint.
+- 2026-05-25T18:06:00Z opencode-orchestrator: merged in commit 2540466; RV-CODE-015 verdict=pass_with_changes (1M backlogged as BACKLOG-005 — wasTruncated telemetry label); status=done
