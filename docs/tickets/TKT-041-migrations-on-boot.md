@@ -1,7 +1,7 @@
 ---
 id: TKT-041
 title: Wire migrations on boot (runMigrations before server.listen)
-status: in_review
+status: done
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: src/main.ts boot path
@@ -11,6 +11,9 @@ blocks:
 estimate: S
 created: 2026-05-25
 updated: 2026-05-25
+closed_at: 2026-05-25
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-012
 ---
 
 # TKT-041: Wire migrations on boot (runMigrations before server.listen)
@@ -70,3 +73,4 @@ Run pending database migrations as part of `src/main.ts startServer()` before `s
 - 2026-05-25T12:00:00Z opencode-executor: started
 - 2026-05-25T19:40:00Z opencode-executor: in_review; tests 21 pass; lint clean; typecheck clean
 - 2026-05-25T19:55:00Z opencode-executor: iter 2; addressed RV-CODE-012 F-M1 (120s timeout via Promise.race+AbortController, overridable via KBJU_MIGRATION_TIMEOUT_MS env var) and F-M2 (pool.end() on success path); timeout tested with 50ms budget mock; tests 22 pass
+- 2026-05-25T17:05:00Z opencode-orchestrator: merged in commit 0b53767; RV-CODE-012 verdict=pass (after iter 2); status=done
