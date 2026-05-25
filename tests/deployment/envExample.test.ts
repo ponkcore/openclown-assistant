@@ -104,7 +104,7 @@ describe(".env.example", () => {
   });
 });
 
-describe(".env.example — TLS termination vars (ADR-020@0.1.0)", () => {
+describe(".env.example — TLS termination vars (ADR-020@0.1.1)", () => {
   const content = readEnvExample();
   const vars = parseEnvVars(content);
 

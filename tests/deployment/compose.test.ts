@@ -34,7 +34,7 @@ describe("docker-compose.yml", () => {
       (line) => line.trim().startsWith("- ") && line.includes(":") && !line.includes("${")
     );
     const hostBindMounts = volumeLines.filter((line) => {
-      // Exclude read-only config file bind mounts (e.g. Caddyfile:ro per ADR-020.1.0)
+      // Exclude read-only config file bind mounts (e.g. Caddyfile:ro per ADR-020@0.1.0)
       if (line.includes(":ro")) return false;
       const match = line.trim().match(/-\s+(.+):/);
       if (!match) return false;
@@ -150,7 +150,7 @@ describe("Dockerfile", () => {
 });
 
 
-describe("docker-compose.yml — caddy service (ADR-020@0.1.0)", () => {
+describe("docker-compose.yml — caddy service (ADR-020@0.1.1)", () => {
   const content = readCompose();
 
   function extractCaddySection(): string {
@@ -243,7 +243,7 @@ describe("docker-compose.yml — caddy service (ADR-020@0.1.0)", () => {
   });
 });
 
-describe("Caddyfile (ADR-020@0.1.0)", () => {
+describe("Caddyfile (ADR-020@0.1.1)", () => {
   const caddyfilePath = resolve(ROOT, "Caddyfile");
   const caddyContent = readFileSync(caddyfilePath, "utf-8");
 
@@ -268,7 +268,7 @@ describe("Caddyfile (ADR-020@0.1.0)", () => {
   });
 });
 
-describe("docker-compose.cf-tunnel.yml (ADR-020@0.1.0 §Override path)", () => {
+describe("docker-compose.cf-tunnel.yml (ADR-020@0.1.1 §Override path)", () => {
   const cfTunnelPath = resolve(ROOT, "docker-compose.cf-tunnel.yml");
   const cfContent = readFileSync(cfTunnelPath, "utf-8");
 

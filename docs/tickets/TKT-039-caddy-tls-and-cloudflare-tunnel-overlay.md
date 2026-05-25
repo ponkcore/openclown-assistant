@@ -81,3 +81,4 @@ Add a Caddy reverse-proxy service that terminates inbound TLS for the Telegram w
 <!-- executor fills as work proceeds -->
 - 2026-05-25T00:00:00Z opencode-executor: started
 - 2026-05-25T21:45:00Z opencode-executor: in_review; tests 54 pass; lint clean; typecheck clean
+- 2026-05-25T22:00:00Z opencode-executor: iter 2; ADR-020@0.1.1 landed in arch PR #27; updated Caddyfile upstream to openclaw-gateway:18789; addressed RV-CODE-017 F-H1 and F-M1 (added logging block to caddy service)

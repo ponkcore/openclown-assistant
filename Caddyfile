@@ -1,7 +1,7 @@
 {$KBJU_PUBLIC_DOMAIN} {
   encode zstd gzip
-  reverse_proxy /telegram openclaw-gateway:8080
-  reverse_proxy /telegram/* openclaw-gateway:8080
+  reverse_proxy /telegram openclaw-gateway:18789
+  reverse_proxy /telegram/* openclaw-gateway:18789
   handle /health {
     respond "kbju-caddy-ok" 200
   }
