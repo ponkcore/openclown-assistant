@@ -53,6 +53,9 @@
       "*": "allow"
     },
     "external_directory": {
+      "/home/oonishi/.local/share/opencode/log/**": "allow",
+      "/home/oonishi/.local/share/opencode/snapshot/**": "allow",
+      "/home/oonishi/.local/share/opencode/tool-output/**": "allow",
       "/tmp/**": "allow",
       "*": "deny"
     },

@@ -206,6 +206,19 @@ def validate_artifact(art: Artifact, known_ids: set[str]) -> list[str]:
     # would otherwise trip the `bare_re` unpinned-reference rule. Strip them
     # before scanning for cross-references.
     body_no_fences = re.sub(r"`[^`\n]+`", "", body_no_fences)
+    # Tickets carry an append-only `§10 Execution Log` of orchestrator and
+    # subagent activity. Those entries are historical narrative ("PRD-003
+    # walk complete", "TKT-021 merged"), not normative cross-references, and
+    # the orchestrator does not version-pin them. Strip the §10 section
+    # before the unpinned-reference scan so closed tickets stay valid as
+    # the run history accumulates.
+    if art.type_ == "tickets":
+        body_no_fences = re.sub(
+            r"##\s*10\.?\s*Execution Log.*?(?=\n##\s|\Z)",
+            "",
+            body_no_fences,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
     for m in REF_RE.finditer(body_no_fences):
         kind, num, _ver = m.group(1), m.group(2), m.group(3)
         ref_id = f"{kind}-{num}"
