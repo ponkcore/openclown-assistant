@@ -1,11 +1,11 @@
 ---
 id: PRD-001
 title: KBJU Coach v0.1
-version: 0.2.0
-status: approved
+version: 0.3.0
+status: draft
 owner: '@po'
 created: 2026-04-25
-updated: 2026-04-26
+updated: 2026-05-25
 supersedes: null
 superseded_by: null
 related: []
@@ -152,12 +152,13 @@ The Product Owner and one partner user want a low-friction way to track daily fo
   - Russian-language non-medical disclaimer MUST be shown at onboarding (US-1).
   - Telegram Bot Platform Terms of Service apply; the Architect's specification must call out any obligations they impose (e.g. on automated messaging, on data subjects who do not initiate).
   - Data hosting jurisdiction for stored user records: PO selects from a shortlist provided by the Architect in the ArchSpec; the choice affects §8 legal-exposure risk and §7 latency.
-- **External dependencies that the Architect must integrate against (the choice of provider for each is the Architect's, not the Business Planner's):**
+- **External dependencies that the Architect must integrate against (Architect chooses defaults for the example config; the PO retains swap-capability per call-type at deploy and runtime — see provider-abstraction constraint immediately below):**
   - Telegram Bot Platform (channel; PO-locked).
   - openclaw runtime (PO-locked).
   - A voice-transcription service capable of conversational Russian at the §6 K3 latency budget and the §7 cost ceiling.
   - A food / nutrition reference database to support the hybrid KBJU lookup path (lookup → LLM fallback). If integration cost exceeds the §7 cost ceiling, degradation to LLM-only is permitted; Architect documents the call in an ADR.
-  - An LLM provider routing layer aligned with the project-wide router policy (`docs/knowledge/llm-routing.md`) — Architect chooses concrete models in an ADR.
+  - An LLM provider routing layer aligned with the project-wide router policy (`docs/knowledge/llm-routing.md`) — Architect chooses concrete defaults in an ADR; provider selection is operator-configurable per the abstraction constraint below.
+- **LLM / voice / vision provider abstraction (hard constraint).** PO MUST be able to swap base URL, API key, model alias, and provider per call-type without touching application code and without rebuilding. Contract: OpenAI-compatible HTTP (`chat.completions`, `audio.transcriptions`, vision via `image_url`). Concrete examples the abstraction MUST support transparently: a self-hosted OmniRoute instance running outside this repo, OpenRouter, OpenAI direct, vLLM / LiteLLM / Ollama via OpenAI-compatible shims, and arbitrary future providers conforming to the same contract. The Architect's chosen default (per the bullet above) is an example-config choice, not an architectural lock; superseding that default at deploy or runtime is a configuration edit, not a code change or rebuild.
 - **Observability minimums:** per-user latency, per-call cost, transcription success / failure rate, KBJU computation success / failure rate, and confirmation rates on US-2 / US-3 / US-4 must be measurable at end-of-pilot. Architect specifies the concrete logging schema in the ArchSpec.
 
 ## 8. Risks & Mitigations
@@ -173,6 +174,7 @@ The Product Owner and one partner user want a low-friction way to track daily fo
 | VPS or runtime outage interrupts logging | Med | Low | Failure UX includes manual entry as a final fallback (US-7); right-to-delete is non-time-critical and can recover after outage; informal monthly uptime expectation ≥99% — Architect formalizes target in ArchSpec §8 |
 | Personal-data legal exposure varies by hosting jurisdiction | Med | Low | Hosting jurisdiction is a PO choice from Architect's shortlist (§7); right-to-delete shipped in v0.1 (US-8); raw voice / photo deleted post-extraction so the long-tail dataset is text-only |
 | Onboarding intake feels long and users abandon before first meal log | Med | Med | Optional fields kept optional with disclosed defaults (US-1); explicit re-ask on validation failure rather than dead-end errors; onboarding can be re-entered later if user skipped at first attempt |
+| Vendor / provider lock-in | Med | Low | Mitigated by §7 abstraction constraint; switching providers becomes a config edit, not an architectural migration. |
 
 ## 9. Open Questions (resolve BEFORE handoff to Architect)
 - **OQ-1 — KBJU estimation accuracy target.** Numeric per-meal and daily-aggregate accuracy targets for K7 are not yet set. The PO declined to commit a number without grounding; the Business Planner declined to fabricate one. Resolution: the Architect produces a feasibility bound based on the chosen voice / vision / lookup / LLM stack, then the PO ratifies a target before the ArchSpec is frozen. Until then, K7 is recorded as TBD and the rest of the PRD does not depend on a specific numeric accuracy target.
