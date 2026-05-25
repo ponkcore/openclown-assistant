@@ -1,7 +1,7 @@
 ---
 id: TKT-042
 title: Allowlist seed from TELEGRAM_PILOT_USER_IDS + persistent volume bind
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: C15 Allowlist / Deployment
@@ -70,3 +70,5 @@ Make `config/allowlist.json` seed itself from `TELEGRAM_PILOT_USER_IDS` on first
 
 ## 10. Execution Log
 <!-- executor fills as work proceeds -->
+- 2026-05-25T00:00:00Z opencode-executor: started
+- 2026-05-25T00:01:00Z opencode-executor: in_review; tests 4 pass (allowlistSeed); lint clean; typecheck clean
