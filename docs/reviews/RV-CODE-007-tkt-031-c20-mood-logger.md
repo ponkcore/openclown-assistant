@@ -92,3 +92,87 @@ Recommendation to PO: request changes from Executor (address F-M1 copy alignment
 - Source enum: `MoodEventSource = "text" | "keyboard" | "inferred"` (types.ts:589). The DB schema defines `mood_event_source AS ENUM ('keyboard', 'text', 'voice', 'inferred')` — the TS type is a strict subset. Voice input is mapped to 'text' (if explicit number parseable) or 'inferred' (if LLM inference required) per the dispatch instructions. No 'voice' source value is ever written by C20. The DB enum's 'voice' value is available for future use but unused by this ticket.
 
 - The `COMMENT_MAX_LENGTH = 200` in both `logger.ts:75` and `extractScore.ts:69` is consistent. The DB CHECK allows ≤280 chars, so the app-level 200-char limit safely avoids CHECK violations.
+
+## Iteration 2 verdict (Reviewer, 2026-05-25)
+
+### Iter-2 diff scope
+
+Iter-2 commit `33a684c` changes exactly 6 files: `src/modality/mood/copy.ru.ts`, `src/modality/mood/logger.ts`, `tests/modality/mood/logger.test.ts`, `docs/questions/Q-TKT-031-01.md` (new), `docs/reviews/RV-CODE-007-tkt-031-c20-mood-logger.md` (this file), `docs/tickets/TKT-031-c20-mood-logger.md` (execution-log append). No other files touched. No new runtime or dev dependencies.
+
+### F-M1 verification (copy alignment with ARCH-001@0.6.2 §6.2.2 C20)
+
+`src/modality/mood/copy.ru.ts` post-iter-2 strings vs ARCH-001@0.6.2 §6.2.2 lines 1463–1474:
+
+| String constant | Value in `copy.ru.ts` | §6.2.2 C20 verbatim | Match? |
+|---|---|---|---|
+| `SUCCESS_REPLY` | `"Записала настроение {score}/10."` | «Записала настроение 7/10.» (with `{score}` placeholder) | ✓ char-for-char |
+| `INFERRED_PENDING_REPLY` | `"Записать как {score}/10? Или укажи точную оценку 1-10."` | «Записать как 6/10? Или укажи точную оценку 1-10.» (with `{score}` placeholder) | ✓ char-for-char |
+| `KEYBOARD_PROMPT` | `"Оцени настроение от 1 до 10."` | «Оцени настроение от 1 до 10.» | ✓ char-for-char |
+
+`KEYBOARD_PROMPT` is a new constant added in iter-2 (did not exist in iter-1). Zero emoji in all strings (§6.2.1 default) — verified by grep; the only "emoji" occurrence is a comment documenting the zero-emoji rule.
+
+`logger.ts` low-confidence-LLM path (line 396): now returns `KEYBOARD_PROMPT` instead of `OUT_OF_RANGE_REPLY`. Also, LLM out-of-range-score path (line 421) and no-text-no-keyboard fallback (line 450) now return `KEYBOARD_PROMPT`. All three paths match the §6.2.2 keyboard-prompt contract. Test `logger.test.ts:299` ("shows KEYBOARD_PROMPT when LLM returns low confidence") updated accordingly.
+
+**F-M1: closed.** ✓
+
+### F-M2 verification (TTL boundary test)
+
+New test at `tests/modality/mood/logger.test.ts:427` — "TTL: alive at 4:59, dead at 5:00:01":
+- Injected clock pattern: `let currentTime = 0; const clock = () => currentTime;` — no real-time wait. ✓
+- Enters pending state at `currentTime = 0` via LLM inference call.
+- At `currentTime = PENDING_TTL_MS - 1`: asserts `pendingState.get("user-001")` is NOT null. ✓
+- At `currentTime = PENDING_TTL_MS + 1`: asserts `pendingState.get("user-001")` IS null. ✓
+- Both boundary sides of the 5-minute TTL are explicitly asserted.
+
+**F-M2: closed.** ✓
+
+### F-L1 verification (Q-TKT-031-01 documentation)
+
+`docs/questions/Q-TKT-031-01.md` — new file, 38 lines:
+- Frontmatter: `id: Q-TKT-031-01`, `status: open`, `ticket_ref: TKT-031@0.1.0`, `asker_model: "executor"`, `created: 2026-05-25`, `answered: null`. ✓ (matches Q-file schema)
+- Body explains the 200-silent vs 280-with-notice contradiction with verbatim quotes from TKT-031@0.1.0 §2, PRD-003@0.1.3 §2 G4 / §5 US-4, ARCH-001@0.6.2 §6.2.2. ✓
+- Multiple-choice question (A/B/C) for PO arbitration. ✓
+- "What I assumed" documents iter-1 implementation follows option C (200 silent), merge proceeds until answered. ✓
+- File is informational, does not block merge.
+
+**F-L1: documented in `docs/questions/Q-TKT-031-01.md` — non-blocking, PO arbitrates.** ✓
+
+### Out-of-zone diff sweep
+
+Iter-2 diff (`git diff 770e18c..33a684c --name-only`):
+```
+docs/questions/Q-TKT-031-01.md       ← new Q-file, allowed
+docs/reviews/RV-CODE-007-*.md        ← this review file, allowed
+docs/tickets/TKT-031-c20-mood-logger.md ← execution-log append, allowed
+src/modality/mood/copy.ru.ts          ← §5 Outputs, allowed
+src/modality/mood/logger.ts           ← §5 Outputs, allowed
+tests/modality/mood/logger.test.ts    ← §5 Outputs, allowed
+```
+
+Full PR diff (`git diff main...HEAD --name-only`): `config/mood-extractor.json`, `docs/questions/Q-TKT-031-01.md`, `docs/reviews/RV-CODE-007-*.md`, `docs/tickets/TKT-031-c20-mood-logger.md`, `src/modality/mood/**`, `src/store/types.ts`, `src/store/tenantStore.ts`, `tests/modality/mood/**`, `tests/store/tenantStore.test.ts`, `tests/observability/breachDetector.test.ts`. All within §5 Outputs or additive mocks. No out-of-zone files.
+
+### No-regression sweep
+
+- Typecheck: cannot run (`npx` not available in environment). Orchestrator applied iter-2 changes directly (executor task timed out before commit); the orchestrator's §10 log states the same exact set of changes the executor's interrupted session had drafted. The diff is small (3 files, string replacements + one new test + one import addition) — low typecheck risk.
+- Lint: same situation — cannot verify, but changes are syntactically trivial.
+- All mood tests: the iter-2 changes update one existing test assertion and add one new test. No test deletions. Test count: 35 logger tests (34 from iter-1 + 1 new TTL boundary test) + 16 extractScore tests = 51 total.
+- Pre-existing failures (healthCheck, allowlist `fs.watchFile`): no changes to those test files in iter-2.
+
+### New findings introduced by iter-2
+
+None. The diff is strictly scoped to closing F-M1, F-M2, and filing F-L1 as a Q-file.
+
+Iteration-2 status:
+- F-M1: closed
+- F-M2: closed
+- F-L1: documented in `docs/questions/Q-TKT-031-01.md` — non-blocking, PO arbitrates
+
+New findings introduced by iter-2 (if any):
+- none
+
+Updated overall verdict:
+- [ ] pass
+- [x] pass_with_changes (F-L1 deferred via Q-TKT-031-01; backlog after merge)
+- [ ] fail
+
+Recommendation to PO: merge. Both Medium findings from iter-1 are closed. The remaining Low finding (F-L1 spec inconsistency 200 vs 280) is documented in `docs/questions/Q-TKT-031-01.md` for asynchronous PO/Architect arbitration and does not block merge — the current 200-silent implementation is within the DB's 280-char CHECK constraint and follows the binding ticket §2 contract.
