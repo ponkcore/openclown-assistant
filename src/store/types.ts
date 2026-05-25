@@ -561,6 +561,12 @@ export interface TenantScopedRepository {
   insertWaterEvent(userId: string, source: WaterEventSource, volumeMl: number, rawText: string | null): Promise<{ event_id: string }>;
   // ── C20 Mood Events (TKT-031@0.1.0) ───────────────────────────────────
   insertMoodEvent(userId: string, source: MoodEventSource, score: number, commentText: string | null, inferredFromText: boolean, rawText: string | null): Promise<{ event_id: string }>;
+  // ── C18 Sleep Records (TKT-023@0.1.0) ───────────────────────────────────
+  insertSleepRecord(userId: string, startTsUtc: string, endTsUtc: string, durationMin: number, attributionDateLocal: string, attributionTz: string, isNap: boolean, isPairedOrigin: boolean): Promise<{ record_id: string }>;
+  getSleepPairingState(userId: string): Promise<SleepPairingStateRow | null>;
+  upsertSleepPairingState(userId: string, legEventTsUtc: string, expiresAtUtc: string): Promise<void>;
+  deleteSleepPairingState(userId: string): Promise<void>;
+  gcExpiredSleepPairingState(nowUtc: string): Promise<{ rows_deleted: number }>;
 }
 
 export interface TenantStore extends TenantScopedRepository {
@@ -600,3 +606,27 @@ export interface MoodEventRow {
   raw_text: string | null;
   created_at: string;
 }
+
+// ── C18 Sleep Records (TKT-023@0.1.0 / TKT-021@0.1.0 schema) ────────────
+
+/** Sleep record row shape from sleep_records table (TKT-021@0.1.0). */
+export interface SleepRecordRow {
+  record_id: string;
+  user_id: string;
+  start_ts_utc: string;
+  end_ts_utc: string;
+  duration_min: number;
+  attribution_date_local: string;
+  attribution_tz: string;
+  is_nap: boolean;
+  is_paired_origin: boolean;
+  created_at: string;
+}
+
+/** Sleep pairing state row shape from sleep_pairing_state table (TKT-021@0.1.0). */
+export interface SleepPairingStateRow {
+  user_id: string;
+  leg_event_ts_utc: string;
+  expires_at_utc: string;
+}
+

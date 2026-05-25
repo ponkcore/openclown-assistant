@@ -62,6 +62,11 @@ const expectedTenantStoreMethods = [
   "setModalitySetting",
   "insertMoodEvent",
   "insertWaterEvent",
+  "insertSleepRecord",
+  "getSleepPairingState",
+  "upsertSleepPairingState",
+  "deleteSleepPairingState",
+  "gcExpiredSleepPairingState",
 ] as const satisfies readonly (keyof TenantStore)[];
 
 describe("tenant store typing and transactions", () => {

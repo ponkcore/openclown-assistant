@@ -75,6 +75,11 @@ function makeStubStore(): TenantStore {
     setModalitySetting: vi.fn().mockResolvedValue({ oldValue: true, newValue: false }),
     insertWaterEvent: vi.fn().mockResolvedValue({ event_id: "e1" }),
     insertMoodEvent: vi.fn().mockResolvedValue({ event_id: "me1" }),
+    insertSleepRecord: vi.fn().mockResolvedValue({ record_id: "sr1" }),
+    getSleepPairingState: vi.fn().mockResolvedValue(null),
+    upsertSleepPairingState: vi.fn().mockResolvedValue(undefined),
+    deleteSleepPairingState: vi.fn().mockResolvedValue(undefined),
+    gcExpiredSleepPairingState: vi.fn().mockResolvedValue({ rows_deleted: 0 }),
   };
 }
 

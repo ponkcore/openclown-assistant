@@ -1,0 +1,10 @@
+{
+  "name": "sleep-gc",
+  "version": "0.1.0",
+  "description": "Hourly GC cron skill that deletes expired sleep_pairing_state rows. Reuses C8 Cron Dispatcher pattern per ARCH-001@0.6.2 §3.18.",
+  "capabilities": ["cron"],
+  "cron": {
+    "schedule": "0 * * * *",
+    "triggerType": "sleep_pairing_gc"
+  }
+}
