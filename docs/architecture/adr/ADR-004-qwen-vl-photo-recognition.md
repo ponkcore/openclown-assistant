@@ -4,11 +4,26 @@ title: Qwen VL Photo Recognition
 status: proposed
 arch_ref: ARCH-001@0.2.0
 created: 2026-04-26
-updated: 2026-04-26
+updated: 2026-05-25
 superseded_by: null
 ---
 
 # ADR-004: Qwen VL Photo Recognition
+
+> **Amendment v0.2.0 (2026-05-25; ARCH-001@0.7.0):** Per PRD-001@0.3.0 §7
+> provider-abstraction hard constraint, vision model selection moves into the
+> `config/llm.json` registry (ADR-024@0.1.0) under the `kbju.photo_recognition`
+> call-type alias. **Qwen3 VL 30B A3B Instruct remains as one default in the example
+> config but is no longer architecturally fixed.** The operator may swap to GPT-4o
+> vision, Claude vision (via OpenRouter), Gemini vision (via an OpenAI-compatible
+> shim), or any future vision provider conforming to the OpenAI `image_url` content-
+> block contract by editing `config/llm.json` — no rebuild, no code change. The body
+> below preserves the v0.1.0 trade-off analysis verbatim for cost / quality
+> comparison; treat the "Decision" section as the chosen default for the example
+> config, not as an architectural lock. The low-confidence threshold
+> `confidence_0_1 < 0.70` and the mandatory user-confirmation gate (PRD-001@0.3.0
+> §5 US-4) remain locked regardless of vision provider; they are application-layer
+> contracts, not provider-layer choices.
 
 ## Context
 ARCH-001@0.2.0 C7 must convert Telegram meal photos into candidate food items, portions, and a confidence score for mandatory user review. PRD-001@0.2.0 US-4 requires a visible low-confidence label below an Architect-set numeric threshold and forbids auto-save for photo logs. PRD-001@0.2.0 §7 sets photo round-trip latency at <=12 seconds p95 and <=45 seconds p100.

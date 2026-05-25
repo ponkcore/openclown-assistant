@@ -2,7 +2,7 @@
 id: ADR-017
 title: 'Sleep record semantics: midnight-spanning attribution and nap-class isolation'
 status: proposed
-arch_ref: ARCH-001@0.6.1
+arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-003@0.1.3
 source_inputs:
 - PRD-003@0.1.3 §5 US-2 (sleep tracking acceptance criteria — midnight-spanning +
@@ -12,10 +12,18 @@ source_inputs:
 - 'PRD-003@0.1.3 §8 R2 (sleep edge cases: timezones, naps, fragmented, DST)'
 - PRD-003@0.1.3 §7 (onboarding-locked timezone)
 created: 2026-05-06
-updated: 2026-05-06
+updated: 2026-05-25
 ---
 
 # ADR-017: Sleep record semantics — midnight-spanning attribution and nap-class isolation
+
+> **Amendment 2026-05-25 (ARCH-001@0.7.0):** §Decision `user_id` columns (`sleep_records`,
+> `sleep_pairing_state`) corrected from `bigint` to `uuid REFERENCES users(id) ON DELETE
+> CASCADE`. Justification: ARCH-001@0.7.0 §5.0 declares `users.id: uuid` and the deployed
+> `src/store/schema.sql` already implements every PRD-003@0.1.3 modality table with `uuid`
+> user-id columns. The original `bigint` declarations were typo drift (logged as
+> BACKLOG-001 §A1; architect-consult ratified HIGH on 2026-05-24). The deployed code is
+> unchanged by this amendment; the fix removes the doc-vs-code contradiction.
 
 ## Context
 
@@ -177,7 +185,7 @@ Concrete contract for TKT-023@0.1.0 to implement:
 | column | type | notes |
 |---|---|---|
 | `record_id` | UUID PK | gen_random_uuid |
-| `user_id` | bigint NOT NULL | FK to user table; RLS subject |
+| `user_id` | uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE | RLS subject (matches ADR-001@0.1.0 + ARCH-001@0.7.0 §5.0 `users.id: uuid`) |
 | `start_ts_utc` | timestamptz NOT NULL | the sleep start moment (UTC) |
 | `end_ts_utc` | timestamptz NOT NULL | the sleep end moment (UTC) |
 | `duration_min` | integer NOT NULL | computed: `extract(epoch from end_ts_utc - start_ts_utc) / 60`; CHECK 30 ≤ duration_min ≤ 1440 (G2 sanity bounds, after the soft-warn confirmation flow) |
@@ -193,7 +201,7 @@ Index: `(user_id, attribution_date_local, is_nap)` for the C22 summary read path
 
 | column | type | notes |
 |---|---|---|
-| `user_id` | bigint PK | one outstanding "лёг" per user max |
+| `user_id` | uuid PK REFERENCES users(id) ON DELETE CASCADE | one outstanding "лёг" per user max; RLS subject |
 | `leg_event_ts_utc` | timestamptz NOT NULL | evening "лёг" message timestamp |
 | `expires_at_utc` | timestamptz NOT NULL | `leg_event_ts_utc + 24h` |
 

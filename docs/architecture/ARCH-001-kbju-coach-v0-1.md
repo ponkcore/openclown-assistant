@@ -1,13 +1,13 @@
 ---
 id: ARCH-001
 title: KBJU Coach v0.1 → v0.2 (Observability and Scale Readiness) + PRD-003 Adaptive
-  Modalities
-version: 0.6.2
-status: approved
-prd_ref: PRD-001@0.2.0; PRD-002@0.2.1; PRD-003@0.1.3
+  Modalities + v0.7.0 Pilot Hardening
+version: 0.7.0
+status: draft
+prd_ref: PRD-001@0.3.0; PRD-002@0.2.1; PRD-003@0.1.3
 owner: '@po'
 created: 2026-04-26
-updated: 2026-05-24
+updated: 2026-05-25
 adrs:
 - ADR-001@0.1.0
 - ADR-002@0.1.0
@@ -27,6 +27,12 @@ adrs:
 - ADR-016@0.1.0
 - ADR-017@0.1.0
 - ADR-018@0.1.0
+- ADR-019@0.1.0
+- ADR-020@0.1.0
+- ADR-021@0.1.0
+- ADR-022@0.1.0
+- ADR-023@0.1.0
+- ADR-024@0.1.0
 tickets:
 - TKT-001@0.1.0
 - TKT-002@0.1.0
@@ -57,6 +63,21 @@ tickets:
 - TKT-026@0.1.0
 - TKT-027@0.1.0
 - TKT-028@0.1.0
+- TKT-032@0.1.0
+- TKT-033@0.1.0
+- TKT-034@0.1.0
+- TKT-035@0.1.0
+- TKT-036@0.1.0
+- TKT-038@0.1.0
+- TKT-039@0.1.0
+- TKT-040@0.1.0
+- TKT-041@0.1.0
+- TKT-042@0.1.0
+- TKT-043@0.1.0
+- TKT-044@0.1.0
+- TKT-045@0.1.0
+- TKT-046@0.1.0
+- TKT-047@0.1.0
 ---
 
 # ARCH-001: KBJU Coach v0.1
@@ -476,12 +497,167 @@ This §0.10.7 satisfies Q-RM-2 verbatim cluster-engagement requirement. Research
 inline in ADR-014@0.1.0 §Context (cited there for the runtime-decision trade-off table) and in
 §0.10.2 (cited for the per-modality fork-candidate audit).
 
+### 0.11 v0.7.0 Pilot-Hardening Recon Delta
+
+This subsection extends §0 with the recon required by ARCH-001@0.7.0 (provider abstraction +
+pre-deploy hardening + bug-report pipeline + drift cleanup). Phase 0 recon for v0.5.0 / v0.6.0
+surfaces (§0.1..§0.10.7) is preserved unchanged; this delta adds v0.7.0-specific findings.
+
+#### 0.11.1 PRD-001@0.3.0 §7 provider-abstraction capability map vs `docs/knowledge/openclaw.md`
+
+OpenClaw runtime constraints re-verified for the provider-agnostic LLM / voice / vision
+abstraction:
+
+- **OpenClaw secret injection (`docs/knowledge/openclaw.md` §What openclaw closes →
+  Secret injection):** secrets are env-var injected. The new `LLM_*` env-var family
+  (ADR-024@0.1.0 §Backward compatibility) layers cleanly on top — no new injection
+  path needed.
+- **OpenClaw bridge-tool registration (`docs/knowledge/openclaw.md` §Plugin anatomy):**
+  the existing `kbju-bridge` plugin's bounded tools (`kbju_message`, `kbju_cron`,
+  `kbju_callback`) do not change shape under the abstraction. The bridge plugin still
+  forwards to `POST /kbju/message` etc.; what changes is how the sidecar resolves
+  `(base_url, api_key, model)` for its outbound LLM / voice / vision calls (now via
+  `config/llm.json`, ADR-024@0.1.0). No new bridge tool, no new openclaw plugin
+  capability needed.
+- **OpenClaw Telegram channel (`docs/knowledge/openclaw.md` §What openclaw closes):**
+  Telegram delivery is unchanged. The new `/diag` command (ADR-021@0.1.0) is one more
+  C1 routing entry; routes through the existing C1 entrypoint behind the C15
+  allowlist gate. No new openclaw capability needed.
+- **OpenClaw observability hooks (`docs/knowledge/openclaw.md` §What openclaw closes →
+  Observability hooks):** the new `kbju_llm_registry_reload`,
+  `kbju_llm_legacy_env_in_use`, `kbju_llm_registry_reload_failed`,
+  `kbju_diag_invocations_total` metrics emit through the existing `ctx.log` /
+  Docker-stdout path (§8.1). No new emit surface.
+
+What does NOT exist in OpenClaw built-ins and remains project-owned for v0.7.0:
+
+- The provider-agnostic LLM / voice / vision client (`src/llm/llmClient.ts`,
+  `src/voice/voiceClient.ts`) — project-built. ADR-022@0.1.0 + ADR-023@0.1.0.
+- The `config/llm.json` model registry — project-built; mirrors the
+  `config/allowlist.json` hot-reload pattern from ADR-013@0.1.0. ADR-024@0.1.0.
+- Inbound TLS termination (Caddy) — project-deployed compose service. ADR-020@0.1.0.
+- The `install.sh` single-command deploy flow — project-built. ADR-020@0.1.0 §10.4.
+- The `/diag` command + `scripts/diag-bundle.sh` + GitHub issue template incident
+  pipeline — project-built. ADR-021@0.1.0.
+
+Conclusion: v0.7.0's value-prop sits entirely above the openclaw runtime; openclaw's
+capability map (§0.1) is unchanged. The provider-abstraction surface is downstream
+of the bridge plugin (sidecar-internal); openclaw is provider-neutral by design and
+imposes no new constraint.
+
+#### 0.11.2 awesome-skills audit delta for v0.7.0 capabilities
+
+Per architect.md Phase 0 (≥3 fork-candidates per major capability). v0.7.0 adds three
+capability surfaces; each audited below.
+
+**Provider-agnostic LLM client (ADR-022@0.1.0):**
+
+- Candidate 1: **LiteLLM** (<https://github.com/BerriAI/litellm>) — Python proxy + TS
+  client; OpenAI-compatible across 100+ providers. **Verdict: reference.** Too heavy
+  to embed (Python proxy); the operator may run it as a separate container and point
+  `config/llm.json` at it via the provider abstraction. We do not vendor LiteLLM
+  code.
+- Candidate 2: **OpenRouter Node SDK** (<https://www.npmjs.com/package/openrouter>) — TS
+  client for OpenRouter only. **Verdict: reject.** Single-provider client; conflicts
+  with PRD-001@0.3.0 §7 multi-provider abstraction.
+- Candidate 3: **`openai` npm package** — official TS client speaking the OpenAI HTTP
+  surface. **Verdict: reference.** The `openai` SDK accepts `baseURL` + `apiKey` per
+  call; an operator could in theory instantiate it per provider. We chose to write
+  `llmClient.ts` directly against `fetch` (Node 24 native) to avoid a transitive
+  dependency on a multi-MB SDK and to keep the surface small. The `openai` SDK's
+  request / response shapes informed our typed contract.
+- **Decision:** Build `llmClient.ts` ourselves against `fetch`; reference the
+  `openai` request / response shapes. ADR-022@0.1.0.
+
+**Provider-agnostic voice transcription (ADR-023@0.1.0):**
+
+- Candidate 1: **`openai` npm package** — has `audio.transcriptions.create()`.
+  **Verdict: reference.** Same logic as LLM client.
+- Candidate 2: **`@deepgram/sdk`** — Deepgram's TS SDK. **Verdict: reject.**
+  Single-provider; Deepgram's OpenAI-compatible shim
+  (<https://developers.deepgram.com/docs/openai-sdk-migration>) is reachable through
+  our generic client.
+- Candidate 3: **`assemblyai` npm package** — AssemblyAI TS SDK. **Verdict: reject.**
+  Single-provider; not OpenAI-compatible. Operator who wants AssemblyAI uses the
+  OpenAI-compatible shim path.
+- **Decision:** Build `voiceClient.ts` ourselves against `fetch` + multipart form
+  (Node 24 native); reference OpenAI's `audio.transcriptions` shape. ADR-023@0.1.0.
+
+**Inbound TLS termination (ADR-020@0.1.0):**
+
+- Candidate 1: **Caddy** (<https://caddyserver.com/>) — chosen default per dispatch.
+  Multi-stage Dockerfile-friendly, automatic Let's Encrypt, single-binary image
+  available on Docker Hub. **Verdict: chosen.**
+- Candidate 2: **Traefik** (<https://traefik.io/>) — alternative reverse proxy with
+  auto-HTTPS. **Verdict: reject.** PO chose Caddy explicitly; Traefik's config
+  surface is heavier (labels-based discovery), unnecessary for one upstream.
+- Candidate 3: **nginx + certbot** — manual ACME flow. **Verdict: reject** per
+  ADR-020@0.1.0 §Option C analysis.
+- Candidate 4: **Cloudflare Tunnel (cloudflared)** — alternative topology. **Verdict:
+  override.** Documented as the explicit override via `docker-compose.cf-tunnel.yml`.
+- **Decision:** Caddy as default; cloudflared as documented override. ADR-020@0.1.0.
+
+**Pre-deploy hardening (ADR-019@0.1.0 multi-stage Dockerfile):**
+
+- Candidate 1: **Two-stage `builder` → `runtime`** — Docker's documented standard
+  pattern for Node production images
+  (<https://docs.docker.com/build/building/multi-stage/>). **Verdict: chosen.**
+  ADR-019@0.1.0.
+- Candidate 2: **Run `tsc` at container start** — rejected per ADR-019@0.1.0 §Option B
+  (cold-start latency, dev toolchain in production).
+- Candidate 3: **External GHCR-published image** — out of scope for v0.7.0; layered on
+  later.
+- **Decision:** Multi-stage Dockerfile; TKT-038@0.1.0. ADR-019@0.1.0.
+
+**Bug-report pipeline (ADR-021@0.1.0):**
+
+- Candidate 1: **In-Telegram `/diag` + `scripts/diag-bundle.sh` + GitHub issue
+  template** — chosen per ADR-021@0.1.0 §Decision.
+- Candidate 2: **Sentry / Datadog / SaaS APM** — rejected per ADR-021@0.1.0 §Option C
+  (PRD-001@0.3.0 §7 forbids SaaS egress for user metadata).
+- Candidate 3: **Just better Docker logs** — rejected per ADR-021@0.1.0 §Option D
+  (insufficient).
+- **Decision:** Three-part incident pipeline. ADR-021@0.1.0.
+
+#### 0.11.3 Build-vs-fork-vs-reuse summary for v0.7.0
+
+All v0.7.0 application code is project-built (`llmClient.ts`, `voiceClient.ts`,
+`registry.ts`, IncidentDiagnostic handler, `install.sh`, `diag-bundle.sh`). No fork
+of awesome-openclaw-skills entries is appropriate at this layer — the abstraction
+sits below the openclaw skill / plugin contract, in sidecar-internal code.
+
+External services reused as concrete examples (operator-configurable, NOT
+architectural locks): OmniRoute (was the v0.5.0 default), OpenRouter, OpenAI direct,
+Fireworks direct, vLLM, LiteLLM, Ollama, faster-whisper-server, Groq Whisper,
+Caddy, cloudflared. Documented in `docs/architecture/llm-providers.md` (Architect-
+authored under ARCH-001@0.7.0).
+
+#### 0.11.4 Top 3 weakest design points (v0.7.0)
+
+1. **`config/llm.json` schema is JSON, no comments.** A long-running operator-edit
+   trail across many providers / call-types will lose context (which model picked
+   when, what failed, why a fallback was set). Mitigated by the schema-reserved
+   `comment` keys at every object level; operators may also keep a side
+   `config/llm.notes.md`. Risk: low; pilot deployment is single-operator.
+2. **install.sh DNS / port-80 prerequisite is operator-side and silent failures
+   surface late.** install.sh validates DNS + port 80 before bringing the stack up,
+   but a misconfigured ACME challenge surfaces only after Caddy starts and tries to
+   issue (30–90 s into the install). Mitigation: install.sh's polling on
+   `https://<KBJU_PUBLIC_DOMAIN>/health` has a 120-s timeout and a clear error.
+3. **`diag-bundle.sh` redaction relies on the runtime `redactPii` helper.** If a
+   future PR weakens the allowlist for one path but not the bundle pipeline, the
+   bundle could ship raw user content. Mitigation: TKT-045@0.1.0 invokes the
+   runtime helper through `docker compose exec`, NOT a re-implementation in shell;
+   a single source of truth across runtime and bundle. The TKT-026@0.1.0 modality
+   redaction extension already covers the v0.6.0 surface; new fields in future PRDs
+   must extend the same allowlist.
+
 ## 1. Context
-Implements: PRD-001@0.2.0 §2 Goals, §5 User Stories, §6 KPIs, §7 Technical Envelope; PRD-002@0.2.1
+Implements: PRD-001@0.3.0 §2 Goals, §5 User Stories, §6 KPIs, §7 Technical Envelope (including the v0.3.0 §7 LLM / voice / vision provider-abstraction hard constraint); PRD-002@0.2.1
 §2 Goals (G1..G4); PRD-003@0.1.3 §2 Goals (G1..G6) for adaptive modalities + §5 user stories
 (US-1..US-7) + §6 KPIs (K1..K8) + §7 Technical Envelope; and PO OBC/answers recorded in
 `docs/questions/-gap-report-2026-04-26.md`.
-Does NOT implement: PRD-001@0.2.0 §3 Non-Goals, PRD-003@0.1.3 §3 Non-Goals (NG1..NG11).
+Does NOT implement: PRD-001@0.3.0 §3 Non-Goals, PRD-003@0.1.3 §3 Non-Goals (NG1..NG11).
 
 ### 1.1 Trace matrix
 | PRD section | PRD Goal / US | Components that satisfy it |
@@ -557,7 +733,7 @@ Module mapping within the HYBRID topology:
 | summary modules | C9 Summary Recommendation Service |
 | shared runtime modules | C3 Tenant-Scoped Store; C10 Cost, Degrade, and Observability Service; C12 Breach Detector; C13 Stall Watchdog; C15 Allowlist |
 
-All LLM calls go through OmniRoute first, with direct provider keys available only to the runtime failover path; skill business logic never reads raw provider keys. Persistent records are user_id scoped from day 1. Access control is managed by the C15 config-driven allowlist (ADR-013@0.1.0), hot-reloaded from `config/allowlist.json` without redeploy.
+All LLM, voice, and vision calls go through the C23 LLM Gateway (`src/llm/llmClient.ts` + `src/voice/voiceClient.ts`) which speaks the OpenAI-compatible HTTP surface (`POST /v1/chat/completions`, `POST /v1/audio/transcriptions`, vision via `image_url`) per ADR-022@0.1.0 + ADR-023@0.1.0. Per-call-type provider selection is driven by the `config/llm.json` model registry (ADR-024@0.1.0); skill business logic references **call-type aliases** (`kbju.meal_text`, `kbju.modality_router_classifier`, `kbju.voice_transcription`, `kbju.photo_recognition`, etc.) and never reads raw provider keys or hard-codes provider names. The operator may swap base URL, API key, model, and provider per call-type without touching application code and without rebuilding (PRD-001@0.3.0 §7 hard constraint). Persistent records are user_id scoped from day 1. Access control is managed by the C15 config-driven allowlist (ADR-013@0.1.0), hot-reloaded from `config/allowlist.json` without redeploy.
 
 ### Two-process topology (OpenClaw Gateway + KBJU Sidecar)
 
@@ -603,8 +779,8 @@ graph LR
   F --> L
   H --> L
   I --> M[Remote STT API]
-  J --> N[OmniRoute vision model]
-  K --> O[Food lookup and OmniRoute text model]
+  J --> N[C23 LLM Gateway → vision provider per kbju.photo_recognition]
+  K --> O[Food lookup and C23 LLM Gateway → text provider per kbju.meal_text]
   C --> P[C10 cost and observability]
   D --> P
   H --> P
@@ -658,7 +834,7 @@ graph LR
 - Responsibility: Produce itemized calories/protein/fat/carbs estimates from normalized text or corrected item lists using food lookup first and LLM fallback under cost guard.
 - Inputs: Russian meal text; corrected item/portion list; profile/targets; optional lookup results; degrade mode flag from C10; prompt policy including PRD-001@0.2.0 §3 NG6/NG7 and US-5 prohibition terms.
 - Outputs: Structured item list with portions, per-item KBJU, total KBJU, confidence, source attribution, and validation errors for C4/C9.
-- LLM usage: OmniRoute-routed text model selected in Phase 5 routing ADR; purpose is structured food-item parsing, portion normalization, missing lookup fallback, and summary recommendation support when invoked by C9.
+- LLM usage: text model resolved via the C23 LLM Gateway against `kbju.meal_text` in `config/llm.json` (ADR-022@0.1.0 + ADR-024@0.1.0); purpose is structured food-item parsing, portion normalization, missing lookup fallback, and summary recommendation support when invoked by C9. The default example config uses Fireworks-pool models per ADR-018@0.1.0; the operator may repoint the alias without rebuild.
 - State: Lookup cache and estimate metadata in C3 if selected by storage ADR; no raw prompt logging.
 - Failure modes: lookup API down falls back to LLM-only unless C10 overage degradation disables optional lookup; LLM timeout/rate-limit falls back to manual entry for meal logging and no-meal nudge for summaries; malformed JSON is rejected once, not retried as a suspicious response; prompt-injection-like user text is treated as meal description only and cannot alter system/developer instructions; concurrent estimation requests are independent but spend-guarded per user/month.
 
@@ -666,7 +842,7 @@ graph LR
 - Responsibility: Convert a Telegram meal photo into candidate food items, portion estimates, and an explicit confidence value for mandatory user review.
 - Inputs: Temporary photo file handle from C1/OpenClaw; user profile context limited to target units; vision model config from Phase 5 photo ADR; low-confidence threshold from Phase 5 photo ADR.
 - Outputs: Candidate item list; portion estimates; numeric confidence; Russian `низкая уверенность` label when below threshold; raw-photo deletion confirmation; metrics for C10.
-- LLM usage: OmniRoute-routed vision model selected in Phase 5 photo ADR; purpose is food identification and portion estimation only.
+- LLM usage: vision model resolved via the C23 LLM Gateway against `kbju.photo_recognition` in `config/llm.json` (ADR-022@0.1.0 + ADR-024@0.1.0); purpose is food identification and portion estimation only. The default example config uses Qwen3 VL 30B A3B per ADR-004@0.2.0; the operator may repoint the alias to GPT-4o vision, Gemini vision via shim, or any future OpenAI-`image_url`-compatible vision provider without rebuild.
 - State: Candidate items and confidence are stored in C3 as a draft; raw photo bytes are deleted immediately after extraction succeeds or terminally fails.
 - Failure modes: vision API unavailable/rate-limited retries once if within photo latency hard cap, then C1 offers text/manual entry; malformed vision output is discarded and never auto-saved; all photo paths require C4 confirmation regardless of confidence; raw-photo deletion failure is high-severity C10 alert; concurrent photo drafts are separated by draft ID and `user_id`.
 
@@ -682,7 +858,7 @@ graph LR
 - Responsibility: Generate scheduled daily, weekly, and monthly Telegram summaries per user using only that user's confirmed data and KBJU-only recommendations.
 - Inputs: OpenClaw cron event; user timezone from C2/C3; confirmed meals and targets from C3; previous-period aggregates; persona document path from `PERSONA_PATH` pointing to `docs/personality/PERSONA-001-kbju-coach.md`; F-M2 enforcement policy from Phase 5 ADR.
 - Outputs: Russian summary message; no-meal nudge; summary record; correction-delta note for post-edit periods; recommendation validation result.
-- LLM usage: OmniRoute-routed text model selected in Phase 5 routing ADR; purpose is short Russian KBJU-only recommendation generation from numeric aggregates.
+- LLM usage: text model resolved via the C23 LLM Gateway against `kbju.summary_recommendation` in `config/llm.json` (ADR-022@0.1.0 + ADR-024@0.1.0); purpose is short Russian KBJU-only recommendation generation from numeric aggregates. Operator may repoint without rebuild.
 - State: Summary records, schedule metadata, and last-delivery status in C3.
 - Failure modes: cron duplicate uses idempotency key `(user_id, period_type, period_start)`; no confirmed meals produces deterministic nudge without LLM; LLM timeout/rate-limit sends deterministic numeric summary without recommendation and logs degraded output; recommendation mentioning forbidden medical/clinical/supplement/drug topics is blocked by validator path from Phase 5 ADR; missing `PERSONA_PATH` fails startup for this skill.
 
@@ -713,7 +889,7 @@ graph LR
 ### 3.13 C13 Stall Watchdog (NEW v0.5.0 — PRD-002@0.2.1 G2)
 - Responsibility: Monitor every streaming LLM call for token-output stalls (algorithm forked from zeroclaw `stall_watchdog.rs:29-124`, ported to TypeScript middleware).
 - Inputs: Per-call streaming LLM fetch; config `STALL_THRESHOLD_MS` (default 120000), `STALL_MAX_RETRIES` (default 2).
-- Outputs: `touch` on each delta chunk updates `lastTokenAt`; background interval checks `now - lastTokenAt > STALL_THRESHOLD_MS`; on stall: aborts fetch via `AbortController`, triggers OmniRoute fallback, emits `kbju_llm_call_stalled`.
+- Outputs: `touch` on each delta chunk updates `lastTokenAt`; background interval checks `now - lastTokenAt > STALL_THRESHOLD_MS`; on stall: aborts fetch via `AbortController`, triggers the C23 LLM Gateway's configured fallback (`fallback_call_type` resolution per ADR-024@0.1.0), emits `kbju_llm_call_stalled`.
 - LLM usage: none (observability middleware, not a consumer).
 - State: Per-call instance (not shared) — single `Date.now` + `AbortController`, released after call completes.
 
@@ -726,7 +902,7 @@ graph LR
 
 ### 3.16 C16 Modality Router (NEW v0.6.0 — PRD-003@0.1.3 §5 US-1..US-4 + §8 R1; amended 2026-05-06 per ADR-015@0.1.0 Option C Hybrid)
 - Responsibility: Classify inbound C1-claimed text / voice-transcribed-text into one of {kbju, water, sleep, workout, mood, ambiguous, zero_match} per ADR-015@0.1.0 amended Option C Hybrid (deterministic-first chain → LLM tie-breaker on multi-match → LLM full-classifier on zero-match → AMBIGUOUS clarifying-reply). Dispatch to matching component or emit clarifying-reply inline keyboard.
-- Inputs: C1 inbound message envelope (text or transcribed text + user_id + timestamp); `config/modality-router.json` keyword chains (Architect-seeded; PO-delegated 2026-05-06); C21 `getSettings(user_id)` for OFF-state suppression at routing; OmniRoute (ADR-002@0.1.0) for the LLM-classifier fallback path.
+- Inputs: C1 inbound message envelope (text or transcribed text + user_id + timestamp); `config/modality-router.json` keyword chains (Architect-seeded; PO-delegated 2026-05-06); C21 `getSettings(user_id)` for OFF-state suppression at routing; the C23 LLM Gateway against `kbju.modality_router_classifier` (ADR-022@0.1.0 + ADR-024@0.1.0) for the LLM-classifier fallback path.
 - Outputs: dispatch decision (component reference) OR clarifying-reply payload; metric `kbju_modality_route_outcome{outcome ∈ {deterministic_single, deterministic_multi_llm_resolved, zero_match_llm_resolved, zero_match_llm_ambiguous, ambiguous_clarified}}`.
 - LLM usage: ADR-018@0.1.0 picks — default `accounts/fireworks/models/gpt-oss-20b`, fallback `accounts/fireworks/models/qwen3-vl-30b-a3b`, emergency-free `openrouter/nvidia/nemotron-3-super:free`. Forced JSON-mode with hard-constrained label set per ADR-006@0.1.0 guardrail. Confidence threshold for zero-match path: <0.6 → AMBIGUOUS.
 - State: Hot-reloadable matcher chain (ADR-013@0.1.0 pattern); in-process; mirrors C15 Allowlist pattern. LLM-classifier prompt + JSON-schema also hot-reloadable.
@@ -779,6 +955,16 @@ graph LR
 - LLM usage: none (uses C9's existing recommendation generation; no additional LLM hop introduced).
 - State: stateless per request.
 - Failure modes: (a) modality table read failure → emit empty section + observability counter; do NOT block KBJU summary delivery. (b) settings read failure → fall back to all-ON default safely.
+
+### 3.23 C23 LLM Gateway (NEW v0.7.0 — PRD-001@0.3.0 §7 provider abstraction)
+- Responsibility: Single point of egress for all LLM, voice, and vision calls. Speaks the OpenAI-compatible HTTP surface (`POST /v1/chat/completions`, `POST /v1/audio/transcriptions`, vision via `image_url` content blocks). Per-call-type binding to `(base_url, api_key, model)` is read from the `config/llm.json` model registry (ADR-024@0.1.0); application code references **call-type aliases** only.
+- Inputs: structured request envelope `{call_type, messages | audio | image, response_format?, max_tokens?, temperature?}` from C5/C6/C7/C9/C16..C20/C22; the `config/llm.json` registry snapshot (hot-reloaded); the corresponding `LLM_*_API_KEY` env var for the resolved provider; C13 Stall Watchdog wrapping for per-call streaming-stall detection (ADR-012@0.1.0).
+- Outputs: response object matching the OpenAI-compatible response shape; metric labels `provider_alias` + `model_alias` (the registry's `provider_id` / `model` values, never raw keys); spend events to C10; structured error on missing alias / dangling provider / unset env var (caller maps to US-7 manual-entry fallback).
+- LLM usage: this component IS the LLM call surface. It does not select content, only routes.
+- State: in-memory snapshot of the registry rebuilt on each `fs.watchFile` reload (≤2 s propagation); per-call retry/timeout state held inside the call's promise.
+- Failure modes: (a) registry alias miss → typed error; caller falls back per US-7. (b) provider DNS / TCP failure → one-shot retry then fallback to `fallback_call_type` if defined in the registry; depth-2 chain max. (c) JSON-schema validation failure → not retried (ADR-006@0.1.0 forced-output discipline); routes to manual entry. (d) raw key leak in logs → security defect; emit-boundary redaction (§8.1) catches at output.
+- Implementation locus: `src/llm/llmClient.ts` (chat / vision) + `src/voice/voiceClient.ts` (audio transcriptions) + `src/llm/registry.ts` (model registry) per TKT-033@0.1.0 + TKT-034@0.1.0.
+- Supersession context: replaces the v0.5.0 `omniRouteClient.ts` direct surface (now superseded; see `revision_log` entry for v0.7.0 and ADR-002@0.1.0 → ADR-022@0.1.0 supersession). The contract shape (request → response types) is unchanged from the consumer perspective; only the indirection layer changes.
 
 ## 4. Data Flow
 
@@ -1112,7 +1298,7 @@ breach_events (ephemeral — not persisted, only logged + metered):
 ### 5.2 v0.5.0 stall_events (pseudo-schema)
 stall_events (ephemeral — not persisted, only logged + metered):
   timestamp_utc: timestamptz
-  provider: string  # omniroute, fireworks, etc.
+  provider: string  # any provider_id from config/llm.json (omniroute, openrouter, openai, fireworks, vllm, litellm, ollama, etc.)
   model: string
   threshold_ms: integer
   actual_stall_ms: integer
@@ -1138,7 +1324,7 @@ not table owner; `BYPASSRLS` allowed only for the existing `kbju_audit` role und
 ```
 water_events:
   event_id: uuid PK
-  user_id: bigint NOT NULL  -- RLS subject
+  user_id: uuid_fk_users NOT NULL  -- RLS subject
   ts_utc: timestamptz NOT NULL
   volume_ml: integer NOT NULL  -- CHECK 0 < volume_ml <= 5000
   source: text NOT NULL  -- enum {text, voice, keyboard}
@@ -1148,7 +1334,7 @@ water_events:
 
 sleep_records:
   record_id: uuid PK
-  user_id: bigint NOT NULL  -- RLS subject
+  user_id: uuid_fk_users NOT NULL  -- RLS subject
   start_ts_utc: timestamptz NOT NULL
   end_ts_utc: timestamptz NOT NULL
   duration_min: integer NOT NULL  -- CHECK 30 <= duration_min <= 1440
@@ -1160,14 +1346,14 @@ sleep_records:
   index: (user_id, attribution_date_local, is_nap)
 
 sleep_pairing_state:
-  user_id: bigint PK  -- one outstanding "лёг" per user max
+  user_id: uuid PK REFERENCES users(id) ON DELETE CASCADE  -- one outstanding "лёг" per user max
   leg_event_ts_utc: timestamptz NOT NULL
   expires_at_utc: timestamptz NOT NULL  -- leg_event_ts_utc + 24h
   -- hourly GC cron skill (ARCH-001@0.6.0 §3.18) deletes rows where expires_at_utc < now
 
 workout_events:
   event_id: uuid PK
-  user_id: bigint NOT NULL  -- RLS subject
+  user_id: uuid_fk_users NOT NULL  -- RLS subject
   ts_utc: timestamptz NOT NULL
   type: text NOT NULL  -- closed enum {strength, running, cycling, swimming, walking, yoga, hiit, other}
   duration_min: integer NULL  -- CHECK duration_min IS NULL OR duration_min > 0
@@ -1183,7 +1369,7 @@ workout_events:
 
 mood_events:
   event_id: uuid PK
-  user_id: bigint NOT NULL  -- RLS subject
+  user_id: uuid_fk_users NOT NULL  -- RLS subject
   ts_utc: timestamptz NOT NULL
   score: integer NOT NULL  -- CHECK 1 <= score <= 10
   comment_text: text NULL  -- CHECK comment_text IS NULL OR length(comment_text) <= 280
@@ -1194,7 +1380,7 @@ mood_events:
   index: (user_id, ts_utc DESC)
 
 modality_settings:
-  user_id: bigint PK  -- RLS subject; one row per user
+  user_id: uuid PK REFERENCES users(id) ON DELETE CASCADE  -- RLS subject; one row per user
   water_on: boolean NOT NULL DEFAULT true
   sleep_on: boolean NOT NULL DEFAULT true
   workout_on: boolean NOT NULL DEFAULT true
@@ -1204,7 +1390,7 @@ modality_settings:
 
 modality_settings_audit:
   audit_id: uuid PK
-  user_id: bigint NOT NULL  -- RLS subject
+  user_id: uuid_fk_users NOT NULL  -- RLS subject
   modality: text NOT NULL  -- enum {water, sleep, workout, mood}
   old_value: boolean NOT NULL
   new_value: boolean NOT NULL
@@ -1504,16 +1690,63 @@ Section ordering: KBJU → water → sleep → workout → mood. Zero-event sect
   per PRD-001@0.2.0 §6 i18n NF (`ENGLISH_FALLBACK_COPY` config; Architect ratifies the
   English equivalents as a separate section if/when PRD-NEXT requires it).
 
+### 6.3 C23 LLM Gateway external interfaces (NEW v0.7.0 — PRD-001@0.3.0 §7)
+
+The C23 LLM Gateway speaks the OpenAI-compatible HTTP surface to whichever provider
+each call-type's `config/llm.json` entry resolves to. Surface shape:
+
+| Surface | Method + path | Multipart? | Used by call-types |
+|---|---|---|---|
+| Chat completions | `POST {base_url}/chat/completions` | no — JSON body | `kbju.meal_text`, `kbju.summary_recommendation`, `kbju.modality_router_classifier`, `kbju.water_volume_extractor`, `kbju.sleep_duration_extractor`, `kbju.workout_extractor`, `kbju.mood_inferrer` |
+| Vision | `POST {base_url}/chat/completions` with `image_url` content block | no — JSON body | `kbju.photo_recognition` |
+| Audio transcriptions | `POST {base_url}/audio/transcriptions` | yes — `file` + `model` + `language` | `kbju.voice_transcription` |
+
+`{base_url}` and the API key (read from `process.env[providers[*].api_key_env]`) are
+resolved per call from the registry. Authentication header is the OpenAI-canonical
+`Authorization: Bearer <key>` by default; an optional registry knob
+`providers[*].auth_header_template` allows e.g. `Authorization: Token <key>` for
+shimmed providers (ADR-023@0.1.0 §Cons).
+
+Concrete provider examples (operator-configurable, NOT architectural locks): OmniRoute,
+OpenRouter, OpenAI direct, Fireworks direct, vLLM, LiteLLM, Ollama,
+faster-whisper-server, Groq Whisper. Reference snippets at
+`docs/architecture/llm-providers.md`.
+
+The Gateway component (C23) handles:
+
+- Per-call retry budget (one transient retry; per ADR-023@0.1.0 / ADR-006@0.1.0
+  malformed output is NOT retried).
+- Streaming-stall detection wrapping (C13 Stall Watchdog, ADR-012@0.1.0).
+- Spend telemetry to C10 with `provider_alias` + `model_alias` labels.
+- Emit-boundary redaction so raw API keys, raw prompts, and raw provider responses
+  never reach `ctx.log` (§8.1).
+- Hot-reload of the registry via `fs.watchFile` (≤2 s propagation) so a `config/llm.json`
+  edit on the VPS swaps the live binding without restart (ADR-024@0.1.0).
+
+What the Gateway does NOT do:
+
+- Provider-specific advanced features (Anthropic prompt caching, OpenAI structured-
+  outputs schema-by-name, Deepgram diarization). Operators who need them point the
+  alias at a provider that exposes the feature through the OpenAI HTTP surface.
+- Fan-out / load balancing across providers. The registry binds one alias to one
+  primary + optional one fallback (depth-2 chain max).
+- Comparing model quality. Operator owns the choice; architecture owns the swap
+  mechanism.
+
 ## 7. Tech Stack Decisions (linked ADRs)
-- Language / runtime: OpenClaw TypeScript plugin/skill runtime on Node 24, PO-locked by PRD-001@0.2.0 §7.
+- Language / runtime: OpenClaw TypeScript plugin/skill runtime on Node 24, PO-locked by PRD-001@0.3.0 §7.
 - Storage and tenant isolation: PostgreSQL shared tables with `user_id`, composite keys, and row-level security — `ADR-001@0.1.0`.
-- LLM routing: OmniRoute-first Fireworks pool with direct provider keys only as runtime fallback — `ADR-002@0.1.0`.
-- Voice transcription: Fireworks Whisper V3 Turbo hosted transcription — `ADR-003@0.1.0`.
-- Photo recognition (v0.1): Fireworks Qwen3 VL 30B A3B Instruct, low-confidence threshold `confidence_0_1 < 0.70` — `ADR-004@0.1.0`.
+- LLM provider abstraction (NEW v0.7.0): provider-agnostic OpenAI-compatible HTTP surface; PO swaps base URL / API key / model / provider per call-type via `config/llm.json` without rebuild — `ADR-022@0.1.0` (supersedes `ADR-002@0.1.0`).
+- Voice transcription provider abstraction (NEW v0.7.0): same OpenAI-compatible HTTP surface (`audio.transcriptions`); operator-configurable per call-type — `ADR-023@0.1.0` (supersedes `ADR-003@0.1.0`). Default example config keeps Fireworks Whisper V3 Turbo.
+- Photo recognition (amended v0.7.0): vision model selection moved into the model registry; Qwen3 VL 30B A3B remains as one default in the example config but is no longer architecturally fixed; low-confidence threshold `confidence_0_1 < 0.70` and mandatory user confirmation are application-layer locks — `ADR-004@0.2.0`.
+- PO-pluggable model registry (NEW v0.7.0): `config/llm.json` schema, hot-reload behaviour, validation rules, and the `kbju.*` call-type alias namespace — `ADR-024@0.1.0`.
 - Food / KBJU estimation: Open Food Facts + USDA FoodData Central lookup with LLM fallback; K7 proposal +/-25% calories and +/-30% macros per meal, +/-15% daily calories and +/-20% daily macros — `ADR-005@0.1.0`.
 - Summary recommendation guardrails: system prompt plus deterministic validator and deterministic fallback for forbidden topics — `ADR-006@0.1.0`.
 - Data hosting jurisdiction shortlist: recommend EU durable storage with transient remote inference; PO selection remains open until ratified — `ADR-007@0.1.0`.
 - Deployment: portable Docker Compose on the VPS with named volumes and no host-path/systemd dependency — `ADR-008@0.1.0`.
+- Build-in-image (NEW v0.7.0): multi-stage Dockerfile (`builder` → `runtime`); compiles inside the image so a fresh VPS deploys without host Node — `ADR-019@0.1.0`.
+- Inbound TLS termination (NEW v0.7.0): Caddy + automatic Let's Encrypt as the default install.sh path; Cloudflare Tunnel as a documented compose-overlay override — `ADR-020@0.1.0`.
+- Pilot incident reporting (NEW v0.7.0): Telegram `/diag` + `scripts/diag-bundle.sh` + `.github/ISSUE_TEMPLATE/incident.md` — `ADR-021@0.1.0`.
 - Observability: local structured JSON logs, durable PostgreSQL pilot metric tables, and loopback-only metrics endpoint — `ADR-009@0.1.0`.
 - Runtime architecture: HYBRID two-process topology — OpenClaw Gateway retains Telegram + bounded agent/tool orchestration; KBJU business logic runs as sidecar Node 24 process bridged by an OpenClaw plugin via HTTP — `ADR-011@0.1.0`.
 - Runtime comparison source: `docs/knowledge/agent-runtime-comparison.md` records the PR-C six-runtime audit that informed ADR-011@0.1.0; SPIKE-002@0.1.0 confirms no community runtime/plugin replaces the chosen HYBRID bridge.
@@ -1558,8 +1791,9 @@ Section ordering: KBJU → water → sleep → workout → mood. Zero-event sect
 ## 9. Configuration / Secrets
 
 ### 9.1 Secrets Management
-- Secrets are runtime-injected by OpenClaw/Docker environment handling and are never committed. Required secret names: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_PILOT_USER_IDS`, `DATABASE_URL`, `POSTGRES_PASSWORD`, `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `FIREWORKS_API_KEY` for runtime fallback only, `USDA_FDC_API_KEY`, `PERSONA_PATH`, `PO_ALERT_CHAT_ID`, `MONTHLY_SPEND_CEILING_USD=10`, `AUDIT_DB_URL` (separate connection string for the `kbju_audit` BYPASSRLS role; loaded only by the C11 K4 audit script, never by application skills).
-- Skill business logic reads model access through OmniRoute config, not raw provider keys, per ADR-002@0.1.0 and `docs/knowledge/llm-routing.md`.
+- Secrets are runtime-injected by OpenClaw/Docker environment handling and are never committed. Required secret names: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_PILOT_USER_IDS`, `DATABASE_URL`, `POSTGRES_PASSWORD`, `KBJU_PUBLIC_DOMAIN` (NEW v0.7.0 — Caddy LE issuance), `INSTALL_TLS_MODE` (NEW v0.7.0 — `caddy` default or `cloudflare-tunnel` override), `CLOUDFLARED_TUNNEL_TOKEN` (only when `INSTALL_TLS_MODE=cloudflare-tunnel`), `LLM_OMNIROUTE_BASE_URL` / `LLM_OMNIROUTE_API_KEY` (renamed from `OMNIROUTE_*` — see deprecation note below), `LLM_OPENROUTER_API_KEY`, `LLM_OPENAI_API_KEY`, `LLM_FIREWORKS_API_KEY`, additional `LLM_*_API_KEY` env vars per `config/llm.json` `providers[*].api_key_env` entries (operator-defined per ADR-024@0.1.0), `USDA_FDC_API_KEY`, `PERSONA_PATH`, `PO_ALERT_CHAT_ID`, `MONTHLY_SPEND_CEILING_USD=10`, `BUILD_SHA` (NEW v0.7.0 — image label baked at Dockerfile build, exported to runtime for `/diag` per ADR-021@0.1.0), `AUDIT_DB_URL` (separate connection string for the `kbju_audit` BYPASSRLS role; loaded only by the C11 K4 audit script, never by application skills).
+- Deprecation (one minor version, removed in v0.8.0): legacy names `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `FIREWORKS_API_KEY` are aliased to their `LLM_*` equivalents at boot; using a legacy name emits a one-shot `kbju_llm_legacy_env_in_use{var}` warn-level log per ADR-024@0.1.0 §Backward compatibility. New deploys MUST use the `LLM_*` names.
+- Skill business logic reads model access through the C23 LLM Gateway (`config/llm.json` registry), not raw provider keys, per ADR-022@0.1.0 + ADR-024@0.1.0 and `docs/knowledge/llm-routing.md`.
 - `.env.example` may document variable names only; real values live on the VPS secret store or deployment environment and must not appear in logs, tickets, PR bodies, or git history.
 
 ### 9.2 Access Control and Tenant Isolation
@@ -1574,9 +1808,9 @@ Section ordering: KBJU → water → sleep → workout → mood. Zero-event sect
   - Audit results record only aggregate cross-user reference counts and any concrete inter-tenant findings without reproducing user payloads (§5 `tenant_audit_runs.findings: json_array_without_user_payloads`).
 
 ### 9.3 Network Boundaries
-- Public inbound: only the OpenClaw Telegram ingress/webhook endpoint is internet-reachable.
-- Internal only: PostgreSQL, OmniRoute local/private endpoint, C10 metrics endpoint, and any admin/debug endpoint are on the Docker network or loopback only.
-- Outbound egress: Telegram Bot API, OmniRoute, Fireworks fallback path, Open Food Facts, and USDA FoodData Central. No runtime path sends data to observability SaaS in v0.1.
+- Public inbound: Caddy on ports 80 / 443 terminates TLS and reverse-proxies `/telegram*` to the OpenClaw Gateway (ADR-020@0.1.0); the Cloudflare Tunnel overlay (`docker-compose.cf-tunnel.yml`) replaces this with cloudflared egress when `INSTALL_TLS_MODE=cloudflare-tunnel`. The OpenClaw Telegram webhook handler is the only application surface reachable from the public internet.
+- Internal only: PostgreSQL, the C23 LLM Gateway upstream providers (when the operator configures a self-hosted provider on the same VPS), C10 metrics endpoint, and any admin/debug endpoint are on the Docker network or loopback only.
+- Outbound egress: Telegram Bot API (`api.telegram.org`), the operator-configured LLM / voice / vision providers per `config/llm.json` (which the operator chooses — could be OmniRoute, OpenRouter, OpenAI direct, Fireworks direct, vLLM-self-hosted, etc.), Open Food Facts, and USDA FoodData Central. No runtime path sends user metadata to observability SaaS in v0.1; this remains a hard rule even when the operator points a `kbju.*` alias at a hosted provider that may also offer an analytics dashboard.
 - Containers must not use host networking. Raw media temp storage is container-local or tmpfs and is not mounted into persistent volumes.
 
 ### 9.3.1 Community dependency policy (SPIKE-002@0.1.0)
@@ -1620,16 +1854,16 @@ Gateway bridge: install/register the repo-owned `kbju-bridge` OpenClaw plugin, c
 
 ### 10.2 Runtime Topology
 - Runtime: OpenClaw Gateway on Node 24 plus one KBJU sidecar Node 24 process, Docker Compose on the PO VPS, per ADR-008@0.1.0 and ADR-011@0.1.0.
-- Services: `openclaw-gateway`, `kbju-sidecar`, PostgreSQL, and OmniRoute local/private router endpoint if the PO runs it on the same VPS.
+- Services: `openclaw-gateway`, `kbju-sidecar`, PostgreSQL, `caddy` (default; ADR-020@0.1.0) OR `cloudflared` (override via `docker-compose.cf-tunnel.yml`), and any LLM / voice / vision providers the operator runs locally on the same VPS (resolved per `config/llm.json` per ADR-024@0.1.0 — e.g. a self-hosted OmniRoute, vLLM, or faster-whisper-server endpoint).
 - Gateway plugins: `kbju-bridge` is required. SecureClaw is recommended as a separate installed plugin for kill switch, safe/read-only failure modes, and cost circuit breaker. Riphook may be installed as defense-in-depth for tool-call enforcement patterns, but the KBJU sidecar must not copy AGPL SecureClaw code.
-- Persistent named volumes: `kbju_pgdata` for PostgreSQL, `openclaw_state` for OpenClaw runtime state, and optional `omniroute_config` if local router config is mounted read-only. No host bind mounts for production data.
+- Persistent named volumes: `kbju_pgdata` for PostgreSQL, `openclaw_state` for OpenClaw runtime state, `kbju_config` for `config/{llm,allowlist}.json` operator-edited files (ADR-013@0.1.0 + ADR-024@0.1.0; TKT-042@0.1.0), `caddy_data` and `caddy_config` for Caddy LE certs and runtime state (ADR-020@0.1.0). No host bind mounts for production data; the only bind mount is the read-only `Caddyfile` at the repo root mounted into the `caddy` service.
 - Temporary storage: raw Telegram voice/photo files use container-local tmpfs or non-persistent temp directories and are deleted by C5/C7 on success or terminal failure.
 
 ### 10.3 Resource Budget
 - VPS floor from PO Q2: 6 shared x86_64 vCPU, 7.6 GiB RAM, about 5.7 GiB available at idle, 75 GB ext4 with about 61 GB free, Ubuntu 24.04.4, Docker 29.4.0, no GPU.
 - PRD-001@0.2.0 §7 budget: KBJU stack <=25% VPS CPU p95 and <=2 GiB resident RAM steady state.
-- Expected steady RAM: OpenClaw Gateway 256 MiB; KBJU sidecar 512 MiB; PostgreSQL 512 MiB; OmniRoute local/private endpoint 256 MiB; in-process metrics/logging overhead 128 MiB; temp media headroom 128 MiB; total target 1.75 GiB.
-- CPU target: <=1.5 vCPU p95 across the KBJU stack on the 6 vCPU VPS. Remote Fireworks/OmniRoute model calls keep transcription, voice, and LLM inference off the CPU/GPU-limited host.
+- Expected steady RAM: OpenClaw Gateway 256 MiB; KBJU sidecar 512 MiB; PostgreSQL 512 MiB; Caddy 32 MiB (or cloudflared 64 MiB in override mode); operator-configured local LLM / voice / vision providers (when present) are budgeted by the operator per ADR-024@0.1.0; in-process metrics/logging overhead 128 MiB; temp media headroom 128 MiB; total target 1.55 GiB before any operator-side local provider.
+- CPU target: <=1.5 vCPU p95 across the KBJU stack on the 6 vCPU VPS. Remote model calls (whichever provider the operator configures via `config/llm.json`) keep transcription, voice, and LLM inference off the CPU/GPU-limited host.
 - Disk target: PostgreSQL plus logs/backups <=10 GB during 30-day pilot; Docker log rotation from §8 caps live diagnostic logs at about 50 MB per service.
 
 #### 10.3.1 v0.6.0 modality LLM cost delta
@@ -1650,16 +1884,57 @@ Additional LLM calls per user per day per ADR-018@0.1.0 picks:
 **PRD-001@0.2.0 §7 ceiling:** $10/month.
 **Headroom:** ~$9.89/month — well within ceiling.
 
-### 10.4 Deploy Sequence
+### 10.4 Deploy Sequence (single-command via `install.sh` — v0.7.0)
+
+The deploy is a single command on a fresh or existing VPS:
+
+```bash
+./scripts/install.sh
+```
+
+The script implements the canonical flow per ADR-020@0.1.0 §install.sh path and TKT-040@0.1.0:
+
+1. **Validate Docker / compose-plugin versions.** `docker --version` ≥ 20.10; `docker compose version` ≥ v2.
+2. **Read or prompt `KBJU_PUBLIC_DOMAIN`.** From `.env.production` if present; else prompt interactively (file mode 0600 on write). Skipped when `INSTALL_TLS_MODE=cloudflare-tunnel`.
+3. **Validate DNS A-record** for `KBJU_PUBLIC_DOMAIN` resolves to the VPS public IPv4 (`dig +short` vs `curl https://api.ipify.org`); skipped in cloudflare-tunnel mode.
+4. **Validate port-80 reachability** on the VPS (loopback bind + reachability check); skipped in cloudflare-tunnel mode.
+5. **Validate `.env.production`** against the application's `parseConfig` requirements; fail fast on missing required keys.
+6. **`docker compose pull`** (externally-published images: `postgres`, `caddy`, `cloudflared`, `openclaw-gateway`).
+7. **`docker compose build kbju-sidecar metrics`** (locally built; multi-stage Dockerfile per ADR-019@0.1.0).
+8. **`docker compose up -d postgres`**; wait for `pg_isready` (≤60 s).
+9. **Apply migrations.** `runMigrations()` is wired into `src/main.ts startServer()` per TKT-041@0.1.0; the sidecar's first boot applies any unapplied migrations transactionally before binding the HTTP server.
+10. **Seed `config/allowlist.json`** from `TELEGRAM_PILOT_USER_IDS` if absent (TKT-042@0.1.0; persistent volume bind so re-deploys preserve operator edits).
+11. **`docker compose up -d --remove-orphans`** (brings up the rest, including `caddy` or `cloudflared` per `INSTALL_TLS_MODE`).
+12. **Wait for Caddy to expose HTTPS.** Poll `https://${KBJU_PUBLIC_DOMAIN}/health` up to 120 s; ACME issuance can take 30–90 s on first run.
+13. **Call Telegram `setWebhook`** to `https://${KBJU_PUBLIC_DOMAIN}/telegram` (path adjusted for cloudflare-tunnel mode if needed).
+14. **Call Telegram `getWebhookInfo`**; assert `last_error_date == null`. Fail fast otherwise.
+15. **Smoke-test `/kbju/health`** (sidecar) and `/health` (Caddy) — both must return 200.
+16. **Print "INSTALL OK" banner with the deployed git SHA** on success; non-zero exit on any failure.
+
+The script is **idempotent**: re-running on a healthy stack is a no-op except for steps 13–15 which re-confirm the webhook.
+
+Cloudflare Tunnel override: set `INSTALL_TLS_MODE=cloudflare-tunnel` in `.env.production` and provide `CLOUDFLARED_TUNNEL_TOKEN`; the script then runs `docker compose -f docker-compose.yml -f docker-compose.cf-tunnel.yml up -d` and skips the DNS / port-80 / Caddy steps. Tunnel route configuration happens in the operator's Cloudflare dashboard.
+
+For day-to-day operations after the first install, the per-deploy sequence is the same single command:
+
+```bash
+./scripts/install.sh
+```
+
+The legacy raw-command sequence is preserved here for emergency manual fallback (use only if `install.sh` is unavailable):
+
 ```bash
 git fetch origin
 git checkout main
 git pull --ff-only origin main
 docker compose pull
+docker compose build kbju-sidecar metrics
 docker compose up -d --remove-orphans
 docker compose ps
 docker compose logs --since=5m kbju-sidecar
 python3 scripts/validate_docs.py
+# operator MUST manually setWebhook + getWebhookInfo if the prior install.sh path
+# did not run, or the webhook may stay pointed at a previous host
 ```
 
 ### 10.5 Backup Sequence
@@ -1745,9 +2020,9 @@ After `pg_restore` completes, replay the audit log for any `event_type = right_t
 
 ### 10.7 VPS Migration Runbook
 
-The migration moves *all* persistent state (PostgreSQL volume + `.env.production`) from the old VPS to a new VPS, then re-points the public Telegram webhook so messages flow to the new host. Snapshot tooling is `pg_dump -Fc` (PostgreSQL custom format, restored with `pg_restore`). A reference helper lives at `scripts/migrate-vps.sh` and wraps the same commands non-interactively.
+The migration moves *all* persistent state (PostgreSQL volume + `.env.production`) from the old VPS to a new VPS, then re-points the public Telegram webhook so messages flow to the new host. Snapshot tooling is `pg_dump -Fc` (PostgreSQL custom format, restored with `pg_restore`). The new-host bring-up uses **`./scripts/install.sh`** (ADR-020@0.1.0; §10.4) — not bare commands — so the new host comes up with TLS, migrations, and `setWebhook` in one idempotent flow.
 
-#### 10.7.1 Pre-flight
+#### 10.7.1 Pre-flight (old VPS)
 ```bash
 # Old host: confirm services are healthy before the freeze window.
 docker compose ps
@@ -1755,10 +2030,10 @@ curl -fsS --max-time 2 http://127.0.0.1:9464/metrics > /dev/null && echo "metric
 df -h /
 ```
 
-#### 10.7.2 Stop, snapshot, transfer
+#### 10.7.2 Stop, snapshot, transfer (old VPS)
 ```bash
 # 1. Quiesce user-facing skills on the OLD VPS (PostgreSQL stays up so we can dump).
-docker compose stop openclaw-gateway kbju-sidecar
+docker compose stop openclaw-gateway kbju-sidecar caddy
 
 # 2. Snapshot Postgres in custom format and protect the dump file mode.
 mkdir -p backups
@@ -1768,10 +2043,14 @@ chmod 0600 "$DUMP"
 
 # 3. Copy the dump and the production env file to the NEW VPS.
 scp "$DUMP" <new-vps>:/srv/openclown-assistant/backups/
-scp.env.production <new-vps>:/srv/openclown-assistant/.env.production
+scp .env.production <new-vps>:/srv/openclown-assistant/.env.production
+ssh <new-vps> 'chmod 0600 /srv/openclown-assistant/.env.production'
+
+# 4. (Optional) Copy operator-edited config files (allowlist, llm registry).
+scp config/allowlist.json config/llm.json <new-vps>:/srv/openclown-assistant/config/
 ```
 
-#### 10.7.3 Bring the new VPS up
+#### 10.7.3 Restore the database on the new VPS
 ```bash
 ssh <new-vps> '
   cd /srv/openclown-assistant && \
@@ -1780,50 +2059,53 @@ ssh <new-vps> '
   docker compose up -d postgres
 '
 
+# Wait for Postgres healthy, then restore from the dump.
 ssh <new-vps> '
   cd /srv/openclown-assistant && \
   docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
     /srv/openclown-assistant/backups/<dump>.dump
 '
+```
+
+#### 10.7.4 Bring the new VPS up via `install.sh` (which also re-registers the webhook)
+
+```bash
+# Update the .env.production KBJU_PUBLIC_DOMAIN if the new VPS uses a different
+# DNS name; otherwise the existing value flows through.
+# Then run install.sh on the new VPS — it handles TLS issuance,
+# `setWebhook`, and `getWebhookInfo` validation in one idempotent flow.
 
 ssh <new-vps> '
   cd /srv/openclown-assistant && \
-  docker compose up -d --remove-orphans && \
-  docker compose ps
+  ./scripts/install.sh
 '
 ```
 
-#### 10.7.4 Re-register the Telegram webhook (required — the new VPS has a different IP)
-```bash
-# 1. Get the new VPS public IP / DNS name (e.g. https://kbju.example.com or https://<new-ip>:443).
-NEW_WEBHOOK_URL="https://kbju.example.com/telegram"
+`install.sh` (per §10.4):
 
-# 2. Tell Telegram to send updates to the new endpoint.
-curl -fsS -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
-  -d url="$NEW_WEBHOOK_URL" \
-  -d drop_pending_updates=false   # keep any updates queued during migration
+- Validates Docker / compose-plugin versions.
+- Validates DNS A-record for `KBJU_PUBLIC_DOMAIN` resolves to the new VPS public IP.
+- Validates port 80 reachability for ACME issuance.
+- Brings the rest of the stack up (Caddy obtains LE cert; first run takes 30–90 s).
+- Calls Telegram `setWebhook` to `https://${KBJU_PUBLIC_DOMAIN}/telegram`.
+- Calls `getWebhookInfo`; fails fast on `last_error_date != null`.
+- Smoke-tests `/kbju/health`.
 
-# 3. Verify Telegram now points at the new host AND has no errors.
-curl -fsS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
-# Expected: "url":"$NEW_WEBHOOK_URL", "pending_update_count":<small>, "last_error_date":null
-
-# 4. Send an end-to-end ping from PO Telegram — the bot must reply through C1 on the new VPS.
-#    Then confirm the new host's logs recorded the inbound update.
-ssh <new-vps> 'docker compose logs --since=2m kbju-sidecar | grep telegram_update_received'
-```
+If `INSTALL_TLS_MODE=cloudflare-tunnel` is set, install.sh skips DNS / port checks and brings up the cloudflared overlay; the operator's CF dashboard handles route registration.
 
 #### 10.7.5 Migration validation checklist
-- [ ] `getWebhookInfo` returns `last_error_date: null` and the new URL.
+- [ ] `getWebhookInfo` returns `last_error_date: null` and the new URL (install.sh asserts this; verify in the install.sh output).
 - [ ] PO ping in Telegram returns a Russian reply within 5 seconds.
 - [ ] New VPS `kbju-sidecar` log shows `telegram_update_received` for the ping and OpenClaw Gateway log shows the bridge request.
 - [ ] `tenant_audit_runs` is empty or in a known consistent state on the new DB (§3.11 audit role still works).
+- [ ] Caddy `/health` endpoint returns `kbju-caddy-ok 200`; `caddy_data` volume contains the issued cert.
 - [ ] Old VPS has been put into read-only mode (services stopped, port 443 closed) to prevent split-brain.
 
-Reference helper:
+Reference helper (legacy; pre-install.sh):
 ```
 scripts/migrate-vps.sh <new-vps> <new-webhook-url>
 ```
-(adds non-interactive ssh-agent forwarding, transfers the latest dump, runs steps 10.7.2–10.7.4, and prints the final `getWebhookInfo` output).
+The pre-v0.7.0 helper still works as a manual-fallback when `install.sh` is unavailable; new migrations SHOULD use `install.sh` per §10.7.4.
 
 ### 10.8 Observability Hardening Addendum (TKT-015@0.1.0)
 
@@ -1856,6 +2138,21 @@ TKT-015@0.1.0 is a focused hardening follow-up from TKT-004@0.1.0 closure and do
 | TKT-017@0.1.0 | G1 Breach Detector (C12) | TKT-002@0.1.0, TKT-016@0.1.0 |
 | TKT-018@0.1.0 | G2 Stall Watchdog (C13) | TKT-016@0.1.0 |
 | TKT-020@0.1.0 | G4 Config-Driven Allowlist (C15) | TKT-016@0.1.0 |
+| TKT-032@0.1.0 | Real-Postgres integration test infrastructure (testcontainers) | — |
+| TKT-033@0.1.0 | Provider-agnostic LLM client + model registry + LLM_* env-var rename | — |
+| TKT-034@0.1.0 | Provider-agnostic voice transcription client | TKT-033@0.1.0 |
+| TKT-035@0.1.0 | Migrate config/*.json extractor manifests to call-type aliases | TKT-033@0.1.0 |
+| TKT-036@0.1.0 | Smoke tests proving config-only provider swap | TKT-033@0.1.0, TKT-034@0.1.0, TKT-035@0.1.0 |
+| TKT-038@0.1.0 | Multi-stage Dockerfile (build-in-image) | — |
+| TKT-039@0.1.0 | Caddy + Let's Encrypt + Cloudflare Tunnel overlay | — |
+| TKT-040@0.1.0 | install.sh single-command deploy + setWebhook + getWebhookInfo | TKT-038@0.1.0, TKT-039@0.1.0, TKT-041@0.1.0, TKT-042@0.1.0 |
+| TKT-041@0.1.0 | Wire migrations on boot (runMigrations before server.listen) | — |
+| TKT-042@0.1.0 | Allowlist seed from TELEGRAM_PILOT_USER_IDS + persistent volume | — |
+| TKT-043@0.1.0 | Pin docker-compose.yml images to digests | TKT-039@0.1.0 |
+| TKT-044@0.1.0 | /diag Telegram command (incident diagnostic block) | TKT-033@0.1.0 |
+| TKT-045@0.1.0 | scripts/diag-bundle.sh (operator-side incident bundle) | TKT-044@0.1.0 |
+| TKT-046@0.1.0 | GitHub incident issue template + docs/incidents/ | — |
+| TKT-047@0.1.0 | Mood-comment overflow alignment (200 silent → 280 with friendly notice) | — |
 
 Execution notes:
 - The DAG is acyclic: TKT-001@0.1.0 seeds the scaffold; TKT-002@0.1.0 and TKT-003@0.1.0 establish the storage/observability base; user-facing flows layer on top; TKT-014@0.1.0 closes end-to-end readiness.
@@ -1898,6 +2195,64 @@ Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dock
 
 - **Q_TO_BUSINESS_6 (PO-ratified copy + golden sets):** This ArchSpec defers PO-content-ratification of: (a) `config/modality-router.json` keyword chains; (b) Russian Telegram reply copy across C17/C18/C19/C20/C21/C22; (c) the 50-event workout golden set (ADR-016@0.1.0); (d) the 20-event ambiguity golden set (TKT-025@0.1.0); (e) the water quick-volume keyboard preset values (small/medium/large in ml). All listed in the corresponding ticket §6 / §7 as "PO ratifies before sign-off". **PO ratification asked for**: please review at Reviewer dispatch or at first Executor handoff.
 
+### 12.3 v0.7.0 Risks (provider abstraction + pre-deploy hardening + bug-report pipeline)
+
+- **R18: Provider abstraction enables operator misconfiguration that leaks raw user
+  text to a third-party hosted provider.** PRD-001@0.3.0 §7 lets the operator point any
+  call-type at any OpenAI-compatible provider, including hosted ones. If the operator
+  binds `kbju.meal_text` or `kbju.voice_transcription` at a provider with a permissive
+  data-retention policy, the user's redacted-but-still-personal payload (meal text,
+  voice transcript content as the prompt) reaches that provider's billing / training
+  surface. Mitigation: `docs/architecture/llm-providers.md` documents per-provider
+  retention defaults; the C10 emit-boundary redaction allowlist (§8.1) governs
+  *outgoing log* metadata, not outgoing LLM payloads. Operator policy decision; no
+  architectural lock. PRD-001@0.3.0 §7 explicitly accepts "transient remote inference"
+  (per ADR-007@0.1.0); the Architect surfaces this risk so the PO sets retention
+  policy per provider deliberately.
+
+- **R19: install.sh single-command path has DNS / port-80 / ACME prerequisites the
+  operator must satisfy before invocation.** A misconfigured DNS A-record or a closed
+  port 80 produces a Caddy ACME failure 30–90 s into the install flow, not at the
+  start. Mitigation: install.sh validates DNS resolution and port-80 reachability
+  before bringing Caddy up (§10.4 steps 3–4); on failure, the script aborts with a
+  structured error before any container starts. Cloudflare Tunnel override removes
+  the DNS / port-80 prerequisite for operators who prefer it.
+
+- **R20: `config/llm.json` schema versioning lacks a migration path for major bumps.**
+  ADR-024@0.1.0 §What is NOT hot-reloadable says a v1→v2 schema bump rejects unknown
+  majors at the loader. Operators who edit the file to a new schema mid-deploy without
+  shipping the matching application code see every request fail. Mitigation: schema
+  bumps are coordinated releases; the application's loader logs the schema mismatch
+  loudly; v0.7.0 introduces only `version: 1`.
+
+- **R21: ADR-002@0.1.0 / ADR-003@0.1.0 supersession leaves historical empirical claims in
+  superseded ADRs.** Future readers may treat them as authoritative. Mitigation: the
+  superseded ADRs carry an explicit blockquote at the top pointing to the
+  successors; the Phase 0 §0.4 Architectural fork-candidate verdicts table still
+  references the v0.5.0 chosen-providers row but those are now operator-default
+  examples per `docs/architecture/llm-providers.md`. The trade-off analyses in
+  ADR-002@0.1.0 / ADR-003@0.1.0 remain valid as cost / latency / privacy reference;
+  only the architectural lock framing is superseded.
+
+- **R22: `/diag` LLM-ping cost compounds at scale.** Each `/diag` invocation issues a
+  cheap `chatCompletion` against `kbju.modality_router_classifier`. At 2 pilot users
+  with rare invocation, cost is negligible (~$0.0001 each). At 1000 users with
+  frequent debug interactions, the cost could climb. Mitigation: the cheapest
+  call-type is used; `kbju_diag_invocations_total` metric tracks usage; if the metric
+  shows abuse, a future PR can rate-limit `/diag` per user.
+
+- **Q_TO_BUSINESS_7 (legacy env-var deprecation timing):** v0.7.0 keeps
+  `OMNIROUTE_BASE_URL` / `OMNIROUTE_API_KEY` / `FIREWORKS_API_KEY` as backward-compat
+  aliases for one minor version. Removing them in v0.8.0 means the operator MUST
+  rotate `.env.production` before that version drops. Architect recommendation:
+  remove in v0.8.0 (next minor bump); PO confirms or extends the deprecation window
+  if there's an operational reason.
+
+- **Q_TO_BUSINESS_8 (Cloudflare Tunnel override default-on):** Some operators may
+  prefer cloudflared by default if their VPS sits behind NAT or they want CF's WAF.
+  Architect default is Caddy + LE per dispatch; **PO confirms** the default stays
+  Caddy and the override is opt-in via `INSTALL_TLS_MODE=cloudflare-tunnel`.
+
 ---
 
 ## 13. PO Ratification (2026-05-24, ARCH-001@0.6.2)
@@ -1918,21 +2273,42 @@ PO answers to §12 Risks & Open Questions. Recorded inline so executor / reviewe
 
 ---
 
+## 13.1 Architect amendment for v0.7.0 (2026-05-25)
+
+The v0.7.0 amendment cycle adds the following supersession + new-decision context:
+
+- **PRD-001@0.3.0 §7 hard constraint** (provider abstraction) is now binding. ADR-022@0.1.0 supersedes ADR-002@0.1.0 (LLM); ADR-023@0.1.0 supersedes ADR-003@0.1.0 (voice); ADR-004@0.1.0 → ADR-004@0.2.0 amendment moves vision into the same registry. ADR-024@0.1.0 defines the registry. ADR-018@0.1.0 illustrative model picks remain for the example config; the operator may override per cycle.
+- **Pre-deploy hardening:** ADR-019@0.1.0 (multi-stage Dockerfile), ADR-020@0.1.0 (Caddy + LE TLS termination, Cloudflare Tunnel override), and the §10.4 install.sh single-command flow are introduced. Migrations on boot (TKT-041@0.1.0), allowlist seeding (TKT-042@0.1.0), and image digest pinning (TKT-043@0.1.0) close the operator-side prerequisites the previous deploy path silently assumed.
+- **Bug-report pipeline:** ADR-021@0.1.0 introduces a three-part flow (`/diag` Telegram command, `scripts/diag-bundle.sh`, GitHub issue template). Reuses the existing emit-boundary redaction allowlist; no new trust boundary.
+- **Drift cleanup:** §5.3 + ADR-017@0.1.0 §Decision corrected from `bigint` to `uuid REFERENCES users(id)` (BACKLOG-001 §A1; the deployed schema already uses `uuid`); TKT-021@0.1.0 §6 line 64 RLS policy AC `::bigint` → `::uuid`; Q-TKT-031-01 answered (canonical contract = ARCH-001@0.6.2 §6.2.2 — 280-char limit + friendly notice; TKT-047@0.1.0 aligns code); TKT-032@0.1.0 introduces real-Postgres integration test infrastructure (testcontainers) — `status: ready`, NOT a deploy blocker.
+- **Status:** this v0.7.0 amendment is a **`draft`** in this PR; only the PO sets `status: approved`. The §13 PO Ratification block above carries the v0.6.2 PO answers verbatim and remains binding for Q1–Q6. New questions Q_TO_BUSINESS_7 and Q_TO_BUSINESS_8 (deprecation timing, Cloudflare-Tunnel-as-default) are added in §12.3 and remain open until PO closes.
+
+---
+
 ## Handoff Checklist
-- [x] §0 Recon Report present, ≥3 candidates audited per major capability (§0.2 skill catalogue, §0.4 architectural fork-candidates)
+- [x] §0 Recon Report present, ≥3 candidates audited per major capability (§0.2 skill catalogue, §0.4 architectural fork-candidates, §0.11.2 v0.7.0 audit delta)
 - [x] Trace matrix covers every PRD Goal
-- [x] Each component has clear Inputs / Outputs / failure modes
+- [x] Each component has clear Inputs / Outputs / failure modes (incl. new C23 LLM Gateway in §3.23)
 - [x] All referenced ADRs exist and are `proposed` or `accepted`
 - [x] Resource budget fits PRD Technical Envelope (numeric check)
-- [x] Work Breakdown lists ≥3 atomic tickets with explicit dependency graph
+- [x] Work Breakdown lists ≥3 atomic tickets with explicit dependency graph (incl. v0.7.0 tickets TKT-032@0.1.0 through TKT-047@0.1.0)
 - [x] §8, §9, §10 are non-empty with concrete choices
 - [x] All PRD/ADR references pin to a specific version (`@X.Y.Z`)
 - [x] No production code in this file (schemas in §5 are declarative YAML only)
 - [x] Rollback runbook (§10.6) has pre-flight, health-check, Telegram PO ping, on-failure escalation
-- [x] VPS migration runbook (§10.7) re-registers the Telegram webhook and verifies via `getWebhookInfo`
+- [x] VPS migration runbook (§10.7) calls install.sh and verifies via `getWebhookInfo`
 - [x] PERSONA-001-kbju-coach.md exists at `docs/personality/PERSONA-001-kbju-coach.md` (TKT-011@0.1.0 input)
 - [x] Privileged audit role `kbju_audit` (BYPASSRLS) defined in §9.2 with `AUDIT_DB_URL` secret in §9.1
 - [x] No contradiction between §3.11 / §9.5 / §5 schema on right-to-delete (hard-delete only; no `users.deleted_at`)
+- [x] §5.3 modality `user_id` columns now `uuid` (BACKLOG-001 §A1 closed in this PR)
+- [x] §10.4 install.sh single-command flow specified (ADR-020@0.1.0)
+- [x] §10.7 VPS migration runbook calls install.sh
+- [x] §3.23 C23 LLM Gateway component documented
+- [x] §6.3 OpenAI-compatible HTTP surface contract documented
+- [x] §7 lists the new ADRs (ADR-019@0.1.0 through ADR-024@0.1.0)
+- [x] §9.1 Secrets list reflects `LLM_*` env vars + deprecation note
+- [x] §12.3 v0.7.0 risks present
+- [x] Q_TO_BUSINESS_7 + Q_TO_BUSINESS_8 raised
 - [ ] §4.9 HYBRID boot + sidecar lifecycle defined (v0.5.0, ADR-011@0.1.0)
 - [ ] §4.10 Gateway-to-sidecar request/response flow defined (v0.5.0)
 - [ ] §5 breach_events + stall_events pseudo-schemas documented
@@ -1947,6 +2323,7 @@ PO answers to §12 Risks & Open Questions. Recorded inline so executor / reviewe
 
 ## revision_log
 
+- 2026-05-25 (v0.7.0): Architect amendment for ARCH-001@0.7.0 pilot-hardening cycle. PRD-001@0.3.0 §7 provider-abstraction hard constraint absorbed: ADR-022@0.1.0 supersedes ADR-002@0.1.0; ADR-023@0.1.0 supersedes ADR-003@0.1.0; ADR-004@0.1.0→0.2.0 amends vision into the registry; ADR-024@0.1.0 defines `config/llm.json`. Pre-deploy hardening: ADR-019@0.1.0 multi-stage Dockerfile; ADR-020@0.1.0 Caddy + LE TLS / cloudflared override; §10.4 single-command install.sh flow; §10.7 migration runbook now invokes install.sh; TKT-038@0.1.0 through TKT-043@0.1.0 implementation tickets. Bug-report pipeline: ADR-021@0.1.0 + TKT-044@0.1.0 / TKT-045@0.1.0 / TKT-046@0.1.0 (`/diag`, `diag-bundle.sh`, incident issue template + `docs/incidents/`). Drift cleanup: §5.3 + ADR-017@0.1.0 §Decision `bigint`→`uuid_fk_users` per BACKLOG-001 §A1; TKT-021@0.1.0 §6 RLS-policy AC `::bigint`→`::uuid`; Q-TKT-031-01 answered (canonical contract = 280 + friendly notice; TKT-047@0.1.0 aligns code); TKT-032@0.1.0 testcontainers infra. New §3.23 C23 LLM Gateway; new §6.3 OpenAI-compatible HTTP surface; rename every non-historical "OmniRoute" reference in §3, §6, §9, §10 to the new abstraction (historical ADR-002@0.1.0 / ADR-003@0.1.0 citations preserved verbatim). status: approved → draft (operator → PO sets status: approved).
 - 2026-05-24 (v0.6.2): PO approval. §13 PO Ratification added with answers to Q1-Q6. Q5 explicitly opens model/provider routing as an orchestrator-level runtime concern (no ArchSpec lock). Q6 drafts are bilingual (RU + EN) under `docs/drafts/PRD-003-content-drafts.md`. status: draft → approved.
 - 2026-05-06 (v0.6.1): Amendment cycle responding to RV-SPEC-013 F-M1..F-M6 + F-L1..F-L2.
 - 2026-05-06 (v0.6.0): Initial PRD-003@0.1.3 extension over the v0.5.0 baseline.
