@@ -1,8 +1,8 @@
 ---
 id: TKT-035
 title: 'Migrate config/*.json extractor manifests to call-type aliases'
-status: in_review
-arch_ref: ARCH-001@0.7.0
+status: done
+arch_ref: ARCH-001@0.7.1
 prd_ref: PRD-001@0.3.0
 component: C16 / C17 / C18 / C19 / C20 / C7 manifests
 depends_on:
@@ -11,6 +11,9 @@ blocks: []
 estimate: S
 created: 2026-05-25
 updated: 2026-05-25
+closed_at: 2026-05-25
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-019
 ---
 
 # TKT-035: Migrate config/*.json extractor manifests to call-type aliases
@@ -75,3 +78,4 @@ Replace the inline model identifiers in `config/water-extractor.json`, `config/w
 - 2026-05-26T00:55:00Z opencode-executor: all 5 manifests + example migrated; 5 src/ extractors + photo adapter rewritten to registry.resolve(); 7 test files updated + 1 smoke test written; 1333 tests pass (2 pre-existing failures); typecheck clean; lint clean
 - 2026-05-26T00:56:00Z opencode-executor: in_review; 1333 tests pass; typecheck clean; lint clean; 2 pre-existing failures
 - 2026-05-26T01:07:00Z opencode-executor: iter 2; addressed RV-CODE-019 F-M2 (removed dead VISION_MODEL_ALIAS constant from src/photo/types.ts, zero consumers confirmed); F-M1 deferred to backlog (pre-existing photo adapter raw-fetch bypasses central llmClient); pre-existing failures: "startMetricsServer rejects 0.0.0.0 wildcard (ARCH-001@0.7.1 §8.2/§11 C10)", "Allowlist > failure modes > hot-reloads mode changes from file"; 1333 tests pass; lint+typecheck clean
+- 2026-05-25T22:12Z opencode-orchestrator: merged in commit 99f77a8; RV-CODE-019 verdict=pass after iter 2 (F-M2 fixed; F-M1 backlogged as BACKLOG-007 — photo adapter via llmClient.vision deferred); arch_ref bumped to ARCH-001@0.7.1; status=done
