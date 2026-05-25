@@ -13,8 +13,8 @@ created: 2026-05-25
 The executor wired `runMigrations(pool)` into `startServer()` immediately after pool creation and before `server.listen()`, converting `startServer` from synchronous to `async`. The implementation correctly gates the HTTP server on migration success, exits non-zero on failure, and respects the existing `migrations/` directory convention. Three new bootEntrypoint tests validate the schema-string assertion and the fail-fast behaviour. The `status: in_review` flip is in a separate commit. Two Medium findings (missing 120 s timeout, pool lifecycle gap) and a few Low nits remain — none block merge.
 
 ## Verdict
-- [ ] pass
-- [x] pass_with_changes
+- [x] pass
+- [ ] pass_with_changes
 - [ ] fail
 
 One-sentence justification: Core wiring is correct and all TKT-041 ACs met, but the 120 s timeout promised in TKT-041@0.1.0 §2 is not implemented, and the PG pool is never closed on the success path.
@@ -59,3 +59,30 @@ None.
 - **Secrets:** `config.databaseUrl` contains the DB password. It is not logged directly. The only logging is `console.error("Migration failed; refusing to start HTTP server:", err)` — see **F-L1** for the SQL-content concern. No credentials committed in the diff.
 - **Observability:** Errors are logged with `console.error`. Success is silent (see **F-L2**). A 3am operator sees either the *"KBJU sidecar listening"* message (implies migrations OK) or the *"Migration failed"* error (implies crash). The absence of structured-event emission and metric increment is acceptable for v0.1 given the scope of this ticket — the existing `src/observability/events.ts` is not invoked in the boot path for migrations, but the ticket does not require it.
 - **Rollback:** If this PR breaks production, the rollback is obvious: revert the `src/main.ts` changes to remove the `await runMigrations(pool)` block and the `async` signature. The migration runner itself (`src/store/migrations.ts`) is unchanged. The `install.sh` sequence (ARCH-001@0.7.0 §10.4 step 9) already expects `runMigrations` to be wired in — so a rollback would require manual `docker compose exec` migration application in the interim.
+
+## Iteration 2 — re-review
+
+**Fix-up commit:** `f210cab` — addresses F-M1 and F-M2 from iteration 1.
+
+### F-M1 (120 s timeout) — RESOLVED ✅
+
+`src/main.ts:21-26` adds `getMigrationTimeoutMs()` which reads `KBJU_MIGRATION_TIMEOUT_MS` env var (default 120000 ms, per TKT-041@0.1.0 §2). `src/main.ts:294-304` wraps `runMigrations(pool)` in a `Promise.race` against an `AbortController` timer, producing a `"Migration timed out after N ms"` error on expiry. The `clearTimeout(timeout)` is called in both the catch block (line 309) and after the try/catch on the success path (line 314). A new test (`tests/deployment/bootEntrypoint.test.ts:627-675`) uses `KBJU_MIGRATION_TIMEOUT_MS=50` to inject a 10-second-long mock migration, verifies `process.exit(1)` is called and `server.listen` is never invoked — test passes.
+
+### F-M2 (pool close on success) — RESOLVED ✅
+
+`src/main.ts:307` adds `await pool.end()` immediately after `runMigrations` succeeds and before `server.listen()`. The pool is now closed on both the success path (line 307) and the failure path (line 311). The comment at line 305–306 documents that `createSidecarDeps` manages its own DB access separately.
+
+### New findings (iter-2 diff only)
+
+None that block. Two minor observations:
+
+- **F-L4** (`tests/deployment/bootEntrypoint.test.ts:627-675`): The new timeout test is placed outside the `describe("TKT-041: runMigrations on boot")` block (which closed at line 625) and therefore does not use the describe's `beforeEach`/`afterEach` env-var snapshot/restore. It sets `SERVER_PORT=0` and other env vars manually but only cleans up `KBJU_MIGRATION_TIMEOUT_MS` in `finally`. Since it is the last test in the file, the practical impact is negligible — no cross-test pollution within `bootEntrypoint.test.ts`. Refiling the test inside the describe block (or adding its own env-var cleanup) would be tidier but does not affect correctness. **Severity: Low.**
+
+- **F-L5** (`src/main.ts:309, 314`): `clearTimeout(timeout)` is called both inside the `catch` block and unconditionally after the `try`/`catch`. On the failure path this results in a double clear (line 309 then, after `process.exit(1)`, line 314 is unreachable — moot). On the success path only line 314 fires. This is correct but the redundant clear in the catch block is confusing to read. **Severity: Low — cosmetic.**
+
+### Updated verdict
+
+Both Medium findings from iteration 1 (F-M1, F-M2) are resolved in commit `f210cab`. All 22 bootEntrypoint tests pass (including the new timeout test). Typecheck and lint are clean. No new High or Medium findings introduced.
+
+**Verdict: pass**
+**Recommendation: merge**
