@@ -11,9 +11,11 @@
   //   - executor / reviewer / architect-consult (custom)  -> .opencode/agents/<name>.md frontmatter
   //
   // Family separation rule for the code-review pipeline:
-  //   executor (GLM 5.1, Chinese-Claude-like)  ≠
-  //   reviewer (MiMo 2.5 Pro, Chinese-reasoning-first)
-  // Sisyphus and architect-consult on Opus give Anthropic-side triangulation.
+  //   executor (GLM 5.1, Zhipu / Chinese-Claude-like)  ≠
+  //   reviewer (DeepSeek V4 Pro max, DeepSeek family, reasoning-first)
+  // Both run on Fireworks, but the model families are distinct (different
+  // vendor lineage, different post-training discipline). Sisyphus and
+  // architect-consult on Opus give Anthropic-side triangulation.
   //
   // Note: opencode does not support a `maxTokens` agent field. Any unknown
   // field is passed straight through to the provider as a model option, and
@@ -25,7 +27,7 @@
     // ─── Primary agents (UI/CLI tab-cyclable) ────────────────────────────
 
     // Main orchestrator. Anthropic family, separates cleanly from executor (GLM)
-    // and reviewer (MiMo). Communicative + instruction-following profile fits
+    // and reviewer (DeepSeek). Communicative + instruction-following profile fits
     // Sisyphus's ~1100-line prompt better than reasoning-first models.
     "sisyphus": {
       "model": "omniroute/claude-opus-4.7",
@@ -93,7 +95,8 @@
     },
 
     // Plan reviewer ("ruthless"). MiMo's reasoning-first profile matches the
-    // role. Same model family as our reviewer subagent — internally consistent.
+    // role. Available for Prometheus-style ad-hoc plan reviews; not used by
+    // our Sisyphus pipeline (we use DeepSeek V4 Pro max for code review).
     "momus": {
       "model": "xiaomi-token-plan-sgp/mimo-v2.5-pro",
       "reasoningEffort": "high"
