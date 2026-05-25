@@ -76,3 +76,39 @@ Recommendation to PO: block until F-H1 is resolved; F-M1 and F-M2 should also be
 - **Secrets:** No credentials committed. The Postgres connection URI is obtained from `container.getConnectionUri()` at runtime — never hardcoded. No `.env` or `.env.example` changes. ✅ No concern.
 - **Observability:** Not applicable — test infrastructure does not emit telemetry or log to production channels. Console output from testcontainers is purely local. ✅ No concern.
 - **Rollback:** If this PR ships and breaks production: `npm test` is unaffected (integration tests excluded); `npm run test:integration` might fail with the `consrc` error, but this does not impact production code. Rollback is a clean revert — no data migration dependencies. ✅ No concern.
+
+---
+
+## Iteration 2 — re-review (2026-05-25)
+
+### Verdict updated
+- [ ] pass
+- [x] pass_with_changes
+- [ ] fail
+
+One-sentence justification: F-H1 (`consrc`), F-M1 (`regclass` ambiguity), and F-L1 (`rowCount` interpolation) are all cleanly resolved; F-M2 (no live Docker run) is accepted as deferred to a Docker-capable host per orchestrator stance; one new Low finding (unused `pkUserIdTables` dead code) is non-blocking.
+
+Recommendation to PO: approve & merge after backlogging F-M2; the blocking issues from iter-1 are gone.
+
+### Per-finding status
+
+| Finding | Severity | Status | Notes |
+|---|---|---|---|
+| **F-H1** `consrc` removed in PG 16 | High | ✅ **RESOLVED** | `tests/db/prd003_modality_schema.test.ts:244` — replaced with `pg_get_constraintdef(cn.oid) AS constraintdef`. Query also migrated to `pg_namespace` join pattern. Substring assertions (`c.includes("volume_ml")`, etc.) work against PG-canonicalised CHECK-definition output. |
+| **F-M1** `regclass::text` ambiguity | Medium | ✅ **RESOLVED** | Both FK tests now use `JOIN pg_namespace nf/np` returning unqualified `cf.relname` / `cp.relname`. `modality_schema.test.ts:160-182` and `right_to_delete.test.ts:164-187` — consistent with the file's RLS test at `modality_schema.test.ts:72-91`. CHECK-constraint test also migrated to the same pattern (`modality_schema.test.ts:243-250`). |
+| **F-M2** Docker not available locally | Medium | ⏸️ **ACCEPTED: deferred to Docker-capable host** | Executive decision by orchestrator — running Docker in the sandbox is out of scope. The test scripts (`npm run test:integration`) and harness wiring are statically verified as correct. A follow-up BACKLOG item (or TKT-043@0.1.0 pre-merge CI integration) should gate the first actual `postgres:17` live run. |
+| **F-L1** `rowCount` table interpolation | Low | ✅ **RESOLVED** | `tests/db/prd003_right_to_delete.test.ts:321-323` — `VALID_TABLE_RE` regex guard (`^[a-z_][a-z0-9_]*$`) validates `table` before interpolation. Throws on mismatch. All values in `modalityDeletionTables` pass the regex. |
+| **F-L2** `readdirSync` broad `*.sql` filter | Low | ⚠️ **UNCHANGED** (no-action) | Acceptable as-is; `migrations/` is a controlled directory. |
+
+### New findings (iter-2 only)
+
+- **F-L3** (`tests/db/prd003_modality_schema.test.ts:36`): `pkUserIdTables` set is defined but never referenced. The intent appears to be skipping tables where `user_id` IS the PK in the FK-constraint test, but the FK test at line 158 iterates all seven `modalityTables` uniformly (which is correct — `modality_settings` and `sleep_pairing_state` DO have FK constraints despite `user_id` being the PK). Dead code. Low severity.
+
+### Re-verified contract compliance
+- [x] PR still modifies ONLY files listed in TKT-032@0.1.0 §5 Outputs — fix-up commit touches only the two test files + ticket §10 log append. No scope creep.
+- [x] NOT-In-Scope unchanged — `tests/store/`, `migrations/` still zero diff.
+- [x] Dependencies unchanged — no new `package.json` or `package-lock.json` changes in fix-up commit.
+- [x] Two-commit split still preserved (4 commits total; code commits precede `in_review` flip + `RV-CODE-016` review commit).
+
+### Red-team probe diff
+No new probe surface in the fix-up — all changes are internal query rewrites within the same test files. The same probes from iter-1 apply unchanged.
