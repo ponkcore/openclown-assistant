@@ -1,7 +1,7 @@
 ---
 id: TKT-034
 title: 'Provider-agnostic voice transcription client (audio.transcriptions)'
-status: in_review
+status: done
 arch_ref: ARCH-001@0.7.1
 prd_ref: PRD-001@0.3.0
 component: C5 Voice Transcription Provider
@@ -11,6 +11,9 @@ blocks: []
 estimate: M
 created: 2026-05-25
 updated: 2026-05-26
+closed_at: 2026-05-25
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-020
 ---
 
 # TKT-034: Provider-agnostic voice transcription client (audio.transcriptions)
@@ -78,3 +81,4 @@ Refactor the existing C5 Voice Transcription Provider client into a generic `src
 - 2026-05-25T22:19:21Z opencode-executor: started
 - 2026-05-26T02:05:00Z opencode-executor: in_review; tests 52 pass (voice); lint clean; typecheck clean
 - 2026-05-26T02:20:00Z opencode-executor: iter 2; addressed RV-CODE-020 F-M2 (preserve typed registry_error through adapter boundary); F-M1 deferred to backlog (registry auth_header_template knob outside §5 Outputs but authorised by §2; ADR-024@0.1.0 §Schema patch needed); F-L1 (double /v1 guard) and F-L2 (comment accuracy) addressed as one-liners
+- 2026-05-25T23:23Z opencode-orchestrator: merged in commit 0fc2a09; RV-CODE-020 verdict=pass after iter 2 (F-M2+F-L1+F-L2 fixed; F-M1 backlogged as BACKLOG-008 — ADR-024@0.1.0 §Schema patch for auth_header_template); status=done
