@@ -32,7 +32,6 @@ import {
   SINGLE_EVENT_SUCCESS_REPLY,
   SANITY_FLOOR_WARN,
   SANITY_CEILING_WARN,
-  OFF_STATE_REPLY,
 } from "./copy.ru.js";
 
 // ── Public types ──────────────────────────────────────────────────────────
@@ -238,7 +237,7 @@ export async function handleSleepEvent(
       degrade,
       { modality: "sleep", source },
     ));
-    return { text: OFF_STATE_REPLY, persisted: false };
+    return { text: "", persisted: false };
   }
 
   // ── Step 2: Route by kind ────────────────────────────────────────────
@@ -618,16 +617,21 @@ export async function confirmSanityWarnedSleep(
   };
 }
 
+
 /**
  * Re-parse a user's correction text after a sanity warn.
  * E.g. user types "опечатка, 7 часов" after being warned about 10-minute duration.
  * Returns a new SleepReply with the re-parsed duration.
+ *
+ * If the original sanity-warned event was paired-origin (isPairedOrigin=true),
+ * the corrected record preserves that flag and the pairing state row is deleted.
  */
 export async function correctSanityWarnedSleep(
   userId: string,
   userTz: string,
   correctionText: string,
   telegramTimestampSec: number,
+  isPairedOrigin: boolean,
   deps: {
     store: TenantStore;
     settingsService: { getSettings(userId: string): Promise<ModalitySettings | null> };
@@ -639,25 +643,105 @@ export async function correctSanityWarnedSleep(
     degradeModeEnabled?: boolean;
   },
 ): Promise<SleepReply> {
-  // Re-parse the correction text as a single_duration event
-  return handleSleepEvent(
-    {
+  const degrade = deps.degradeModeEnabled ?? false;
+  const eventTsUtc = new Date(telegramTimestampSec * 1000).toISOString();
+
+  // Try deterministic regex first
+  let durationMin = extractDurationFromText(correctionText);
+
+  // If regex fails, try LLM extractor if available
+  if (durationMin === null && deps.llmDurationExtractor) {
+    try {
+      durationMin = await deps.llmDurationExtractor(correctionText, userId);
+    } catch {
+      // LLM extraction failed — fall through
+    }
+  }
+
+  if (durationMin === null || durationMin <= 0) {
+    // Could not extract duration — return no-pair reply
+    return { text: MORNING_NO_PAIR_REPLY, persisted: false, sourceLabel: isPairedOrigin ? "paired" : "single" };
+  }
+
+  // Sanity check the corrected duration too
+  if (durationMin < SANITY_FLOOR_MIN || durationMin > SANITY_CEILING_MIN) {
+    // Re-apply sanity warn with the new duration
+    const endTsUtc = eventTsUtc;
+    const startTsUtc = new Date(new Date(endTsUtc).getTime() - durationMin * 60_000).toISOString();
+    const sanityKind = durationMin < SANITY_FLOOR_MIN ? "floor" as const : "ceiling" as const;
+
+    emitLog(deps.logger, buildRedactedEvent(
+      "info",
+      "kbju-meal-logging",
+      C18,
+      KPI_EVENT_NAMES.modality_event_persisted,
+      deps.requestId,
       userId,
-      userTz,
-      kind: "single_duration",
-      rawText: correctionText,
-      telegramTimestampSec,
-      requestId: deps.requestId,
-      source: "text",
-    },
-    {
-      store: deps.store,
-      settingsService: deps.settingsService,
-      metrics: deps.metrics,
-      logger: deps.logger,
-      clock: deps.clock,
-      llmDurationExtractor: deps.llmDurationExtractor,
-      degradeModeEnabled: deps.degradeModeEnabled,
-    },
+      `sanity_${sanityKind}_warn`,
+      degrade,
+      { modality: "sleep", source: isPairedOrigin ? "paired" : "single", duration_min: durationMin },
+    ));
+
+    return {
+      text: sanityKind === "floor" ? SANITY_FLOOR_WARN : SANITY_CEILING_WARN,
+      persisted: false,
+      sourceLabel: isPairedOrigin ? "paired" : "single",
+      sanityWarn: sanityKind,
+      sanityPending: {
+        kind: sanityKind,
+        durationMin,
+        startTsUtc,
+        endTsUtc,
+        isPairedOrigin,
+      },
+    };
+  }
+
+  // Within bounds — persist with the correct isPairedOrigin
+  const endTsUtc = eventTsUtc;
+  const startTsUtc = new Date(new Date(endTsUtc).getTime() - durationMin * 60_000).toISOString();
+  const isNap = durationMin <= NAP_THRESHOLD_MIN;
+  const attributionDateLocal = computeAttributionDateLocal(endTsUtc, userTz);
+
+  const { record_id } = await deps.store.insertSleepRecord(
+    userId, startTsUtc, endTsUtc, durationMin,
+    attributionDateLocal, userTz, isNap, isPairedOrigin,
   );
+
+  // If this was a paired record, delete the pairing state
+  if (isPairedOrigin) {
+    await deps.store.deleteSleepPairingState(userId);
+  }
+
+  // Format reply
+  const { h, m } = formatDurationHm(durationMin);
+  const sourceLabel: SleepSourceLabel = isPairedOrigin ? "paired" : "single";
+  const replyText = isPairedOrigin
+    ? PAIRED_SUCCESS_REPLY
+        .replace("{h}", h)
+        .replace("{m}", m)
+        .replace("{start}", formatTimeInTz(startTsUtc, userTz))
+        .replace("{end}", formatTimeInTz(endTsUtc, userTz))
+    : SINGLE_EVENT_SUCCESS_REPLY
+        .replace("{h}", h)
+        .replace("{m}", m);
+
+  emitLog(deps.logger, buildRedactedEvent(
+    "info",
+    "kbju-meal-logging",
+    C18,
+    KPI_EVENT_NAMES.modality_event_persisted,
+    deps.requestId,
+    userId,
+    "success_corrected",
+    degrade,
+    { modality: "sleep", source: sourceLabel, duration_min: durationMin, is_nap: isNap, attribution_date_local: attributionDateLocal, event_id: record_id },
+  ));
+
+  return {
+    text: replyText,
+    persisted: true,
+    durationMin,
+    sourceLabel,
+  };
 }

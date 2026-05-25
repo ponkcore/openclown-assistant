@@ -23,7 +23,6 @@ import {
   SINGLE_EVENT_SUCCESS_REPLY,
   SANITY_FLOOR_WARN,
   SANITY_CEILING_WARN,
-  OFF_STATE_REPLY,
 } from "../../../src/modality/sleep/copy.ru.js";
 import type { TenantStore } from "../../../src/store/types.js";
 import type { ModalitySettings } from "../../../src/modality/settings/service.js";
@@ -422,7 +421,7 @@ describe("handleSleepEvent", () => {
       };
 
       const result = await handleSleepEvent(input, deps);
-      expect(result.text).toBe(OFF_STATE_REPLY);
+      expect(result.text).toBe("");
       expect(result.persisted).toBe(false);
     });
   });
@@ -576,7 +575,7 @@ describe("handleSleepEvent", () => {
       const deps = makeDefaultDeps();
 
       const result = await correctSanityWarnedSleep(
-        USER_ID, USER_TZ, "опечатка, 7 часов", MORNING_TS_SEC,
+        USER_ID, USER_TZ, "опечатка, 7 часов", MORNING_TS_SEC, false,
         {
           store: deps.store,
           settingsService: deps.settingsService,
@@ -591,3 +590,82 @@ describe("handleSleepEvent", () => {
     });
   });
 });
+
+  // ── correctSanityWarnedSleep — paired origin ──────────────────────────
+  describe("correctSanityWarnedSleep — paired origin (F-M3)", () => {
+    it("preserves is_paired_origin=true and deletes pairing state on correction", async () => {
+      const deps = makeDefaultDeps();
+
+      const result = await correctSanityWarnedSleep(
+        USER_ID, USER_TZ, "опечатка, 7 часов", MORNING_TS_SEC, true,
+        {
+          store: deps.store,
+          settingsService: deps.settingsService,
+          metrics: deps.metrics,
+          logger: deps.logger,
+          requestId: REQUEST_ID,
+        },
+      );
+
+      expect(result.persisted).toBe(true);
+      expect(result.durationMin).toBe(420);
+      expect(result.sourceLabel).toBe("paired");
+      expect(deps.store.insertSleepRecord).toHaveBeenCalledWith(
+        USER_ID,
+        expect.any(String),
+        expect.any(String),
+        420,
+        expect.any(String),
+        USER_TZ,
+        false, // is_nap (420 > 240)
+        true,  // is_paired_origin — preserved from paired sanity-warn
+      );
+      expect(deps.store.deleteSleepPairingState).toHaveBeenCalledWith(USER_ID);
+    });
+  });
+
+  // ── OFF-state — paths 3 and 5 (F-L1) ──────────────────────────────────
+  describe("OFF-state — all paths silent", () => {
+    it("OFF-state on morning_vstal: silent + no record persisted", async () => {
+      const deps = makeDefaultDeps();
+      deps.settingsService.getSettings = vi.fn().mockResolvedValue({
+        sleepOn: false, waterOn: true, workoutOn: true, moodOn: true,
+      } as ModalitySettings);
+
+      const input: SleepEventInput = {
+        userId: USER_ID,
+        userTz: USER_TZ,
+        kind: "morning_vstal",
+        telegramTimestampSec: MORNING_TS_SEC,
+        requestId: REQUEST_ID,
+        source: "text",
+      };
+
+      const result = await handleSleepEvent(input, deps);
+      expect(result.text).toBe("");
+      expect(result.persisted).toBe(false);
+      expect(deps.store.insertSleepRecord).not.toHaveBeenCalled();
+    });
+
+    it("OFF-state on single_duration: silent + no record persisted", async () => {
+      const deps = makeDefaultDeps();
+      deps.settingsService.getSettings = vi.fn().mockResolvedValue({
+        sleepOn: false, waterOn: true, workoutOn: true, moodOn: true,
+      } as ModalitySettings);
+
+      const input: SleepEventInput = {
+        userId: USER_ID,
+        userTz: USER_TZ,
+        kind: "single_duration",
+        rawText: "спал 7 часов",
+        telegramTimestampSec: MORNING_TS_SEC,
+        requestId: REQUEST_ID,
+        source: "text",
+      };
+
+      const result = await handleSleepEvent(input, deps);
+      expect(result.text).toBe("");
+      expect(result.persisted).toBe(false);
+      expect(deps.store.insertSleepRecord).not.toHaveBeenCalled();
+    });
+  });

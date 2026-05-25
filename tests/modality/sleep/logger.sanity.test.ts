@@ -150,7 +150,7 @@ describe("C18 Sleep Logger — sanity-floor / ceiling soft-warn", () => {
       const deps = makeDefaultDeps();
 
       const result = await correctSanityWarnedSleep(
-        USER_ID, USER_TZ, "опечатка, 7 часов", MORNING_TS_SEC,
+        USER_ID, USER_TZ, "опечатка, 7 часов", MORNING_TS_SEC, false,
         {
           store: deps.store,
           settingsService: deps.settingsService,
@@ -229,7 +229,7 @@ describe("C18 Sleep Logger — sanity-floor / ceiling soft-warn", () => {
       const deps = makeDefaultDeps();
 
       const result = await correctSanityWarnedSleep(
-        USER_ID, USER_TZ, "опечатка, 7 часов", MORNING_TS_SEC,
+        USER_ID, USER_TZ, "опечатка, 7 часов", MORNING_TS_SEC, true,
         {
           store: deps.store,
           settingsService: deps.settingsService,
@@ -241,6 +241,17 @@ describe("C18 Sleep Logger — sanity-floor / ceiling soft-warn", () => {
 
       expect(result.persisted).toBe(true);
       expect(result.durationMin).toBe(420);
+      expect(deps.store.insertSleepRecord).toHaveBeenCalledWith(
+        USER_ID,
+        expect.any(String),
+        expect.any(String),
+        420,
+        expect.any(String),
+        USER_TZ,
+        false, // is_nap (420 > 240)
+        true,  // is_paired_origin — inherited from paired sanity-warn
+      );
+      expect(deps.store.deleteSleepPairingState).toHaveBeenCalledWith(USER_ID);
     });
   });
 
