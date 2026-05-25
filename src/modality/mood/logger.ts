@@ -33,6 +33,7 @@ import {
   SUCCESS_REPLY,
   SUCCESS_REPLY_WITH_COMMENT,
   OUT_OF_RANGE_REPLY,
+  KEYBOARD_PROMPT,
   INFERRED_PENDING_REPLY,
   PENDING_TIMEOUT_REPLY,
   OFF_STATE_REPLY,
@@ -392,7 +393,7 @@ export async function handleMoodEvent(
       ));
 
       const reply: MoodReply = {
-        text: OUT_OF_RANGE_REPLY,
+        text: KEYBOARD_PROMPT,
         keyboard: buildMoodKeyboard(),
         persisted: false,
       };
@@ -417,7 +418,7 @@ export async function handleMoodEvent(
         { modality: "mood", source: "inferred" },
       ));
       const reply: MoodReply = {
-        text: OUT_OF_RANGE_REPLY,
+        text: KEYBOARD_PROMPT,
         keyboard: buildMoodKeyboard(),
         persisted: false,
       };
@@ -446,7 +447,7 @@ export async function handleMoodEvent(
 
   // No text, no keyboard — shouldn't reach here
   return {
-    text: OUT_OF_RANGE_REPLY,
+    text: KEYBOARD_PROMPT,
     keyboard: buildMoodKeyboard(),
     persisted: false,
   };

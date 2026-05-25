@@ -13,6 +13,7 @@ import {
   SUCCESS_REPLY,
   SUCCESS_REPLY_WITH_COMMENT,
   OUT_OF_RANGE_REPLY,
+  KEYBOARD_PROMPT,
   INFERRED_PENDING_REPLY,
   PENDING_TIMEOUT_REPLY,
   OFF_STATE_REPLY,
@@ -295,7 +296,7 @@ describe("handleMoodEvent", () => {
     expect(deps.store.insertMoodEvent).not.toHaveBeenCalled();
   });
 
-  it("uses OUT_OF_RANGE reply when LLM returns low confidence", async () => {
+  it("shows KEYBOARD_PROMPT when LLM returns low confidence", async () => {
     mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(5, 0.3));
 
     const result = await handleMoodEvent(
@@ -304,7 +305,7 @@ describe("handleMoodEvent", () => {
     );
 
     expect(result.persisted).toBe(false);
-    expect(result.text).toBe(OUT_OF_RANGE_REPLY);
+    expect(result.text).toBe(KEYBOARD_PROMPT);
   });
 
   // ── Confirm-via-keyboard persists ──────────────────────────────────
@@ -421,6 +422,30 @@ describe("handleMoodEvent", () => {
     // No pending inference found → treated as a keyboard tap without score
     // (callbackData doesn't match a direct score pattern with pending state gone)
     expect(result.persisted).toBe(false);
+  });
+
+  it("TTL: alive at 4:59, dead at 5:00:01", async () => {
+    let currentTime = 0;
+    const clock = () => currentTime;
+
+    const pendingState = new PendingMoodState(clock, PENDING_TTL_MS);
+    deps.pendingState = pendingState;
+    deps.clock = clock;
+
+    // Enter pending state at t=0
+    mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(6, 0.8));
+    await handleMoodEvent(
+      { userId: "user-001", source: "text", rawText: "сегодня устал", requestId: "req-013c" },
+      deps,
+    );
+
+    // At 4 min 59 s: entry should still be valid
+    currentTime = PENDING_TTL_MS - 1;
+    expect(pendingState.get("user-001")).not.toBeNull();
+
+    // At 5 min 0 s + 1 ms: entry should be expired
+    currentTime = PENDING_TTL_MS + 1;
+    expect(pendingState.get("user-001")).toBeNull();
   });
 
   it("notifies user on pending timeout when sending new text", async () => {
