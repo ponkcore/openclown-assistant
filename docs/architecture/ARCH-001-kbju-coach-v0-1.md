@@ -3,7 +3,7 @@ id: ARCH-001
 title: KBJU Coach v0.1 → v0.2 (Observability and Scale Readiness) + PRD-003 Adaptive
   Modalities + v0.7.0 Pilot Hardening
 version: 0.7.0
-status: draft
+status: approved
 prd_ref: PRD-001@0.3.0; PRD-002@0.2.1; PRD-003@0.1.3
 owner: '@po'
 created: 2026-04-26
