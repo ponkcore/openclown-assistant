@@ -59,3 +59,52 @@ Recommendation to PO: **iterate** — dispatch Executor to relax `config.ts`'s `
 - **Observability — 3am operator debug from logs alone:** The registry emits `kbju_llm_registry_reload` (success) and `kbju_llm_registry_reload_failed{outcome,source}` metrics. `llmClient` emits `provider_call_finished` events with `call_type`, `provider_alias`, `model_alias`, and `outcome` (success/provider_failure/budget_blocked/stall_detected/registry_error). Cost tracking via `spendTracker.recordCostAndCheckBudget` is preserved. The C13 `llm_call_stalled` event is preserved with provider/model/tenant/retry_count. **No concern — adequate for incident response.**
 - **Rollback — if this PR breaks production:** The backward-compat adapter in `omniRouteClient.ts` preserves the old `callOmniRoute` API surface; all callers (`extractScore`, `router-classifier`, `extractVolume`, `kbjuEstimator`, `extractWorkout`, `summaryScheduler`) still import from `omniRouteClient.js`. A revert of this PR restores the old direct-OmniRoute client. **Rollback is straightforward.**
 - **Tenant isolation — per-user_id boundary (ADR-001@0.1.0):** The `llmClient.chatCompletion` receives `ctx.userId` and passes it to the StallWatchdog constructor for tenant labelling. The registry does not deal with user data. **No regression.**
+
+---
+
+## Iteration 2 — re-review
+
+**Fix-up commit:** `0df23a6` ("TKT-033: address RV-CODE-018 F-H1 — config.ts accepts LLM_* env-var aliases")
+
+**Re-reviewed files:**
+- `src/shared/config.ts` — added `LLM_ENV_ALIASES` mapping, `readAliasedEnv` helper, aliased presence check in `parseConfig`
+- `tests/scaffold/config.test.ts` — added 6 new tests covering only-new, only-legacy, both-absent, prefers-new, blank-fallthrough, alias-export
+- `docs/tickets/TKT-033-provider-agnostic-llm-client.md` — §10 execution log appended
+
+### Updated verdict
+
+- [x] pass
+- [ ] pass_with_changes
+- [ ] fail
+
+**One-sentence justification:** F-H1 is fully addressed — `parseConfig` now accepts `LLM_*` names as alternatives to `OMNIROUTE_*`/`FIREWORKS_API_KEY`, preferring new names when both are set, failing only when both are absent with a clear dual-name error message.
+
+**Recommendation:** `merge`.
+
+### Per-finding status
+
+| Finding | Status | Rationale |
+|---|---|---|
+| **F-H1** — `config.ts` gated boot on legacy names | **RESOLVED** | `parseConfig:89-108` resolves aliased env vars via `readAliasedEnv` (new-first, legacy fallback). Error fires only when both candidate names are absent, and the error message lists both: `"OMNIROUTE_BASE_URL (or LLM_OMNIROUTE_BASE_URL)"`. Six tests in `config.test.ts` assert: only-new, only-legacy, both-absent, prefers-new, blank-fallthrough, LLM_ENV_ALIASES export. |
+| **F-L1** — `process.env` mutation in `omniRouteClient.ts` | **Unchanged** (cosmetic, deferred to v0.8.0 deprecation cleanup) |
+| **F-L2** — `kbju.mood_inferrer` model name `"executor"` | **Unchanged** (example config cosmetic) |
+
+### Gate-by-gate verification
+
+- **(a) Error fires ONLY when both alias names absent:** `parseConfig:92-98` — `isAliasedPresent()` returns false only when neither `LLM_OMNIROUTE_BASE_URL` nor `OMNIROUTE_BASE_URL` is set (non-empty). Test `"fails with clear error when both new and legacy names are absent"` confirms. ✅
+- **(b) New name wins when both set:** `readAliasedEnv:65-77` reads new name first, returns immediately if non-blank. Test `"prefers new LLM_* name over legacy when both are set"` confirms. ✅
+- **(c) Error message names BOTH candidates:** `parseConfig:97` — `missing.push(`${name} (or ${newName})`)`. Test asserts `allMissing` contains both `OMNIROUTE_BASE_URL` AND `LLM_OMNIROUTE_BASE_URL`. ✅
+- **§6 AC #3 now satisfied at boot layer:** `parseConfig` no longer blocks new-name-only deployments. The registry's one-shot `kbju_llm_legacy_env_in_use` warn (`registry.ts:89-111`) is unchanged — verified at `src/llm/registry.ts:100-105`. ✅
+- **Registry legacy-warn path unchanged:** `registry.ts:89-111` — no diff in iter-2. `resolveEnvVar` still checks new name first, falls back to legacy with one-shot `Set`-guarded warn. ✅
+- **No config.ts deprecation warning:** As required by F-H1 remediation, `parseConfig` emits no deprecation warning — correctly delegated to the registry layer per ADR-024@0.1.0 §Backward compatibility. ✅
+- **Two-commit split preserved:** Original commits bb65396 (code) + f8f98f9 (status) remain. Iter-2 fix is one atomic commit (`0df23a6`) on top — acceptable per orchestrator iteration policy. ✅
+
+### Contract compliance (iter-2 scope changes)
+
+- **`src/shared/config.ts`** was not in original §5 Outputs but the iter-2 fix was explicitly authorised (ticket authorised `.env.example` and env-loading layer changes; F-H1 remediation required relaxing the env-var gate). The file is otherwise read-only to the executor — no other sections modified.
+- **`tests/scaffold/config.test.ts`** — pre-existing test file; only the new `"parseConfig LLM_* env-var aliases"` describe block was added. In-scope for this fix.
+- No new runtime deps, no NOT-In-Scope violations, no additional files touched.
+
+### No new findings
+
+Iter-2 is a clean, minimal fix. The `LLM_ENV_ALIASES` map is exported for downstream consumers. `readAliasedEnv` correctly handles blank-new (falls through to legacy). The `isAliasedPresent` guard integrates cleanly into the existing `parseConfig` loop. Tests cover all three mandated scenarios plus edge cases. The registry layer was not touched — backward-compat one-shot warn behaviour is preserved.
