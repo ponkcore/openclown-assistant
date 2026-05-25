@@ -1,7 +1,7 @@
 ---
 id: TKT-033
 title: 'Provider-agnostic LLM client + model registry + LLM_* env-var rename'
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: C23 LLM Gateway / src/llm
@@ -93,3 +93,9 @@ Refactor `src/llm/omniRouteClient.ts` into a generic `src/llm/llmClient.ts` driv
 
 ## 10. Execution Log
 <!-- executor fills as work proceeds -->
+
+- 2026-05-25T00:00:00Z opencode-executor: started
+
+- 2026-05-25T23:12:00Z opencode-executor: in_review; tests 28 new pass (1332 total pass); lint clean; typecheck clean
+
+- 2026-05-25T20:40:00Z opencode-executor (RETRY): added fs.watchFile hot-reload test with atomic rename (AC 5); 32 new LLM tests pass (1333 total pass); lint clean; typecheck clean; arch_ref stays ARCH-001@0.7.0 per ticket read-only rule (dispatch noted 0.7.1 bump — architect-consult patch not yet landed in this branch)
