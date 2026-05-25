@@ -15,6 +15,13 @@ interface AllowlistFile {
 const SAFE_MODE_ROUTES = new Set(["start", "history", "summary_delivery"]);
 const READ_ONLY_ROUTES = new Set(["history", "summary_delivery"]);
 
+export class AllowlistSeedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AllowlistSeedError";
+  }
+}
+
 export function isOperationAllowed(
   routeKind: string,
   mode: AllowlistMode
@@ -164,6 +171,12 @@ export class Allowlist {
       .filter((s) => s.length > 0)
       .map(Number)
       .filter((n) => Number.isFinite(n) && n > 0);
+
+    if (ids.length === 0) {
+      throw new AllowlistSeedError(
+        "Allowlist misconfiguration: config/allowlist.json is missing and TELEGRAM_PILOT_USER_IDS is unset or contains no valid user IDs. Refusing to start with an empty allowlist."
+      );
+    }
 
     const newSet = new Set(ids);
     this.set = newSet;
