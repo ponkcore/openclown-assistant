@@ -1,10 +1,31 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import http from "node:http";
-import { createServer, stopServer, BRIDGE_VERSION } from "../../src/main.js";
+import { createServer, stopServer, startServer, BRIDGE_VERSION } from "../../src/main.js";
 import type { C1Deps, TelegramHandlers, NormalizedTelegramUpdate } from "../../src/telegram/types.js";
 import type { RussianReplyEnvelope } from "../../src/shared/types.js";
 import type { BridgeRequest } from "../../src/sidecar/types.js";
 import { routeBridgeRequest } from "../../src/sidecar/seam.js";
+import { readFileSync, readdirSync } from "node:fs";
+import { resolve } from "node:path";
+import { runMigrations } from "../../src/store/migrations.js";
+
+// Mock pg Pool so startServer never attempts a real TCP connection (TKT-041).
+vi.mock("pg", () => {
+  const mockPool = {
+    query: vi.fn(),
+    end: vi.fn().mockResolvedValue(undefined),
+  };
+  return { Pool: vi.fn(() => mockPool) };
+});
+
+// Default: runMigrations resolves (success path). Individual tests override.
+vi.mock("../../src/store/migrations.js", () => ({
+  runMigrations: vi.fn().mockResolvedValue(undefined),
+  TENANT_STORE_SCHEMA_COMPONENT: "C3 Tenant-Scoped Store",
+  TENANT_STORE_SCHEMA_VERSION: "TKT-021@0.1.0",
+  SchemaVersionError: class SchemaVersionError extends Error {},
+  validateSchemaVersion: vi.fn().mockResolvedValue(undefined),
+}));
 
 const PORT = 32102;
 
@@ -427,3 +448,228 @@ describe("C1 sidecar seam unit", () => {
     expect(reply).toBeNull();
   });
 });
+// ── TKT-041: Boot migration wiring tests ──────────────────────────────────
+//
+// Per ARCH-001@0.7.0 §11.1: mandatory boot-smoke test.
+// Two assertions from TKT-041 §2:
+//   (a) On a fresh DB, runMigrations applies all migrations (verified via
+//       schema-string assertion since testcontainers/pg-mem are not available).
+//   (b) When runMigrations throws, the server does NOT call server.listen.
+
+const prd003Tables = [
+  "water_events",
+  "sleep_records",
+  "sleep_pairing_state",
+  "workout_events",
+  "mood_events",
+  "modality_settings",
+  "modality_settings_audit",
+] as const;
+
+const mockRunMigrations = vi.mocked(runMigrations);
+
+describe("TKT-041: runMigrations on boot", () => {
+  const origEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    // Snapshot original env vars so we can restore
+    for (const key of [
+      "TELEGRAM_BOT_TOKEN",
+      "TELEGRAM_PILOT_USER_IDS",
+      "DATABASE_URL",
+      "POSTGRES_PASSWORD",
+      "OMNIROUTE_BASE_URL",
+      "OMNIROUTE_API_KEY",
+      "FIREWORKS_API_KEY",
+      "USDA_FDC_API_KEY",
+      "PERSONA_PATH",
+      "PO_ALERT_CHAT_ID",
+      "MONTHLY_SPEND_CEILING_USD",
+      "AUDIT_DB_URL",
+      "SERVER_PORT",
+    ]) {
+      origEnv[key] = process.env[key];
+    }
+  });
+
+  afterEach(() => {
+    // Restore env
+    for (const [key, val] of Object.entries(origEnv)) {
+      if (val === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = val;
+      }
+    }
+  });
+
+  it("schema.sql + migrations/*.sql together define all seven PRD-003@0.1.3 tables", () => {
+    // Schema-string assertion: the combined SQL that runMigrations would
+    // apply (schema.sql + migrations/*.sql) must define all seven PRD-003
+    // modality tables. This is the lightweight alternative to a real-PG
+    // integration test (no testcontainers/pg-mem available in v0.1).
+    const schemaSql = readFileSync(
+      resolve(process.cwd(), "src/store/schema.sql"),
+      "utf8"
+    );
+
+    // Collect migration file SQL
+    const migrationsDir = resolve(process.cwd(), "migrations");
+    let migrationSql = "";
+    try {
+      const entries = readdirSync(migrationsDir)
+        .filter((e) => e.endsWith(".sql"))
+        .sort();
+      for (const entry of entries) {
+        migrationSql += readFileSync(resolve(migrationsDir, entry), "utf8");
+      }
+    } catch {
+      // migrations/ is optional; schema.sql is the source of truth
+    }
+
+    const combinedSql = schemaSql + "\n" + migrationSql;
+
+    for (const table of prd003Tables) {
+      expect(combinedSql).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
+    }
+  });
+
+  it("on migration failure, startServer does NOT call server.listen and exits non-zero", async () => {
+    // Make runMigrations throw to simulate a partial migration failure
+    mockRunMigrations.mockRejectedValueOnce(new Error("simulated migration failure"));
+
+    const mockExit = vi.spyOn(process, "exit").mockImplementation((code?: string | number | null) => {
+      // Prevent actual exit; throw to short-circuit the async flow
+      throw new Error(`process.exit:${code ?? 0}`);
+    });
+
+    // Set up required env vars for parseConfig to succeed
+    process.env.TELEGRAM_BOT_TOKEN = "test-token";
+    process.env.TELEGRAM_PILOT_USER_IDS = "111";
+    process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/testdb";
+    process.env.POSTGRES_PASSWORD = "testpw";
+    process.env.OMNIROUTE_BASE_URL = "http://localhost:4000";
+    process.env.OMNIROUTE_API_KEY = "test-key";
+    process.env.FIREWORKS_API_KEY = "test-fw-key";
+    process.env.USDA_FDC_API_KEY = "test-usda-key";
+    process.env.PERSONA_PATH = "/tmp/test-persona.md";
+    process.env.PO_ALERT_CHAT_ID = "12345";
+    process.env.MONTHLY_SPEND_CEILING_USD = "10";
+    process.env.AUDIT_DB_URL = "postgresql://user:pass@localhost:5432/audit";
+    process.env.SERVER_PORT = "0";
+
+    // Spy on server.listen to verify it is NOT called
+    const listenSpy = vi.spyOn(http.Server.prototype, "listen");
+
+    try {
+      await startServer();
+      // If we reach here, startServer didn't exit — that's a failure
+      expect.unreachable("startServer should have exited due to migration failure");
+    } catch (err: unknown) {
+      // The process.exit(1) mock throws; verify the right code was used
+      const msg = err instanceof Error ? err.message : String(err);
+      expect(msg).toContain("process.exit:1");
+      expect(mockExit).toHaveBeenCalledWith(1);
+      // server.listen must NOT have been called
+      expect(listenSpy).not.toHaveBeenCalled();
+    } finally {
+      mockExit.mockRestore();
+      listenSpy.mockRestore();
+      mockRunMigrations.mockReset();
+      mockRunMigrations.mockResolvedValue(undefined);
+    }
+  });
+
+  it("on successful migration, startServer calls runMigrations then server.listen", async () => {
+    // runMigrations succeeds (default mock)
+    mockRunMigrations.mockResolvedValueOnce(undefined);
+
+    const mockExit = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("unexpected process.exit");
+    });
+
+    // Set up required env vars
+    process.env.TELEGRAM_BOT_TOKEN = "test-token";
+    process.env.TELEGRAM_PILOT_USER_IDS = "111";
+    process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/testdb";
+    process.env.POSTGRES_PASSWORD = "testpw";
+    process.env.OMNIROUTE_BASE_URL = "http://localhost:4000";
+    process.env.OMNIROUTE_API_KEY = "test-key";
+    process.env.FIREWORKS_API_KEY = "test-fw-key";
+    process.env.USDA_FDC_API_KEY = "test-usda-key";
+    process.env.PERSONA_PATH = "/tmp/test-persona.md";
+    process.env.PO_ALERT_CHAT_ID = "12345";
+    process.env.MONTHLY_SPEND_CEILING_USD = "10";
+    process.env.AUDIT_DB_URL = "postgresql://user:pass@localhost:5432/audit";
+    process.env.SERVER_PORT = "0";
+
+    let server: http.Server | null = null;
+    try {
+      server = await startServer();
+
+      // runMigrations must have been called
+      expect(mockRunMigrations).toHaveBeenCalledTimes(1);
+      // server should be listening (startServer resolves after listen callback)
+      expect(server.listening).toBe(true);
+    } finally {
+      if (server) {
+        await new Promise<void>((resolve, reject) => {
+          server!.close((err) => (err ? reject(err) : resolve()));
+        });
+      }
+      mockExit.mockRestore();
+      mockRunMigrations.mockReset();
+      mockRunMigrations.mockResolvedValue(undefined);
+    }
+  });
+});
+
+  it("on migration timeout, startServer does NOT call server.listen and exits non-zero", async () => {
+    // Simulate a migration that exceeds the timeout budget.
+    // Use KBJU_MIGRATION_TIMEOUT_MS env var to lower the timeout to 50 ms
+    // so the test completes quickly without waiting 120 s.
+    process.env.KBJU_MIGRATION_TIMEOUT_MS = "50";
+
+    // Make runMigrations return a promise that never resolves within the budget
+    mockRunMigrations.mockImplementationOnce(
+      () => new Promise((resolve) => setTimeout(resolve, 10_000)) // 10 s — well over 50 ms budget
+    );
+
+    const mockExit = vi.spyOn(process, "exit").mockImplementation((code?: string | number | null) => {
+      throw new Error(`process.exit:${code ?? 0}`);
+    });
+
+    // Set up required env vars
+    process.env.TELEGRAM_BOT_TOKEN = "test-token";
+    process.env.TELEGRAM_PILOT_USER_IDS = "111";
+    process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/testdb";
+    process.env.POSTGRES_PASSWORD = "testpw";
+    process.env.OMNIROUTE_BASE_URL = "http://localhost:4000";
+    process.env.OMNIROUTE_API_KEY = "test-key";
+    process.env.FIREWORKS_API_KEY = "test-fw-key";
+    process.env.USDA_FDC_API_KEY = "test-usda-key";
+    process.env.PERSONA_PATH = "/tmp/test-persona.md";
+    process.env.PO_ALERT_CHAT_ID = "12345";
+    process.env.MONTHLY_SPEND_CEILING_USD = "10";
+    process.env.AUDIT_DB_URL = "postgresql://user:pass@localhost:5432/audit";
+    process.env.SERVER_PORT = "0";
+
+    const listenSpy = vi.spyOn(http.Server.prototype, "listen");
+
+    try {
+      await startServer();
+      expect.unreachable("startServer should have exited due to migration timeout");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      expect(msg).toContain("process.exit:1");
+      expect(mockExit).toHaveBeenCalledWith(1);
+      // server.listen must NOT have been called
+      expect(listenSpy).not.toHaveBeenCalled();
+    } finally {
+      mockExit.mockRestore();
+      listenSpy.mockRestore();
+      mockRunMigrations.mockReset();
+      mockRunMigrations.mockResolvedValue(undefined);
+      delete process.env.KBJU_MIGRATION_TIMEOUT_MS;
+    }
+  });

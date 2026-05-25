@@ -6,8 +6,24 @@ import { setMetricsRegistry } from "./deployment/healthCheck.js";
 import type { BridgeRequest } from "./sidecar/types.js";
 import type { C1Deps } from "./telegram/types.js";
 
+import { runMigrations } from "./store/migrations.js";
+import { Pool } from "pg";
+import { fileURLToPath } from "node:url";
+
 const SERVER_PORT_DEFAULT = 3000;
 const BRIDGE_VERSION = "1.0";
+
+
+/** Maximum time (ms) allowed for boot-time migrations. Overridable via
+ *  KBJU_MIGRATION_TIMEOUT_MS for testing. Per TKT-041@0.1.0 §2:
+ *  "for v0.1 schema migrations the runner just times out at 120 s and aborts."
+ *  Evaluated at call time (not import time) so test overrides via env var work. */
+function getMigrationTimeoutMs(): number {
+  const raw = process.env.KBJU_MIGRATION_TIMEOUT_MS;
+  if (!raw) return 120_000;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : 120_000;
+}
 
 let startTime = 0;
 let pilotUserIds: string[] = [];
@@ -256,9 +272,10 @@ export function createServer(opts?: ServerOptions): http.Server {
   });
 }
 
-export function startServer(): http.Server {
+export async function startServer(): Promise<http.Server> {
+  let config: ReturnType<typeof parseConfig> | null = null;
   try {
-    const config = parseConfig(process.env as Record<string, string | undefined>);
+    config = parseConfig(process.env as Record<string, string | undefined>);
     pilotUserIds = config.telegramPilotUserIds;
   } catch {
     pilotUserIds = [];
@@ -266,6 +283,37 @@ export function startServer(): http.Server {
   }
 
   const port = resolvePort();
+
+  // Apply database migrations before starting the HTTP server.
+  // Per TKT-041: on migration failure, log structured error and exit
+  // non-zero — never start the HTTP server with a partially-applied schema.
+  // F-M1 (RV-CODE-012): 120 s timeout enforced via Promise.race + AbortController.
+  // F-M2 (RV-CODE-012): pool is closed on both success and failure paths.
+  if (config?.databaseUrl) {
+    const pool = new Pool({ connectionString: config.databaseUrl });
+    const ac = new AbortController();
+    const timeout = setTimeout(() => ac.abort(), getMigrationTimeoutMs());
+    try {
+      await Promise.race([
+        runMigrations(pool),
+        new Promise<never>((_, reject) =>
+          ac.signal.addEventListener("abort", () => {
+            reject(new Error(`Migration timed out after ${getMigrationTimeoutMs()} ms`));
+          })
+        ),
+      ]);
+      // F-M2: close the pool on the success path — createSidecarDeps
+      // manages its own DB access and does not reuse this pool.
+      await pool.end();
+    } catch (err: unknown) {
+      clearTimeout(timeout);
+      console.error("Migration failed; refusing to start HTTP server:", err instanceof Error ? err.message : err);
+      await pool.end().catch(() => {});
+      process.exit(1);
+    }
+    clearTimeout(timeout);
+  }
+
   const server = createServer();
   // Wire the shared metrics registry into the /metrics endpoint
   if (!deps) {
@@ -273,10 +321,13 @@ export function startServer(): http.Server {
   }
   setMetricsRegistry(deps.metricsRegistry);
   startTime = Date.now();
-  server.listen(port, () => {
-    console.log(`KBJU sidecar listening on port ${port}`);
+
+  return new Promise((resolve) => {
+    server.listen(port, () => {
+      console.log(`KBJU sidecar listening on port ${port}`);
+      resolve(server);
+    });
   });
-  return server;
 }
 
 export function stopServer(server: http.Server): Promise<void> {
@@ -285,6 +336,17 @@ export function stopServer(server: http.Server): Promise<void> {
       if (err) reject(err);
       else resolve();
     });
+  });
+}
+
+// Self-invoke only when run as the main entry point (e.g. Dockerfile CMD).
+// Prevents the side-effect of starting the server when the module is
+// imported by test files.
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] === __filename) {
+  startServer().catch((err: unknown) => {
+    console.error("Boot failed:", err);
+    process.exit(1);
   });
 }
 
