@@ -69,3 +69,4 @@ Run pending database migrations as part of `src/main.ts startServer()` before `s
 <!-- executor fills as work proceeds -->
 - 2026-05-25T12:00:00Z opencode-executor: started
 - 2026-05-25T19:40:00Z opencode-executor: in_review; tests 21 pass; lint clean; typecheck clean
+- 2026-05-25T19:55:00Z opencode-executor: iter 2; addressed RV-CODE-012 F-M1 (120s timeout via Promise.race+AbortController, overridable via KBJU_MIGRATION_TIMEOUT_MS env var) and F-M2 (pool.end() on success path); timeout tested with 50ms budget mock; tests 22 pass

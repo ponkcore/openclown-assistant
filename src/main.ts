@@ -13,6 +13,18 @@ import { fileURLToPath } from "node:url";
 const SERVER_PORT_DEFAULT = 3000;
 const BRIDGE_VERSION = "1.0";
 
+
+/** Maximum time (ms) allowed for boot-time migrations. Overridable via
+ *  KBJU_MIGRATION_TIMEOUT_MS for testing. Per TKT-041@0.1.0 §2:
+ *  "for v0.1 schema migrations the runner just times out at 120 s and aborts."
+ *  Evaluated at call time (not import time) so test overrides via env var work. */
+function getMigrationTimeoutMs(): number {
+  const raw = process.env.KBJU_MIGRATION_TIMEOUT_MS;
+  if (!raw) return 120_000;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : 120_000;
+}
+
 let startTime = 0;
 let pilotUserIds: string[] = [];
 let deps: C1Deps | null = null;
@@ -275,15 +287,31 @@ export async function startServer(): Promise<http.Server> {
   // Apply database migrations before starting the HTTP server.
   // Per TKT-041: on migration failure, log structured error and exit
   // non-zero — never start the HTTP server with a partially-applied schema.
+  // F-M1 (RV-CODE-012): 120 s timeout enforced via Promise.race + AbortController.
+  // F-M2 (RV-CODE-012): pool is closed on both success and failure paths.
   if (config?.databaseUrl) {
     const pool = new Pool({ connectionString: config.databaseUrl });
+    const ac = new AbortController();
+    const timeout = setTimeout(() => ac.abort(), getMigrationTimeoutMs());
     try {
-      await runMigrations(pool);
+      await Promise.race([
+        runMigrations(pool),
+        new Promise<never>((_, reject) =>
+          ac.signal.addEventListener("abort", () => {
+            reject(new Error(`Migration timed out after ${getMigrationTimeoutMs()} ms`));
+          })
+        ),
+      ]);
+      // F-M2: close the pool on the success path — createSidecarDeps
+      // manages its own DB access and does not reuse this pool.
+      await pool.end();
     } catch (err: unknown) {
-      console.error("Migration failed; refusing to start HTTP server:", err);
+      clearTimeout(timeout);
+      console.error("Migration failed; refusing to start HTTP server:", err instanceof Error ? err.message : err);
       await pool.end().catch(() => {});
       process.exit(1);
     }
+    clearTimeout(timeout);
   }
 
   const server = createServer();

@@ -623,3 +623,53 @@ describe("TKT-041: runMigrations on boot", () => {
     }
   });
 });
+
+  it("on migration timeout, startServer does NOT call server.listen and exits non-zero", async () => {
+    // Simulate a migration that exceeds the timeout budget.
+    // Use KBJU_MIGRATION_TIMEOUT_MS env var to lower the timeout to 50 ms
+    // so the test completes quickly without waiting 120 s.
+    process.env.KBJU_MIGRATION_TIMEOUT_MS = "50";
+
+    // Make runMigrations return a promise that never resolves within the budget
+    mockRunMigrations.mockImplementationOnce(
+      () => new Promise((resolve) => setTimeout(resolve, 10_000)) // 10 s — well over 50 ms budget
+    );
+
+    const mockExit = vi.spyOn(process, "exit").mockImplementation((code?: string | number | null) => {
+      throw new Error(`process.exit:${code ?? 0}`);
+    });
+
+    // Set up required env vars
+    process.env.TELEGRAM_BOT_TOKEN = "test-token";
+    process.env.TELEGRAM_PILOT_USER_IDS = "111";
+    process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/testdb";
+    process.env.POSTGRES_PASSWORD = "testpw";
+    process.env.OMNIROUTE_BASE_URL = "http://localhost:4000";
+    process.env.OMNIROUTE_API_KEY = "test-key";
+    process.env.FIREWORKS_API_KEY = "test-fw-key";
+    process.env.USDA_FDC_API_KEY = "test-usda-key";
+    process.env.PERSONA_PATH = "/tmp/test-persona.md";
+    process.env.PO_ALERT_CHAT_ID = "12345";
+    process.env.MONTHLY_SPEND_CEILING_USD = "10";
+    process.env.AUDIT_DB_URL = "postgresql://user:pass@localhost:5432/audit";
+    process.env.SERVER_PORT = "0";
+
+    const listenSpy = vi.spyOn(http.Server.prototype, "listen");
+
+    try {
+      await startServer();
+      expect.unreachable("startServer should have exited due to migration timeout");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      expect(msg).toContain("process.exit:1");
+      expect(mockExit).toHaveBeenCalledWith(1);
+      // server.listen must NOT have been called
+      expect(listenSpy).not.toHaveBeenCalled();
+    } finally {
+      mockExit.mockRestore();
+      listenSpy.mockRestore();
+      mockRunMigrations.mockReset();
+      mockRunMigrations.mockResolvedValue(undefined);
+      delete process.env.KBJU_MIGRATION_TIMEOUT_MS;
+    }
+  });
