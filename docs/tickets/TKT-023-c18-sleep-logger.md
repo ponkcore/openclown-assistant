@@ -3,7 +3,7 @@ id: TKT-023
 title: C18 Sleep Logger with paired-event state machine + sanity-floor + DST-safe
   attribution
 version: 0.1.0
-status: in_review
+status: done
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C18
@@ -89,3 +89,4 @@ Land the C18 Sleep Logger implementing the ADR-017@0.1.0 paired-event state mach
 - 2026-05-25T00:30:00Z opencode-executor: in_review; tests 56 pass; lint clean; typecheck clean. TKT-023@0.1.0 inherits BACKLOG-001 ArchSpec amendment context — uuid user_id matches repo, not ADR-017@0.1.0 schema-section bigint.
 
 - 2026-05-25T01:00:00Z opencode-executor iter2: closed F-M1 (ASCII quotes per ARCH-001@0.6.2 §6.2.2), F-M2 (OFF-state silent — empty reply text per §6.2.2 "Modality OFF: silent."), F-M3 (paired-correction now preserves is_paired_origin=true + deletes pairing state). Added 2 OFF-state tests for paths 3+5 (was F-L1). Skipped F-L2 (telemetry-emit-shape assertions — test rigor nit, not correctness).
+- 2026-05-25T09:42:00Z opencode-orchestrator: merged in commit e61daab (PR #12); RV-CODE-008 verdict iter2=pass (3 Mediums + F-L1 closed; F-L2 deferred)
