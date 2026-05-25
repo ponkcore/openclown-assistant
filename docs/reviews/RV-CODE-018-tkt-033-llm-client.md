@@ -7,7 +7,7 @@ status: in_review
 created: 2026-05-25
 ---
 
-# Code Review — PR #28 (TKT-033)
+# Code Review — PR #28 (TKT-033@0.1.0)
 
 ## Summary
 The refactor to provider-agnostic LLM client + model registry is well-structured: `registry.ts` correctly mirrors the ADR-013@0.1.0 allowlist hot-reload pattern, `llmClient.ts` cleanly delegates provider resolution to the registry, tests cover all six error modes and both ACs for hot-reload and secret-free logging. However, `src/shared/config.ts` still mandates the legacy `OMNIROUTE_*` / `FIREWORKS_API_KEY` env vars at boot, which means operators who set only the new `LLM_*` names cannot boot the application — a direct violation of §6 AC #3.
@@ -64,7 +64,7 @@ Recommendation to PO: **iterate** — dispatch Executor to relax `config.ts`'s `
 
 ## Iteration 2 — re-review
 
-**Fix-up commit:** `0df23a6` ("TKT-033: address RV-CODE-018 F-H1 — config.ts accepts LLM_* env-var aliases")
+**Fix-up commit:** `0df23a6` ("TKT-033@0.1.0: address RV-CODE-018 F-H1 — config.ts accepts LLM_* env-var aliases")
 
 **Re-reviewed files:**
 - `src/shared/config.ts` — added `LLM_ENV_ALIASES` mapping, `readAliasedEnv` helper, aliased presence check in `parseConfig`
