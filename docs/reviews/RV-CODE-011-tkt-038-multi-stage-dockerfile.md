@@ -7,7 +7,7 @@ status: in_review
 created: 2026-05-25
 ---
 
-# Code Review — PR #20 (TKT-038)
+# Code Review — PR #20 (TKT-038@0.1.0)
 
 ## Summary
 The PR rewrites the single-stage `Dockerfile` into a two-stage `builder` → `runtime` pipeline per ADR-019@0.1.0 §Decision, adds `.dockerignore` to keep the build context lean, updates `docker-compose.yml` to target `runtime` for both `kbju-sidecar` and `metrics` services, and ships 23 static-parse tests. The implementation faithfully follows the ADR contract: both stages use `node:24-slim`, BuildKit cache mounts are present on both `npm ci` calls, the runtime stage runs as `USER node`, and `dist/` comes exclusively from `--from=builder`. One process-compliance gap exists (status flip not in a separate commit per DoD §8); no functional or contract violations found.
@@ -21,10 +21,10 @@ One-sentence justification: All acceptance criteria are met structurally and per
 Recommendation to PO: request a separate status-commit from Executor before merge, or merge as-is and backlog the DoD nit.
 
 ## Contract compliance (each must be ticked or marked finding)
-- [x] PR modifies ONLY files listed in TKT §5 Outputs (`Dockerfile`, `.dockerignore`, `docker-compose.yml`, `tests/deployment/dockerfile.test.ts`, ticket frontmatter + §10 Execution Log). `.gitignore` already had `dist/` — no change needed.
-- [x] No changes to TKT §3 NOT-In-Scope items (no registry publish, no vuln-scanning, no base-image change, no CI workflow edits).
-- [x] No new runtime dependencies beyond TKT §7 Constraints allowlist (no `package.json` or `package-lock.json` changes in diff).
-- [x] All Acceptance Criteria from TKT §6 are verifiably satisfied:
+- [x] PR modifies ONLY files listed in TKT-038@0.1.0 §5 Outputs (`Dockerfile`, `.dockerignore`, `docker-compose.yml`, `tests/deployment/dockerfile.test.ts`, ticket frontmatter + §10 Execution Log). `.gitignore` already had `dist/` — no change needed.
+- [x] No changes to TKT-038@0.1.0 §3 NOT-In-Scope items (no registry publish, no vuln-scanning, no base-image change, no CI workflow edits).
+- [x] No new runtime dependencies beyond TKT-038@0.1.0 §7 Constraints allowlist (no `package.json` or `package-lock.json` changes in diff).
+- [x] All Acceptance Criteria from TKT-038@0.1.0 §6 are verifiably satisfied:
   - **AC1** (`docker build` succeeds without host-side `npm`): executor verified in PR body (`docker build --target runtime -t kbju-sidecar:test .` ✅ succeeds). Structurally confirmed: multi-stage Dockerfile compiles inside the builder stage — no `COPY dist/` from host.
   - **AC2** (`docker compose config` succeeds): executor verified in PR body (`docker compose config` ✅ parses successfully).
   - **AC3** (`npm test -- tests/deployment/dockerfile.test.ts` passes): 23 tests pass per executor report + PR body (40 total with existing compose tests).
@@ -41,7 +41,7 @@ Recommendation to PO: request a separate status-commit from Executor before merg
 None.
 
 ### Medium
-- **F-M1 (`docs/tickets/TKT-038-multi-stage-dockerfile.md` frontmatter + `git log`):** TKT §8 Definition of Done requires "Ticket frontmatter `status: in_review` in a separate commit." The branch has a single commit (`d0bb46f TKT-038: Multi-stage Dockerfile (build-in-image)`) that bundles the status flip (`ready → in_review`), the §10 Execution Log append, and all code changes. *Responsible role:* Executor. *Suggested remediation:* split into two commits: (1) code + test changes, (2) ticket frontmatter status flip + execution log append. If the orchestrator determines this is acceptable as-is, backlog the DoD compliance nit.
+- **F-M1 (`docs/tickets/TKT-038@0.1.0-multi-stage-dockerfile.md` frontmatter + `git log`):** TKT-038@0.1.0 §8 Definition of Done requires "Ticket frontmatter `status: in_review` in a separate commit." The branch has a single commit (`d0bb46f`) that bundles the status flip (`ready → in_review`), the §10 Execution Log append, and all code changes. *Responsible role:* Executor. *Suggested remediation:* split into two commits: (1) code + test changes, (2) ticket frontmatter status flip + execution log append. If the orchestrator determines this is acceptable as-is, backlog the DoD compliance nit.
 
 ### Low
 - **F-L1 (`.dockerignore:1`):** The `node_modules/` exclusion pattern may only match the root `node_modules/` directory per Docker's path-match rules (patterns anchor to the full path; see `docker/dockerfile:1` reference). Nested `node_modules/` directories (e.g. `packages/kbju-bridge-plugin/node_modules/`) would not be excluded. Currently not a problem — the repo has no nested `node_modules/` and the builder's `npm ci` installs to the root `/app/node_modules/`. *Suggested remediation:* change `node_modules/` to `**/node_modules/` for defense-in-depth. Can be addressed in a follow-up ticket.
