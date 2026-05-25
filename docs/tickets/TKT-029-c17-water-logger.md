@@ -2,7 +2,7 @@
 id: TKT-029
 title: C17 Water Logger — volume extraction + quick-preset inline keyboard + telemetry
 version: 0.1.0
-status: in_review
+status: done
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C17
@@ -57,3 +57,4 @@ Land the C17 Water Logger that persists water-event rows with volume extraction 
 - 2026-05-25T02:47:00Z opencode-executor: implementation complete; preset values 250/500/750 ml chosen (PO did not ratify specific values — ARCH-001@0.6.2 §6.2 Q_TO_BUSINESS_6 defers to ticket sign-off); ADR-018@0.1.0 §Decision C17 fallback = minimax-m2p7 (not qwen3-vl-30b-a3b); TKT-029@0.1.0 inherits TKT-028@0.1.0 carve-out — TenantScopedRepository extended with insertWaterEvent for type-safe data access; no private-field reach; raw_text added to LOG_FORBIDDEN_FIELDS and FORBIDDEN_METRIC_LABELS per TKT-026@0.1.0 redaction surface; confidence checked before range to give LOW_CONFIDENCE_REPLY on full-chain LLM failure (volume_ml=0)
 - 2026-05-25T02:47:30Z opencode-executor: in_review; tests 26 pass; lint clean; typecheck clean; pre-existing healthCheck.test.ts 1 fail (not touched)
 - 2026-05-25T03:05:00Z opencode-executor iter2: closed F-M1 (emoji removed from reply text per ARCH-001@0.6.2 §6.2.1), F-M2 (ALLOWED_EXTRA_KEYS in src/observability/events.ts extended with modality+volume_ml; sibling fields pre-seeded for TKT-023@0.1.0/TKT-030@0.1.0/TKT-031@0.1.0: duration_min, distance_km, score, is_nap, attribution_date_local, event_id), F-M3 (Записал→Записала per ARCH-001@0.6.2 §6.2 persona spec). PO-authorised carve-out: src/observability/events.ts (ALLOWED_EXTRA_KEYS extension only). Lows F-L1..F-Lx left as-is per reviewer guidance. TKT-029@0.1.0 iter2 also seeded ALLOWED_EXTRA_KEYS for future TKT-023@0.1.0/TKT-030@0.1.0/TKT-031@0.1.0 fields to avoid sibling-iteration churn.
+- 2026-05-25T00:15:00Z opencode-orchestrator: merged in commit a9d3c26 (PR #10); RV-CODE-006 verdict iter2=pass (3 Mediums closed; Lows deferred)
