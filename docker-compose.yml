@@ -28,6 +28,7 @@ services:
       retries: 5
     volumes:
       - openclaw_state:/app/state
+      - kbju_config:/app/config
     networks:
       - internal
     logging:
@@ -101,6 +102,7 @@ services:
 volumes:
   kbju_pgdata:
   openclaw_state:
+  kbju_config:
 
 networks:
   internal:
