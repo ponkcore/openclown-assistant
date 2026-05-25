@@ -67,3 +67,34 @@ Recommendation to PO: request changes from Executor (fix-or-backlog the two Medi
 - **Observability:** `provider_call_started` (voiceClient.ts:276), `voice_transcription_completed` (voiceClient.ts:424), `provider_call_finished` (voiceClient.ts:376), `llm_call_stalled` (voiceClient.ts:308) events emitted with `provider_alias`, `model_alias`, `latency_ms`, `error_code` labels. Kill switch events (voiceClient.ts:225-239) include the path. A 3am operator can see which provider was called, how long it took, and whether it failed — sufficient for incident triage.
 - **Rollback:** The adapter preserves the identical `transcribeVoice(config, request)` signature (plus a new optional third param `resolvedOverride`). VoiceClient.ts is additive. Rollback: revert adapter + delete voiceClient.ts. No migration, no schema change, no config file change. Straightforward from the diff.
 
+
+---
+
+## Iteration 2 — re-review (commit `9bff31f`)
+
+### Per-finding status
+
+| Finding | Status | Evidence |
+|---|---|---|
+| **F-M1** (registry.ts outside §5 Outputs) | **DEFERRED** | Registry.ts `auth_header_template` unchanged. Orchestrator will open backlog entry for ADR-024@0.1.0 patch. Accepted as deferred — not re-raised. |
+| **F-M2** (typed-error collapse in adapter) | **RESOLVED** | `mapOutcome()` helper added at `src/voice/transcriptionAdapter.ts:87-103`. `TranscriptionOutcome` now includes `"registry_error"` (`src/voice/types.ts:61`). `TranscriptionResult.error_kind?: TranscriptionErrorKind` preserves fine-grained discriminator (`src/voice/types.ts:46-53`). 5 new tests at `tests/voice/transcriptionAdapter.test.ts:343-435` assert `result.outcome === "registry_error"` (line 383), `error_kind` for provider_failure (lines 399, 408), and `error_kind: undefined` on non-error outcomes (lines 417, 433). |
+| **F-L1** (double `/v1` in `buildResolvedFromConfig`) | **RESOLVED** | `src/voice/transcriptionAdapter.ts:73`: `config.baseUrl.replace(/\/v1\/?$/, "")` strips trailing `/v1` before appending, anchored at end-of-string. |
+| **F-L2** (comment typo `redactPii` → `buildRedactedEvent`) | **RESOLVED** | `src/voice/voiceClient.ts:14`: comment now reads "All log emits pass through buildRedactedEvent (which applies redactPii internally)." |
+
+### Updated verdict
+
+- [x] pass
+- [ ] pass_with_changes
+- [ ] fail
+
+All iter-1 Medium/Low findings addressed. F-M1 formally deferred to orchestrator's backlog. No new findings. DoD two-commit topology preserved with one fix-up commit on top (3 commits total on branch: `6d4e5e2` implementation, `aa986ba` status, `9bff31f` iter-2 fixes + `f973e09` RV-CODE-020).
+
+CI: executor reports 1340 pass total (1 pre-existing unrelated failure in `healthCheck.test.ts`, Node 24 compat — not in scope).
+
+### New red-team re-check
+- **Error paths:** The `mapOutcome()` switch is exhaustive over `TranscribeOutcome` (typescript enforces). No regression in duration check, budget block, or audio deletion paths. ✓
+- **Observability:** The `error_kind` discriminator is emitted in the failure log (`transcriptionAdapter.ts:271`), giving a 3am operator visibility into whether the failure was registry/env-level or provider-HTTP-level. ✓
+- **Typed-error propagation:** `registry_error` survives end-to-end from `voiceClient.transcribe()` → `mapOutcome()` → `TranscriptionResult.outcome`. Verified by test at `transcriptionAdapter.test.ts:383`. ✓
+
+### Recommendation: **merge**
+
