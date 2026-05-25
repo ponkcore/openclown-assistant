@@ -47,6 +47,7 @@ import type {
   WaterEventRow,
   MoodEventSource,
   MoodEventRow,
+  SleepPairingStateRow,
   UserProfileRow,
   UserRow,
   UserTargetRow,
@@ -308,6 +309,33 @@ export class TenantPostgresStore implements TenantStore {
 
   public async insertMoodEvent(userId: string, source: MoodEventSource, score: number, commentText: string | null, inferredFromText: boolean, rawText: string | null): Promise<{ event_id: string }> {
     return this.withTransaction(userId, (repository) => repository.insertMoodEvent(userId, source, score, commentText, inferredFromText, rawText));
+  }
+
+  // ── C18 Sleep Records (TKT-023@0.1.0) ───────────────────────────────────
+
+  public async insertSleepRecord(userId: string, startTsUtc: string, endTsUtc: string, durationMin: number, attributionDateLocal: string, attributionTz: string, isNap: boolean, isPairedOrigin: boolean): Promise<{ record_id: string }> {
+    return this.withTransaction(userId, (repository) => repository.insertSleepRecord(userId, startTsUtc, endTsUtc, durationMin, attributionDateLocal, attributionTz, isNap, isPairedOrigin));
+  }
+
+  public async getSleepPairingState(userId: string): Promise<import("./types.js").SleepPairingStateRow | null> {
+    return this.withTransaction(userId, (repository) => repository.getSleepPairingState(userId));
+  }
+
+  public async upsertSleepPairingState(userId: string, legEventTsUtc: string, expiresAtUtc: string): Promise<void> {
+    return this.withTransaction(userId, (repository) => repository.upsertSleepPairingState(userId, legEventTsUtc, expiresAtUtc));
+  }
+
+  public async deleteSleepPairingState(userId: string): Promise<void> {
+    return this.withTransaction(userId, (repository) => repository.deleteSleepPairingState(userId));
+  }
+
+  public async gcExpiredSleepPairingState(nowUtc: string): Promise<{ rows_deleted: number }> {
+    // GC runs across all users — no RLS scoping needed. Use pool directly.
+    const result = await this.pool.query(
+      `DELETE FROM sleep_pairing_state WHERE expires_at_utc < $1`,
+      [nowUtc],
+    );
+    return { rows_deleted: result.rowCount ?? 0 };
   }
 }
 
@@ -1004,6 +1032,67 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
     );
     return expectOne(result, "mood_events");
   }
+
+  // ── C18 Sleep Records (TKT-023@0.1.0) ───────────────────────────────────
+
+  public async insertSleepRecord(
+    userId: string,
+    startTsUtc: string,
+    endTsUtc: string,
+    durationMin: number,
+    attributionDateLocal: string,
+    attributionTz: string,
+    isNap: boolean,
+    isPairedOrigin: boolean,
+  ): Promise<{ record_id: string }> {
+    const result = await this.db.query<{ record_id: string }>(
+      `INSERT INTO sleep_records (record_id, user_id, start_ts_utc, end_ts_utc, duration_min, attribution_date_local, attribution_tz, is_nap, is_paired_origin, created_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, now())
+       RETURNING record_id`,
+      [userId, startTsUtc, endTsUtc, durationMin, attributionDateLocal, attributionTz, isNap, isPairedOrigin],
+    );
+    return expectOne(result, "sleep_records");
+  }
+
+  public async getSleepPairingState(userId: string): Promise<SleepPairingStateRow | null> {
+    const result = await this.db.query<SleepPairingStateRow>(
+      `SELECT user_id, leg_event_ts_utc, expires_at_utc
+       FROM sleep_pairing_state
+       WHERE user_id = $1 AND expires_at_utc > now()`,
+      [userId],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  public async upsertSleepPairingState(
+    userId: string,
+    legEventTsUtc: string,
+    expiresAtUtc: string,
+  ): Promise<void> {
+    await this.db.query(
+      `INSERT INTO sleep_pairing_state (user_id, leg_event_ts_utc, expires_at_utc)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id) DO UPDATE SET
+         leg_event_ts_utc = EXCLUDED.leg_event_ts_utc,
+         expires_at_utc = EXCLUDED.expires_at_utc`,
+      [userId, legEventTsUtc, expiresAtUtc],
+    );
+  }
+
+  public async deleteSleepPairingState(userId: string): Promise<void> {
+    await this.db.query(
+      `DELETE FROM sleep_pairing_state WHERE user_id = $1`,
+      [userId],
+    );
+  }
+
+  public async gcExpiredSleepPairingState(nowUtc: string): Promise<{ rows_deleted: number }> {
+    const result = await this.db.query(
+      `DELETE FROM sleep_pairing_state WHERE expires_at_utc < $1`,
+      [nowUtc],
+    );
+    return { rows_deleted: result.rowCount ?? 0 };
+  }
 }
 
 function expectOne<Row extends QueryResultRow>(result: QueryResult<Row>, entityName: string): Row {
@@ -1236,6 +1325,32 @@ export class BreachDetectingTenantStore implements TenantStore {
     this.guard(userId, "write", "mood_events");
     return this.inner.insertMoodEvent(userId, source, score, commentText, inferredFromText, rawText);
   }
+
+  // ── C18 Sleep Records (TKT-023@0.1.0) ───────────────────────────────────
+
+  public async insertSleepRecord(userId: string, startTsUtc: string, endTsUtc: string, durationMin: number, attributionDateLocal: string, attributionTz: string, isNap: boolean, isPairedOrigin: boolean): Promise<{ record_id: string }> {
+    this.guard(userId, "write", "sleep_records");
+    return this.inner.insertSleepRecord(userId, startTsUtc, endTsUtc, durationMin, attributionDateLocal, attributionTz, isNap, isPairedOrigin);
+  }
+
+  public async getSleepPairingState(userId: string): Promise<import("./types.js").SleepPairingStateRow | null> {
+    this.guard(userId, "read", "sleep_pairing_state");
+    return this.inner.getSleepPairingState(userId);
+  }
+
+  public async upsertSleepPairingState(userId: string, legEventTsUtc: string, expiresAtUtc: string): Promise<void> {
+    this.guard(userId, "write", "sleep_pairing_state");
+    return this.inner.upsertSleepPairingState(userId, legEventTsUtc, expiresAtUtc);
+  }
+
+  public async deleteSleepPairingState(userId: string): Promise<void> {
+    this.guard(userId, "write", "sleep_pairing_state");
+    return this.inner.deleteSleepPairingState(userId);
+  }
+
+  public async gcExpiredSleepPairingState(nowUtc: string): Promise<{ rows_deleted: number }> {
+    return this.inner.gcExpiredSleepPairingState(nowUtc);
+  }
 }
 
 async function rollbackSafely(client: TenantQueryable): Promise<void> {
@@ -1245,3 +1360,4 @@ async function rollbackSafely(client: TenantQueryable): Promise<void> {
     // Preserve the original transaction error.
   }
 }
+

@@ -3,7 +3,7 @@ id: TKT-023
 title: C18 Sleep Logger with paired-event state machine + sanity-floor + DST-safe
   attribution
 version: 0.1.0
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C18
@@ -82,3 +82,8 @@ Land the C18 Sleep Logger implementing the ADR-017@0.1.0 paired-event state mach
 - [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
 - [ ] Executor filled §10 Execution Log.
 - [ ] Ticket frontmatter `status: in_review` in a separate commit.
+
+## 10. Execution Log
+- 2026-05-25T00:00:00Z opencode-executor: started
+
+- 2026-05-25T00:30:00Z opencode-executor: in_review; tests 56 pass; lint clean; typecheck clean. TKT-023@0.1.0 inherits BACKLOG-001 ArchSpec amendment context — uuid user_id matches repo, not ADR-017@0.1.0 schema-section bigint.
