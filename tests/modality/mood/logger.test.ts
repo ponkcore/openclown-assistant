@@ -11,6 +11,7 @@ import type { TenantStore } from "../../../src/store/types.js";
 import type { ModalitySettings } from "../../../src/modality/settings/service.js";
 import {
   SUCCESS_REPLY,
+  COMMENT_TRUNCATED_REPLY,
   SUCCESS_REPLY_WITH_COMMENT,
   OUT_OF_RANGE_REPLY,
   KEYBOARD_PROMPT,
@@ -358,8 +359,8 @@ describe("handleMoodEvent", () => {
 
   // ── Comment truncation ─────────────────────────────────────────────
 
-  it("silently truncates comment >200 chars", async () => {
-    const longComment = "а".repeat(250);
+  it("truncates comment >280 chars and emits friendly Russian notice", async () => {
+    const longComment = "а".repeat(285);
     const result = await handleMoodEvent(
       { userId: "user-001", source: "text", rawText: `настроение 7 — ${longComment}`, requestId: "req-011" },
       deps,
@@ -367,14 +368,46 @@ describe("handleMoodEvent", () => {
 
     expect(result.persisted).toBe(true);
     expect(result.score).toBe(7);
-    // Should NOT mention truncation in reply
-    expect(result.text).not.toContain("сократил");
-    expect(result.text).not.toContain("обрезал");
+    // Reply must match the verbatim ARCH-001@0.7.0 §6.2.2 C20 friendly-notice string
+    expect(result.text).toBe(COMMENT_TRUNCATED_REPLY.replace("{score}", "7"));
 
-    // Verify the comment was truncated
+    // Verify the comment was truncated to 280 chars
     const insertCall = deps.store.insertMoodEvent as ReturnType<typeof vi.fn>;
     const commentArg = insertCall.mock.calls[0][3]; // 4th arg is commentText
+    expect(commentArg).toHaveLength(280);
+  });
+
+  it("persists comment of length ≤280 unchanged with normal reply", async () => {
+    const shortComment = "а".repeat(200);
+    const result = await handleMoodEvent(
+      { userId: "user-001", source: "text", rawText: `настроение 5 — ${shortComment}`, requestId: "req-011b" },
+      deps,
+    );
+
+    expect(result.persisted).toBe(true);
+    expect(result.score).toBe(5);
+    expect(result.text).toBe(SUCCESS_REPLY_WITH_COMMENT.replace("{score}", "5"));
+
+    const insertCall = deps.store.insertMoodEvent as ReturnType<typeof vi.fn>;
+    const commentArg = insertCall.mock.calls[0][3];
     expect(commentArg).toHaveLength(200);
+  });
+
+  it("persists comment of exactly 280 chars unchanged (boundary)", async () => {
+    const boundaryComment = "а".repeat(280);
+    const result = await handleMoodEvent(
+      { userId: "user-001", source: "text", rawText: `настроение 8 — ${boundaryComment}`, requestId: "req-011c" },
+      deps,
+    );
+
+    expect(result.persisted).toBe(true);
+    expect(result.score).toBe(8);
+    // No truncation → normal reply with comment
+    expect(result.text).toBe(SUCCESS_REPLY_WITH_COMMENT.replace("{score}", "8"));
+
+    const insertCall = deps.store.insertMoodEvent as ReturnType<typeof vi.fn>;
+    const commentArg = insertCall.mock.calls[0][3];
+    expect(commentArg).toHaveLength(280);
   });
 
   // ── OFF-state ──────────────────────────────────────────────────────
