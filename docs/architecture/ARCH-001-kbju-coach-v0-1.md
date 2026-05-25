@@ -2,8 +2,8 @@
 id: ARCH-001
 title: KBJU Coach v0.1 → v0.2 (Observability and Scale Readiness) + PRD-003 Adaptive
   Modalities + v0.7.0 Pilot Hardening
-version: 0.7.0
-status: approved
+version: 0.7.1
+status: draft
 prd_ref: PRD-001@0.3.0; PRD-002@0.2.1; PRD-003@0.1.3
 owner: '@po'
 created: 2026-04-26
@@ -28,7 +28,7 @@ adrs:
 - ADR-017@0.1.0
 - ADR-018@0.1.0
 - ADR-019@0.1.0
-- ADR-020@0.1.0
+- ADR-020@0.1.1
 - ADR-021@0.1.0
 - ADR-022@0.1.0
 - ADR-023@0.1.0
@@ -535,8 +535,8 @@ What does NOT exist in OpenClaw built-ins and remains project-owned for v0.7.0:
   `src/voice/voiceClient.ts`) — project-built. ADR-022@0.1.0 + ADR-023@0.1.0.
 - The `config/llm.json` model registry — project-built; mirrors the
   `config/allowlist.json` hot-reload pattern from ADR-013@0.1.0. ADR-024@0.1.0.
-- Inbound TLS termination (Caddy) — project-deployed compose service. ADR-020@0.1.0.
-- The `install.sh` single-command deploy flow — project-built. ADR-020@0.1.0 §10.4.
+- Inbound TLS termination (Caddy) — project-deployed compose service. ADR-020@0.1.1.
+- The `install.sh` single-command deploy flow — project-built. ADR-020@0.1.1 §10.4.
 - The `/diag` command + `scripts/diag-bundle.sh` + GitHub issue template incident
   pipeline — project-built. ADR-021@0.1.0.
 
@@ -583,7 +583,7 @@ capability surfaces; each audited below.
 - **Decision:** Build `voiceClient.ts` ourselves against `fetch` + multipart form
   (Node 24 native); reference OpenAI's `audio.transcriptions` shape. ADR-023@0.1.0.
 
-**Inbound TLS termination (ADR-020@0.1.0):**
+**Inbound TLS termination (ADR-020@0.1.1):**
 
 - Candidate 1: **Caddy** (<https://caddyserver.com/>) — chosen default per dispatch.
   Multi-stage Dockerfile-friendly, automatic Let's Encrypt, single-binary image
@@ -592,10 +592,10 @@ capability surfaces; each audited below.
   auto-HTTPS. **Verdict: reject.** PO chose Caddy explicitly; Traefik's config
   surface is heavier (labels-based discovery), unnecessary for one upstream.
 - Candidate 3: **nginx + certbot** — manual ACME flow. **Verdict: reject** per
-  ADR-020@0.1.0 §Option C analysis.
+  ADR-020@0.1.1 §Option C analysis.
 - Candidate 4: **Cloudflare Tunnel (cloudflared)** — alternative topology. **Verdict:
   override.** Documented as the explicit override via `docker-compose.cf-tunnel.yml`.
-- **Decision:** Caddy as default; cloudflared as documented override. ADR-020@0.1.0.
+- **Decision:** Caddy as default; cloudflared as documented override. ADR-020@0.1.1.
 
 **Pre-deploy hardening (ADR-019@0.1.0 multi-stage Dockerfile):**
 
@@ -1745,7 +1745,7 @@ What the Gateway does NOT do:
 - Data hosting jurisdiction shortlist: recommend EU durable storage with transient remote inference; PO selection remains open until ratified — `ADR-007@0.1.0`.
 - Deployment: portable Docker Compose on the VPS with named volumes and no host-path/systemd dependency — `ADR-008@0.1.0`.
 - Build-in-image (NEW v0.7.0): multi-stage Dockerfile (`builder` → `runtime`); compiles inside the image so a fresh VPS deploys without host Node — `ADR-019@0.1.0`.
-- Inbound TLS termination (NEW v0.7.0): Caddy + automatic Let's Encrypt as the default install.sh path; Cloudflare Tunnel as a documented compose-overlay override — `ADR-020@0.1.0`.
+- Inbound TLS termination (NEW v0.7.0): Caddy + automatic Let's Encrypt as the default install.sh path; Cloudflare Tunnel as a documented compose-overlay override — `ADR-020@0.1.1`.
 - Pilot incident reporting (NEW v0.7.0): Telegram `/diag` + `scripts/diag-bundle.sh` + `.github/ISSUE_TEMPLATE/incident.md` — `ADR-021@0.1.0`.
 - Observability: local structured JSON logs, durable PostgreSQL pilot metric tables, and loopback-only metrics endpoint — `ADR-009@0.1.0`.
 - Runtime architecture: HYBRID two-process topology — OpenClaw Gateway retains Telegram + bounded agent/tool orchestration; KBJU business logic runs as sidecar Node 24 process bridged by an OpenClaw plugin via HTTP — `ADR-011@0.1.0`.
@@ -1808,7 +1808,7 @@ What the Gateway does NOT do:
   - Audit results record only aggregate cross-user reference counts and any concrete inter-tenant findings without reproducing user payloads (§5 `tenant_audit_runs.findings: json_array_without_user_payloads`).
 
 ### 9.3 Network Boundaries
-- Public inbound: Caddy on ports 80 / 443 terminates TLS and reverse-proxies `/telegram*` to the OpenClaw Gateway (ADR-020@0.1.0); the Cloudflare Tunnel overlay (`docker-compose.cf-tunnel.yml`) replaces this with cloudflared egress when `INSTALL_TLS_MODE=cloudflare-tunnel`. The OpenClaw Telegram webhook handler is the only application surface reachable from the public internet.
+- Public inbound: Caddy on ports 80 / 443 terminates TLS and reverse-proxies `/telegram*` to the OpenClaw Gateway (ADR-020@0.1.1); the Cloudflare Tunnel overlay (`docker-compose.cf-tunnel.yml`) replaces this with cloudflared egress when `INSTALL_TLS_MODE=cloudflare-tunnel`. The OpenClaw Telegram webhook handler is the only application surface reachable from the public internet.
 - Internal only: PostgreSQL, the C23 LLM Gateway upstream providers (when the operator configures a self-hosted provider on the same VPS), C10 metrics endpoint, and any admin/debug endpoint are on the Docker network or loopback only.
 - Outbound egress: Telegram Bot API (`api.telegram.org`), the operator-configured LLM / voice / vision providers per `config/llm.json` (which the operator chooses — could be OmniRoute, OpenRouter, OpenAI direct, Fireworks direct, vLLM-self-hosted, etc.), Open Food Facts, and USDA FoodData Central. No runtime path sends user metadata to observability SaaS in v0.1; this remains a hard rule even when the operator points a `kbju.*` alias at a hosted provider that may also offer an analytics dashboard.
 - Containers must not use host networking. Raw media temp storage is container-local or tmpfs and is not mounted into persistent volumes.
@@ -1854,9 +1854,9 @@ Gateway bridge: install/register the repo-owned `kbju-bridge` OpenClaw plugin, c
 
 ### 10.2 Runtime Topology
 - Runtime: OpenClaw Gateway on Node 24 plus one KBJU sidecar Node 24 process, Docker Compose on the PO VPS, per ADR-008@0.1.0 and ADR-011@0.1.0.
-- Services: `openclaw-gateway`, `kbju-sidecar`, PostgreSQL, `caddy` (default; ADR-020@0.1.0) OR `cloudflared` (override via `docker-compose.cf-tunnel.yml`), and any LLM / voice / vision providers the operator runs locally on the same VPS (resolved per `config/llm.json` per ADR-024@0.1.0 — e.g. a self-hosted OmniRoute, vLLM, or faster-whisper-server endpoint).
+- Services: `openclaw-gateway`, `kbju-sidecar`, PostgreSQL, `caddy` (default; ADR-020@0.1.1) OR `cloudflared` (override via `docker-compose.cf-tunnel.yml`), and any LLM / voice / vision providers the operator runs locally on the same VPS (resolved per `config/llm.json` per ADR-024@0.1.0 — e.g. a self-hosted OmniRoute, vLLM, or faster-whisper-server endpoint).
 - Gateway plugins: `kbju-bridge` is required. SecureClaw is recommended as a separate installed plugin for kill switch, safe/read-only failure modes, and cost circuit breaker. Riphook may be installed as defense-in-depth for tool-call enforcement patterns, but the KBJU sidecar must not copy AGPL SecureClaw code.
-- Persistent named volumes: `kbju_pgdata` for PostgreSQL, `openclaw_state` for OpenClaw runtime state, `kbju_config` for `config/{llm,allowlist}.json` operator-edited files (ADR-013@0.1.0 + ADR-024@0.1.0; TKT-042@0.1.0), `caddy_data` and `caddy_config` for Caddy LE certs and runtime state (ADR-020@0.1.0). No host bind mounts for production data; the only bind mount is the read-only `Caddyfile` at the repo root mounted into the `caddy` service.
+- Persistent named volumes: `kbju_pgdata` for PostgreSQL, `openclaw_state` for OpenClaw runtime state, `kbju_config` for `config/{llm,allowlist}.json` operator-edited files (ADR-013@0.1.0 + ADR-024@0.1.0; TKT-042@0.1.0), `caddy_data` and `caddy_config` for Caddy LE certs and runtime state (ADR-020@0.1.1). No host bind mounts for production data; the only bind mount is the read-only `Caddyfile` at the repo root mounted into the `caddy` service.
 - Temporary storage: raw Telegram voice/photo files use container-local tmpfs or non-persistent temp directories and are deleted by C5/C7 on success or terminal failure.
 
 ### 10.3 Resource Budget
@@ -1892,7 +1892,7 @@ The deploy is a single command on a fresh or existing VPS:
 ./scripts/install.sh
 ```
 
-The script implements the canonical flow per ADR-020@0.1.0 §install.sh path and TKT-040@0.1.0:
+The script implements the canonical flow per ADR-020@0.1.1 §install.sh path and TKT-040@0.1.0:
 
 1. **Validate Docker / compose-plugin versions.** `docker --version` ≥ 20.10; `docker compose version` ≥ v2.
 2. **Read or prompt `KBJU_PUBLIC_DOMAIN`.** From `.env.production` if present; else prompt interactively (file mode 0600 on write). Skipped when `INSTALL_TLS_MODE=cloudflare-tunnel`.
@@ -2020,7 +2020,7 @@ After `pg_restore` completes, replay the audit log for any `event_type = right_t
 
 ### 10.7 VPS Migration Runbook
 
-The migration moves *all* persistent state (PostgreSQL volume + `.env.production`) from the old VPS to a new VPS, then re-points the public Telegram webhook so messages flow to the new host. Snapshot tooling is `pg_dump -Fc` (PostgreSQL custom format, restored with `pg_restore`). The new-host bring-up uses **`./scripts/install.sh`** (ADR-020@0.1.0; §10.4) — not bare commands — so the new host comes up with TLS, migrations, and `setWebhook` in one idempotent flow.
+The migration moves *all* persistent state (PostgreSQL volume + `.env.production`) from the old VPS to a new VPS, then re-points the public Telegram webhook so messages flow to the new host. Snapshot tooling is `pg_dump -Fc` (PostgreSQL custom format, restored with `pg_restore`). The new-host bring-up uses **`./scripts/install.sh`** (ADR-020@0.1.1; §10.4) — not bare commands — so the new host comes up with TLS, migrations, and `setWebhook` in one idempotent flow.
 
 #### 10.7.1 Pre-flight (old VPS)
 ```bash
@@ -2278,7 +2278,7 @@ PO answers to §12 Risks & Open Questions. Recorded inline so executor / reviewe
 The v0.7.0 amendment cycle adds the following supersession + new-decision context:
 
 - **PRD-001@0.3.0 §7 hard constraint** (provider abstraction) is now binding. ADR-022@0.1.0 supersedes ADR-002@0.1.0 (LLM); ADR-023@0.1.0 supersedes ADR-003@0.1.0 (voice); ADR-004@0.1.0 → ADR-004@0.2.0 amendment moves vision into the same registry. ADR-024@0.1.0 defines the registry. ADR-018@0.1.0 illustrative model picks remain for the example config; the operator may override per cycle.
-- **Pre-deploy hardening:** ADR-019@0.1.0 (multi-stage Dockerfile), ADR-020@0.1.0 (Caddy + LE TLS termination, Cloudflare Tunnel override), and the §10.4 install.sh single-command flow are introduced. Migrations on boot (TKT-041@0.1.0), allowlist seeding (TKT-042@0.1.0), and image digest pinning (TKT-043@0.1.0) close the operator-side prerequisites the previous deploy path silently assumed.
+- **Pre-deploy hardening:** ADR-019@0.1.0 (multi-stage Dockerfile), ADR-020@0.1.1 (Caddy + LE TLS termination, Cloudflare Tunnel override), and the §10.4 install.sh single-command flow are introduced. Migrations on boot (TKT-041@0.1.0), allowlist seeding (TKT-042@0.1.0), and image digest pinning (TKT-043@0.1.0) close the operator-side prerequisites the previous deploy path silently assumed.
 - **Bug-report pipeline:** ADR-021@0.1.0 introduces a three-part flow (`/diag` Telegram command, `scripts/diag-bundle.sh`, GitHub issue template). Reuses the existing emit-boundary redaction allowlist; no new trust boundary.
 - **Drift cleanup:** §5.3 + ADR-017@0.1.0 §Decision corrected from `bigint` to `uuid REFERENCES users(id)` (BACKLOG-001 §A1; the deployed schema already uses `uuid`); TKT-021@0.1.0 §6 line 64 RLS policy AC `::bigint` → `::uuid`; Q-TKT-031-01 answered (canonical contract = ARCH-001@0.6.2 §6.2.2 — 280-char limit + friendly notice; TKT-047@0.1.0 aligns code); TKT-032@0.1.0 introduces real-Postgres integration test infrastructure (testcontainers) — `status: ready`, NOT a deploy blocker.
 - **Status:** this v0.7.0 amendment is a **`draft`** in this PR; only the PO sets `status: approved`. The §13 PO Ratification block above carries the v0.6.2 PO answers verbatim and remains binding for Q1–Q6. New questions Q_TO_BUSINESS_7 and Q_TO_BUSINESS_8 (deprecation timing, Cloudflare-Tunnel-as-default) are added in §12.3 and remain open until PO closes.
@@ -2301,7 +2301,7 @@ The v0.7.0 amendment cycle adds the following supersession + new-decision contex
 - [x] Privileged audit role `kbju_audit` (BYPASSRLS) defined in §9.2 with `AUDIT_DB_URL` secret in §9.1
 - [x] No contradiction between §3.11 / §9.5 / §5 schema on right-to-delete (hard-delete only; no `users.deleted_at`)
 - [x] §5.3 modality `user_id` columns now `uuid` (BACKLOG-001 §A1 closed in this PR)
-- [x] §10.4 install.sh single-command flow specified (ADR-020@0.1.0)
+- [x] §10.4 install.sh single-command flow specified (ADR-020@0.1.1)
 - [x] §10.7 VPS migration runbook calls install.sh
 - [x] §3.23 C23 LLM Gateway component documented
 - [x] §6.3 OpenAI-compatible HTTP surface contract documented
@@ -2323,6 +2323,7 @@ The v0.7.0 amendment cycle adds the following supersession + new-decision contex
 
 ## revision_log
 
+- 2026-05-25 (v0.7.1): Architect-consult patch (in-flight, RV-CODE-017 F-H1). Re-pin ADR-020@0.1.0 → ADR-020@0.1.1 across body (§3.21, §6, §7, §9.x, §10.4, §13.1, Handoff Checklist) and `adrs:` frontmatter list. ADR-020@0.1.1 patch fixes `openclaw-gateway:8080` → `openclaw-gateway:18789` to match runtime contract. No design change; no Component / ADR retirement. Branch arch/ARCH-001-adr020-caddy-port-fix. status: approved → draft (PO sets status: approved on merge).
 - 2026-05-25 (v0.7.0): Architect amendment for ARCH-001@0.7.0 pilot-hardening cycle. PRD-001@0.3.0 §7 provider-abstraction hard constraint absorbed: ADR-022@0.1.0 supersedes ADR-002@0.1.0; ADR-023@0.1.0 supersedes ADR-003@0.1.0; ADR-004@0.1.0→0.2.0 amends vision into the registry; ADR-024@0.1.0 defines `config/llm.json`. Pre-deploy hardening: ADR-019@0.1.0 multi-stage Dockerfile; ADR-020@0.1.0 Caddy + LE TLS / cloudflared override; §10.4 single-command install.sh flow; §10.7 migration runbook now invokes install.sh; TKT-038@0.1.0 through TKT-043@0.1.0 implementation tickets. Bug-report pipeline: ADR-021@0.1.0 + TKT-044@0.1.0 / TKT-045@0.1.0 / TKT-046@0.1.0 (`/diag`, `diag-bundle.sh`, incident issue template + `docs/incidents/`). Drift cleanup: §5.3 + ADR-017@0.1.0 §Decision `bigint`→`uuid_fk_users` per BACKLOG-001 §A1; TKT-021@0.1.0 §6 RLS-policy AC `::bigint`→`::uuid`; Q-TKT-031-01 answered (canonical contract = 280 + friendly notice; TKT-047@0.1.0 aligns code); TKT-032@0.1.0 testcontainers infra. New §3.23 C23 LLM Gateway; new §6.3 OpenAI-compatible HTTP surface; rename every non-historical "OmniRoute" reference in §3, §6, §9, §10 to the new abstraction (historical ADR-002@0.1.0 / ADR-003@0.1.0 citations preserved verbatim). status: approved → draft (operator → PO sets status: approved).
 - 2026-05-24 (v0.6.2): PO approval. §13 PO Ratification added with answers to Q1-Q6. Q5 explicitly opens model/provider routing as an orchestrator-level runtime concern (no ArchSpec lock). Q6 drafts are bilingual (RU + EN) under `docs/drafts/PRD-003-content-drafts.md`. status: draft → approved.
 - 2026-05-06 (v0.6.1): Amendment cycle responding to RV-SPEC-013 F-M1..F-M6 + F-L1..F-L2.

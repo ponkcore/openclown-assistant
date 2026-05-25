@@ -2,6 +2,7 @@
 id: ADR-020
 title: Inbound TLS termination for Telegram webhook (Caddy default; Cloudflare Tunnel
   override)
+version: 0.1.1
 status: proposed
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
@@ -153,15 +154,15 @@ caddy:
 ```
 {$KBJU_PUBLIC_DOMAIN} {
   encode zstd gzip
-  reverse_proxy /telegram openclaw-gateway:8080
-  reverse_proxy /telegram/* openclaw-gateway:8080
+  reverse_proxy /telegram openclaw-gateway:18789
+  reverse_proxy /telegram/* openclaw-gateway:18789
   handle /health {
     respond "kbju-caddy-ok" 200
   }
 }
 ```
 
-The exact upstream port (`openclaw-gateway:8080` above) and the `/telegram` path
+The exact upstream port (`openclaw-gateway:18789` above) and the `/telegram` path
 mirror the OpenClaw gateway's existing webhook surface; if a future PR moves the
 gateway port, the Caddyfile path moves with it.
 
@@ -197,7 +198,7 @@ services:
 Operator activates the override with:
 `docker compose -f docker-compose.yml -f docker-compose.cf-tunnel.yml up -d`.
 
-The tunnel routes the public CF hostname to `openclaw-gateway:8080/telegram` via CF's
+The tunnel routes the public CF hostname to `openclaw-gateway:18789/telegram` via CF's
 ingress rules (configured at the Cloudflare dashboard, not in this compose file —
 PRD-001@0.3.0 §3 NG5 forbids admin web UIs in v0.1, but this is the operator's CF
 dashboard, not the application's).
@@ -266,3 +267,7 @@ docker-compose overlay file instead.
 - Let's Encrypt rate limits: <https://letsencrypt.org/docs/rate-limits/>
 - Cloudflare Tunnel docs: <https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/>
 - cloudflared Docker image: <https://hub.docker.com/r/cloudflare/cloudflared>
+
+## Revision Log
+
+- 2026-05-25 — 0.1.1: corrected upstream port from 8080 to 18789 in §Default path Caddyfile (lines 157-158), §Default path prose (line 165), and §Override path tunnel target (line 201) to match the OpenClaw gateway runtime contract (HEALTHCHECK http://127.0.0.1:18789/healthz, CLI --port 18789 default, canonical -p 18789:18789 exposure in upstream docker-compose.yml). Drift surfaced by RV-CODE-017 F-H1 against TKT-039@0.1.0. Patch-level: no design change.
