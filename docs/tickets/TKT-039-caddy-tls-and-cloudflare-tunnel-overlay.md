@@ -1,8 +1,8 @@
 ---
 id: TKT-039
 title: Caddy + Let's Encrypt TLS termination + Cloudflare Tunnel overlay
-status: in_review
-arch_ref: ARCH-001@0.7.0
+status: done
+arch_ref: ARCH-001@0.7.1
 prd_ref: PRD-001@0.3.0
 component: Deployment / ADR-020
 depends_on: []
@@ -11,6 +11,9 @@ blocks:
 estimate: M
 created: 2026-05-25
 updated: 2026-05-25
+closed_at: 2026-05-25
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-017
 ---
 
 # TKT-039: Caddy + Let's Encrypt TLS termination + Cloudflare Tunnel overlay
@@ -82,3 +85,4 @@ Add a Caddy reverse-proxy service that terminates inbound TLS for the Telegram w
 - 2026-05-25T00:00:00Z opencode-executor: started
 - 2026-05-25T21:45:00Z opencode-executor: in_review; tests 54 pass; lint clean; typecheck clean
 - 2026-05-25T22:00:00Z opencode-executor: iter 2; ADR-020@0.1.1 landed in arch PR #27; updated Caddyfile upstream to openclaw-gateway:18789; addressed RV-CODE-017 F-H1 and F-M1 (added logging block to caddy service)
+- 2026-05-25T19:43Z opencode-orchestrator: merged in commit fec056f; RV-CODE-017 verdict=pass after iter 2 (F-H1 fixed via ADR-020@0.1.1 architect-consult patch + executor port update; F-M1 fixed inline; F-L3 left as cosmetic, see RV iter-2); arch_ref bumped to ARCH-001@0.7.1; status=done
