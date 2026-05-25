@@ -1,7 +1,7 @@
 ---
 id: TKT-042
 title: Allowlist seed from TELEGRAM_PILOT_USER_IDS + persistent volume bind
-status: in_review
+status: done
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: C15 Allowlist / Deployment
@@ -11,6 +11,9 @@ blocks:
 estimate: S
 created: 2026-05-25
 updated: 2026-05-25
+closed_at: 2026-05-25
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-013
 ---
 
 # TKT-042: Allowlist seed from TELEGRAM_PILOT_USER_IDS + persistent volume bind
@@ -72,3 +75,4 @@ Make `config/allowlist.json` seed itself from `TELEGRAM_PILOT_USER_IDS` on first
 <!-- executor fills as work proceeds -->
 - 2026-05-25T00:00:00Z opencode-executor: started
 - 2026-05-25T00:01:00Z opencode-executor: in_review; tests 4 pass (allowlistSeed); lint clean; typecheck clean
+- 2026-05-25T17:32:00Z opencode-orchestrator: merged in commit 411de33; RV-CODE-013 verdict=pass_with_changes (1M backlogged as BACKLOG-004 — boot-path wiring deferred to TKT-040@0.1.0); status=done
