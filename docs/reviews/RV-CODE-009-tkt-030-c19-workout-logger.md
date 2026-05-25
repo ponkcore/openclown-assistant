@@ -7,11 +7,9 @@ status: in_review
 created: 2026-05-25
 ---
 
-# Code Review — PR #13 (TKT-030)
+# Code Review — PR #13 (TKT-030@0.1.0)
 
-## Summary
-
-The C19 Workout Logger implementation is well-structured: closed-enum extraction with ADR-006 strict-keys validation, three-tier model fallback (default → fallback → emergency → failure), OFF-state gating on all three sources (text/voice/photo), Telegram photo download, and thorough test coverage (63 tests). One High finding blocks merge: the validator and parser accept `duration_min = 0` and `distance_km = 0`, but the schema CHECK constraints require `> 0` (strictly greater), so an LLM returning zero for these fields will pass validation but fail the DB INSERT with an unhandled CHECK constraint violation.
+The C19 Workout Logger implementation is well-structured: closed-enum extraction with ADR-006@0.1.0 strict-keys validation, three-tier model fallback (default → fallback → emergency → failure), OFF-state gating on all three sources (text/voice/photo), Telegram photo download, and thorough test coverage (63 tests). One High finding blocks merge: the validator and parser accept `duration_min = 0` and `distance_km = 0`, but the schema CHECK constraints require `> 0` (strictly greater), so an LLM returning zero for these fields will pass validation but fail the DB INSERT with an unhandled CHECK constraint violation.
 
 ## Verdict
 - [ ] pass
@@ -42,7 +40,7 @@ The reviewer's F-H1 is therefore reclassified as **closed-on-arrival** — no ex
 
 ## Contract compliance (each must be ticked or marked finding)
 - [x] PR modifies ONLY files listed in TKT §5 Outputs (§5 is blank in the ticket; all 14 changed files are within the expected C19 workout modality + store additive zones)
-- [x] No changes to TKT §3 NOT-In-Scope items (C17/C20/modality_settings/table DDL/ADR-016 untouched)
+- [x] No changes to TKT-030@0.1.0 §3 NOT-In-Scope items (C17/C20/modality_settings/table DDL/ADR-016@0.1.0 untouched)
 - [x] No new runtime dependencies beyond TKT §7 Constraints allowlist (no `package.json` changes)
 - [x] All Acceptance Criteria from TKT §6 are verifiably satisfied (file:line or test name cited below)
 - [ ] CI green (lint, typecheck, tests, coverage) — only `validate-docs` visible in GitHub Actions; executor §10 self-reports "tests 63 pass; lint clean; typecheck clean"
@@ -57,7 +55,7 @@ The reviewer's F-H1 is therefore reclassified as **closed-on-arrival** — no ex
 ### Medium
 
 ### Low
-- **F-L1 (ADR-016/schema enum drift):** ADR-016@0.1.0 uses `{strength_training, ..., hiking}` while the schema has `{strength, ..., hiit}`. The executor correctly follows the schema enum in all code, config, and types. This is the known BACKLOG-001 pattern — ArchSpec/ADR documentation is stale and needs a separate amendment cycle.
+- **F-L1 (ADR-016@0.1.0/schema enum drift):** ADR-016@0.1.0 uses `{strength_training, ..., hiking}` while the schema has `{strength, ..., hiit}`. The executor correctly follows the schema enum in all code, config, and types. This is the known BACKLOG-001 pattern — ArchSpec/ADR documentation is stale and needs a separate amendment cycle.
 - **F-L2 (`copy.ru.ts:38`):** The §6.2.2 strength example shows «жим лёжа, 80 кг × 5 × 5.» but the code template generates `«{workout_type_ru}, {sets}×{reps}»` without weight_kg. This is correct behavior since the extraction model's forced-output schema has no `weight_kg` field, but the comment's §6.2.2 verbatim claim is slightly misleading.
 
 ## Red-team probes (Reviewer must address each)
@@ -82,7 +80,7 @@ The reviewer's F-H1 is therefore reclassified as **closed-on-arrival** — no ex
 
 - **raw_workout_text PII leak (assumption 3):** The executor does NOT emit `raw_workout_text` or any raw user text in `emitLog` calls. The only emitLog extras are `{modality: "workout", source: sourceLabel, event_id: eventId.event_id}` (`logger.ts:247-250`). These are all in `ALLOWED_EXTRA_KEYS` (`events.ts:43-71`). The `LOG_FORBIDDEN_FIELDS` list includes `workout_text` and `workout_raw_description` as defense-in-depth. Test at `logger.test.ts:480-510` explicitly verifies no raw text in telemetry.
 
-- **TenantScopedRepository type-safe (assumption 4):** `grep -rn "as unknown as.*db\|extractQueryable" src/modality/workout/` returns zero results. The `insertWorkoutEvent` method is cleanly added to the `TenantScopedRepository` interface (`types.ts:571`), `TenantPostgresStore` (`tenantStore.ts:977-979`), and `BreachDetectingTenantStore` (`tenantStore.ts:1317-1319`) — follows the established TKT-029/031/023 pattern exactly.
+- **TenantScopedRepository type-safe (assumption 4):** `grep -rn "as unknown as.*db\|extractQueryable" src/modality/workout/` returns zero results. The `insertWorkoutEvent` method is cleanly added to the `TenantScopedRepository` interface (`types.ts:571`), `TenantPostgresStore` (`tenantStore.ts:977-979`), and `BreachDetectingTenantStore` (`tenantStore.ts:1317-1319`) — follows the established TKT-029@0.1.0/TKT-031@0.1.0/TKT-023@0.1.0 pattern exactly.
 
 - **Closed-enum mapping (assumption 8):** `WORKOUT_TYPE_RU` in `copy.ru.ts:21-30` maps all 8 schema enum values: strength→силовая, running→бег, cycling→велосипед, swimming→плавание, walking→ходьба, yoga→йога, hiit→HIIT, other→другое. All values are valid Cyrillic/ASCII as appropriate.
 
