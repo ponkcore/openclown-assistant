@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseConfig, ConfigError, REQUIRED_CONFIG_NAMES, redactSecrets } from "../../src/shared/config.js";
+import { parseConfig, ConfigError, REQUIRED_CONFIG_NAMES, redactSecrets, LLM_ENV_ALIASES } from "../../src/shared/config.js";
 
 function makeFullEnv(): Record<string, string> {
   return {
@@ -202,5 +202,87 @@ describe("redactSecrets", () => {
     const logLine = "telegram_bot_token=hello";
     const result = redactSecrets(logLine, ["TELEGRAM_BOT_TOKEN"]);
     expect(result).toBe("telegram_bot_token=hello");
+  });
+});
+
+describe("parseConfig LLM_* env-var aliases (ADR-024@0.1.0 §Backward compatibility)", () => {
+  it("boots with only new LLM_* env-var names (no legacy, no deprecation warning from config)", () => {
+    const env = makeFullEnv();
+    // Remove legacy names, set new names
+    delete env["OMNIROUTE_BASE_URL"];
+    delete env["OMNIROUTE_API_KEY"];
+    delete env["FIREWORKS_API_KEY"];
+    env["LLM_OMNIROUTE_BASE_URL"] = "http://new-llm.example.com/v1";
+    env["LLM_OMNIROUTE_API_KEY"] = "new-omni-key";
+    env["LLM_FIREWORKS_API_KEY"] = "new-fw-key";
+
+    const config = parseConfig(env);
+    expect(config.omnirouteBaseUrl).toBe("http://new-llm.example.com/v1");
+    expect(config.omnirouteApiKey).toBe("new-omni-key");
+    expect(config.fireworksApiKey).toBe("new-fw-key");
+  });
+
+  it("boots with only legacy env-var names (backward compat, no error)", () => {
+    const env = makeFullEnv();
+    // makeFullEnv already has only legacy names — just verify it works
+    const config = parseConfig(env);
+    expect(config.omnirouteBaseUrl).toBe("http://localhost:8000/v1");
+    expect(config.omnirouteApiKey).toBe("omni-key-abc");
+    expect(config.fireworksApiKey).toBe("fw-key-xyz");
+  });
+
+  it("prefers new LLM_* name over legacy when both are set", () => {
+    const env = makeFullEnv();
+    env["LLM_OMNIROUTE_BASE_URL"] = "http://preferred-new.example.com/v1";
+    env["LLM_OMNIROUTE_API_KEY"] = "preferred-new-key";
+    env["LLM_FIREWORKS_API_KEY"] = "preferred-fw-key";
+
+    const config = parseConfig(env);
+    expect(config.omnirouteBaseUrl).toBe("http://preferred-new.example.com/v1");
+    expect(config.omnirouteApiKey).toBe("preferred-new-key");
+    expect(config.fireworksApiKey).toBe("preferred-fw-key");
+  });
+
+  it("fails with clear error when both new and legacy names are absent", () => {
+    const env = makeFullEnv();
+    delete env["OMNIROUTE_BASE_URL"];
+    delete env["OMNIROUTE_API_KEY"];
+    delete env["FIREWORKS_API_KEY"];
+    // No LLM_* names set either
+
+    try {
+      parseConfig(env);
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConfigError);
+      const ce = err as ConfigError;
+      // The missingNames should mention both candidates
+      const allMissing = ce.missingNames.join(", ");
+      expect(allMissing).toContain("OMNIROUTE_BASE_URL");
+      expect(allMissing).toContain("LLM_OMNIROUTE_BASE_URL");
+      expect(allMissing).toContain("OMNIROUTE_API_KEY");
+      expect(allMissing).toContain("LLM_OMNIROUTE_API_KEY");
+      expect(allMissing).toContain("FIREWORKS_API_KEY");
+      expect(allMissing).toContain("LLM_FIREWORKS_API_KEY");
+    }
+  });
+
+  it("treats blank LLM_* value as absent (falls through to legacy)", () => {
+    const env = makeFullEnv();
+    env["LLM_OMNIROUTE_BASE_URL"] = "   ";
+    env["LLM_OMNIROUTE_API_KEY"] = "";
+    env["LLM_FIREWORKS_API_KEY"] = "";
+
+    const config = parseConfig(env);
+    // Falls through to legacy values
+    expect(config.omnirouteBaseUrl).toBe("http://localhost:8000/v1");
+    expect(config.omnirouteApiKey).toBe("omni-key-abc");
+    expect(config.fireworksApiKey).toBe("fw-key-xyz");
+  });
+
+  it("exports LLM_ENV_ALIASES mapping for downstream consumers", () => {
+    expect(LLM_ENV_ALIASES["OMNIROUTE_BASE_URL"]).toBe("LLM_OMNIROUTE_BASE_URL");
+    expect(LLM_ENV_ALIASES["OMNIROUTE_API_KEY"]).toBe("LLM_OMNIROUTE_API_KEY");
+    expect(LLM_ENV_ALIASES["FIREWORKS_API_KEY"]).toBe("LLM_FIREWORKS_API_KEY");
   });
 });

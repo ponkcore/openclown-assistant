@@ -30,6 +30,20 @@ export const REQUIRED_CONFIG_NAMES = [
 
 export type RequiredConfigName = (typeof REQUIRED_CONFIG_NAMES)[number];
 
+/**
+ * Alias mapping per ADR-024@0.1.0 §Backward compatibility.
+ * Each legacy env var has a canonical LLM_* replacement.
+ * `parseConfig` treats a var as present if EITHER name is set,
+ * and prefers the new name when both are present.
+ * The deprecation warning is emitted in the registry layer (one-shot,
+ * per-var, `kbju_llm_legacy_env_in_use{var}`), NOT here.
+ */
+export const LLM_ENV_ALIASES: Readonly<Record<string, string>> = {
+  OMNIROUTE_BASE_URL: "LLM_OMNIROUTE_BASE_URL",
+  OMNIROUTE_API_KEY: "LLM_OMNIROUTE_API_KEY",
+  FIREWORKS_API_KEY: "LLM_FIREWORKS_API_KEY",
+};
+
 export class ConfigError extends Error {
   public readonly missingNames: readonly string[];
 
@@ -43,12 +57,49 @@ export class ConfigError extends Error {
   }
 }
 
+/**
+ * Read an env var that has an LLM_* alias.
+ * Returns the value from the new name if set; falls back to the legacy name.
+ * Returns undefined when neither is set.
+ */
+function readAliasedEnv(
+  env: Record<string, string | undefined>,
+  legacyName: string,
+): string | undefined {
+  const newName = LLM_ENV_ALIASES[legacyName];
+  if (newName) {
+    const newValue = env[newName];
+    if (newValue !== undefined && newValue.trim() !== "") return newValue.trim();
+  }
+  const legacyValue = env[legacyName];
+  if (legacyValue !== undefined && legacyValue.trim() !== "") return legacyValue.trim();
+  return undefined;
+}
+
+/**
+ * Check whether an env var (or its LLM_* alias) is present and non-empty.
+ */
+function isAliasedPresent(
+  env: Record<string, string | undefined>,
+  legacyName: string,
+): boolean {
+  return readAliasedEnv(env, legacyName) !== undefined;
+}
+
 export function parseConfig(env: Record<string, string | undefined>): AppConfig {
   const missing: string[] = [];
 
   for (const name of REQUIRED_CONFIG_NAMES) {
-    if (!env[name] || env[name]!.trim() === "") {
-      missing.push(name);
+    if (name in LLM_ENV_ALIASES) {
+      // Aliased var: present if either the new name or legacy name is set
+      if (!isAliasedPresent(env, name)) {
+        const newName = LLM_ENV_ALIASES[name];
+        missing.push(`${name} (or ${newName})`);
+      }
+    } else {
+      if (!env[name] || env[name]!.trim() === "") {
+        missing.push(name);
+      }
     }
   }
 
@@ -61,9 +112,9 @@ export function parseConfig(env: Record<string, string | undefined>): AppConfig 
     telegramPilotUserIds: env["TELEGRAM_PILOT_USER_IDS"]!.split(",").map((s) => s.trim()),
     databaseUrl: env["DATABASE_URL"]!.trim(),
     postgresPassword: env["POSTGRES_PASSWORD"]!.trim(),
-    omnirouteBaseUrl: env["OMNIROUTE_BASE_URL"]!.trim(),
-    omnirouteApiKey: env["OMNIROUTE_API_KEY"]!.trim(),
-    fireworksApiKey: env["FIREWORKS_API_KEY"]!.trim(),
+    omnirouteBaseUrl: readAliasedEnv(env, "OMNIROUTE_BASE_URL")!,
+    omnirouteApiKey: readAliasedEnv(env, "OMNIROUTE_API_KEY")!,
+    fireworksApiKey: readAliasedEnv(env, "FIREWORKS_API_KEY")!,
     usdaFdcApiKey: env["USDA_FDC_API_KEY"]!.trim(),
     personaPath: env["PERSONA_PATH"]!.trim(),
     poAlertChatId: env["PO_ALERT_CHAT_ID"]!.trim(),
