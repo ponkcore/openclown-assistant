@@ -47,6 +47,8 @@ import type {
   WaterEventRow,
   MoodEventSource,
   MoodEventRow,
+  WorkoutEventSource,
+  WorkoutTypeEnum,
   SleepPairingStateRow,
   UserProfileRow,
   UserRow,
@@ -315,6 +317,9 @@ export class TenantPostgresStore implements TenantStore {
 
   public async insertSleepRecord(userId: string, startTsUtc: string, endTsUtc: string, durationMin: number, attributionDateLocal: string, attributionTz: string, isNap: boolean, isPairedOrigin: boolean): Promise<{ record_id: string }> {
     return this.withTransaction(userId, (repository) => repository.insertSleepRecord(userId, startTsUtc, endTsUtc, durationMin, attributionDateLocal, attributionTz, isNap, isPairedOrigin));
+  }
+  public async insertWorkoutEvent(userId: string, source: WorkoutEventSource, workoutType: WorkoutTypeEnum, durationMin: number | null, distanceKm: number | null, sets: number | null, reps: number | null, rawWorkoutText: string | null, rawDescription: string | null): Promise<{ event_id: string }> {
+    return this.withTransaction(userId, (repository) => repository.insertWorkoutEvent(userId, source, workoutType, durationMin, distanceKm, sets, reps, rawWorkoutText, rawDescription));
   }
 
   public async getSleepPairingState(userId: string): Promise<import("./types.js").SleepPairingStateRow | null> {
@@ -1053,6 +1058,27 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
     );
     return expectOne(result, "sleep_records");
   }
+  // ── C19 Workout Events (TKT-030@0.1.0) ───────────────────────────────────
+
+  public async insertWorkoutEvent(
+    userId: string,
+    source: WorkoutEventSource,
+    workoutType: WorkoutTypeEnum,
+    durationMin: number | null,
+    distanceKm: number | null,
+    sets: number | null,
+    reps: number | null,
+    rawWorkoutText: string | null,
+    rawDescription: string | null,
+  ): Promise<{ event_id: string }> {
+    const result = await this.db.query<{ event_id: string }>(
+      `INSERT INTO workout_events (event_id, user_id, ts_utc, type, duration_min, distance_km, sets, reps, source, raw_workout_text, raw_description, created_at)
+       VALUES (gen_random_uuid(), $1, now(), $2, $3, $4, $5, $6, $7, $8, $9, now())
+       RETURNING event_id`,
+      [userId, workoutType, durationMin, distanceKm, sets, reps, source, rawWorkoutText, rawDescription],
+    );
+    return expectOne(result, "workout_events");
+  }
 
   public async getSleepPairingState(userId: string): Promise<SleepPairingStateRow | null> {
     const result = await this.db.query<SleepPairingStateRow>(
@@ -1331,6 +1357,12 @@ export class BreachDetectingTenantStore implements TenantStore {
   public async insertSleepRecord(userId: string, startTsUtc: string, endTsUtc: string, durationMin: number, attributionDateLocal: string, attributionTz: string, isNap: boolean, isPairedOrigin: boolean): Promise<{ record_id: string }> {
     this.guard(userId, "write", "sleep_records");
     return this.inner.insertSleepRecord(userId, startTsUtc, endTsUtc, durationMin, attributionDateLocal, attributionTz, isNap, isPairedOrigin);
+  }
+  // ── C19 Workout Events (TKT-030@0.1.0) ───────────────────────────────────
+
+  public async insertWorkoutEvent(userId: string, source: WorkoutEventSource, workoutType: WorkoutTypeEnum, durationMin: number | null, distanceKm: number | null, sets: number | null, reps: number | null, rawWorkoutText: string | null, rawDescription: string | null): Promise<{ event_id: string }> {
+    this.guard(userId, "write", "workout_events");
+    return this.inner.insertWorkoutEvent(userId, source, workoutType, durationMin, distanceKm, sets, reps, rawWorkoutText, rawDescription);
   }
 
   public async getSleepPairingState(userId: string): Promise<import("./types.js").SleepPairingStateRow | null> {

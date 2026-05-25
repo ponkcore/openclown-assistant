@@ -567,10 +567,37 @@ export interface TenantScopedRepository {
   upsertSleepPairingState(userId: string, legEventTsUtc: string, expiresAtUtc: string): Promise<void>;
   deleteSleepPairingState(userId: string): Promise<void>;
   gcExpiredSleepPairingState(nowUtc: string): Promise<{ rows_deleted: number }>;
+  // ── C19 Workout Events (TKT-030@0.1.0) ───────────────────────────────────
+  insertWorkoutEvent(userId: string, source: WorkoutEventSource, workoutType: WorkoutTypeEnum, durationMin: number | null, distanceKm: number | null, sets: number | null, reps: number | null, rawWorkoutText: string | null, rawDescription: string | null): Promise<{ event_id: string }>;
 }
 
 export interface TenantStore extends TenantScopedRepository {
   withTransaction<T>(userId: string, action: (repository: TenantScopedRepository) => Promise<T>): Promise<T>;
+}
+
+// ── C19 Workout Events (TKT-030@0.1.0 / TKT-021@0.1.0 schema) ────────────
+
+/** Workout event source per workout_events table (TKT-021@0.1.0). */
+export type WorkoutEventSource = "text" | "voice" | "photo";
+
+/** Canonical workout type enum per schema.sql workout_type enum + ADR-016@0.1.0. */
+export type WorkoutTypeEnum = "strength" | "running" | "cycling" | "swimming" | "walking" | "yoga" | "hiit" | "other";
+
+/** Workout event row shape from workout_events table (TKT-021@0.1.0). */
+export interface WorkoutEventRow {
+  event_id: string;
+  user_id: string;
+  ts_utc: string;
+  type: WorkoutTypeEnum;
+  duration_min: number | null;
+  distance_km: number | null;
+  weight_kg: number | null;
+  reps: number | null;
+  sets: number | null;
+  source: WorkoutEventSource;
+  raw_workout_text: string | null;
+  raw_description: string | null;
+  created_at: string;
 }
 
 // ── C17 Water Events (TKT-029@0.1.0 / TKT-021@0.1.0 schema) ────────────

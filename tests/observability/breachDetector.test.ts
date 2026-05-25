@@ -80,6 +80,7 @@ function makeStubStore(): TenantStore {
     upsertSleepPairingState: vi.fn().mockResolvedValue(undefined),
     deleteSleepPairingState: vi.fn().mockResolvedValue(undefined),
     gcExpiredSleepPairingState: vi.fn().mockResolvedValue({ rows_deleted: 0 }),
+    insertWorkoutEvent: vi.fn().mockResolvedValue({ event_id: "we1" }),
   };
 }
 
