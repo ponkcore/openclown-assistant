@@ -45,6 +45,8 @@ import type {
   ModalitySettingToggleResult,
   WaterEventSource,
   WaterEventRow,
+  MoodEventSource,
+  MoodEventRow,
   UserProfileRow,
   UserRow,
   UserTargetRow,
@@ -301,6 +303,11 @@ export class TenantPostgresStore implements TenantStore {
 
   public async insertWaterEvent(userId: string, source: WaterEventSource, volumeMl: number, rawText: string | null): Promise<{ event_id: string }> {
     return this.withTransaction(userId, (repository) => repository.insertWaterEvent(userId, source, volumeMl, rawText));
+  }
+  // ── C20 Mood Events (TKT-031@0.1.0) ───────────────────────────────────
+
+  public async insertMoodEvent(userId: string, source: MoodEventSource, score: number, commentText: string | null, inferredFromText: boolean, rawText: string | null): Promise<{ event_id: string }> {
+    return this.withTransaction(userId, (repository) => repository.insertMoodEvent(userId, source, score, commentText, inferredFromText, rawText));
   }
 }
 
@@ -978,6 +985,25 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
     );
     return expectOne(result, "water_events");
   }
+
+  // ── C20 Mood Events (TKT-031@0.1.0) ───────────────────────────────────
+
+  public async insertMoodEvent(
+    userId: string,
+    source: MoodEventSource,
+    score: number,
+    commentText: string | null,
+    inferredFromText: boolean,
+    rawText: string | null,
+  ): Promise<{ event_id: string }> {
+    const result = await this.db.query<{ event_id: string }>(
+      `INSERT INTO mood_events (event_id, user_id, ts_utc, score, comment_text, source, inferred_from_text, raw_text, created_at)
+       VALUES (gen_random_uuid(), $1, now(), $2, $3, $4, $5, $6, now())
+       RETURNING event_id`,
+      [userId, score, commentText, source, inferredFromText, rawText],
+    );
+    return expectOne(result, "mood_events");
+  }
 }
 
 function expectOne<Row extends QueryResultRow>(result: QueryResult<Row>, entityName: string): Row {
@@ -1202,6 +1228,13 @@ export class BreachDetectingTenantStore implements TenantStore {
   public async insertWaterEvent(userId: string, source: WaterEventSource, volumeMl: number, rawText: string | null): Promise<{ event_id: string }> {
     this.guard(userId, "write", "water_events");
     return this.inner.insertWaterEvent(userId, source, volumeMl, rawText);
+  }
+
+  // ── C20 Mood Events (TKT-031@0.1.0) ───────────────────────────────────
+
+  public async insertMoodEvent(userId: string, source: MoodEventSource, score: number, commentText: string | null, inferredFromText: boolean, rawText: string | null): Promise<{ event_id: string }> {
+    this.guard(userId, "write", "mood_events");
+    return this.inner.insertMoodEvent(userId, source, score, commentText, inferredFromText, rawText);
   }
 }
 
