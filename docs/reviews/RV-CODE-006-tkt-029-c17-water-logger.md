@@ -32,7 +32,7 @@ Recommendation to PO: approve & merge (all three iter-1 Mediums closed in iter-2
 - [x] All Acceptance Criteria from TKT-029@0.1.0 §5 are verifiably satisfied (see AC verification below)
 - [x] CI green (lint, typecheck, tests, coverage) — not directly verifiable from review context; executor self-reported green. Pre-existing failures (healthCheck 1, allowlist 2) expected unchanged.
 - [x] Definition of Done — executor's §10 Execution Log documents implementation completion.
-- [x] Ticket frontmatter `status: in_review` in the diff (TKT-029-c17-water-logger.md line 5: `status: in_review`)
+- [x] Ticket frontmatter `status: in_review` in the diff (`TKT-029-c17-water-logger.md` line 5: `status: in_review`)
 
 ## Acceptance Criteria verification
 
