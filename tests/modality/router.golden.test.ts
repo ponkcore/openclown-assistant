@@ -101,9 +101,7 @@ function makeClassifierConfigLoader(threshold: number = 0.6): ClassifierConfigLo
     systemPromptTemplate: "test prompt {{CANDIDATE_SET}} {{JSON_SCHEMA}}",
     outputJsonSchema: '{"label":"string","confidence":"number"}',
     confidenceThreshold: threshold,
-    defaultModel: { modelAlias: "default-model", providerHint: "fireworks" },
-    fallbackModel: { modelAlias: "fallback-model", providerHint: "fireworks" },
-    emergencyModel: { modelAlias: "emergency-model", providerHint: "openrouter" },
+    call_type: "kbju.modality_router_classifier",
   };
   const tmpPath = filePath + ".tmp";
   fs.writeFileSync(tmpPath, JSON.stringify(cfg), "utf-8");
@@ -315,10 +313,10 @@ describe("LLM-fallback mock round-trip cases", () => {
     },
     {
       input: "кефир и вода",
-      classifierResult: { modality: "WATER", confidence: 0.6, modelTier: "emergency" },
+      classifierResult: { modality: "WATER", confidence: 0.6, modelTier: "fallback" },
       expectedModality: "WATER",
       expectedOutcome: "deterministic_multi_llm_resolved",
-      name: "multi: кефир и вода → WATER (emergency resolves)",
+      name: "multi: кефир и вода → WATER (fallback resolves)",
     },
     {
       input: "выпил воды после тренировки",
@@ -423,10 +421,10 @@ describe("LLM-fallback mock round-trip cases", () => {
     },
     {
       input: "сходил на фитнес",
-      classifierResult: { modality: "WORKOUT", confidence: 0.9, modelTier: "emergency" },
+      classifierResult: { modality: "WORKOUT", confidence: 0.9, modelTier: "fallback" },
       expectedModality: "WORKOUT",
       expectedOutcome: "zero_match_llm_resolved",
-      name: "zero: сходил на фитнес → WORKOUT (emergency)",
+      name: "zero: сходил на фитнес → WORKOUT (fallback)",
     },
     {
       input: "грустно",

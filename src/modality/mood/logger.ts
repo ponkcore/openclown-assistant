@@ -147,8 +147,6 @@ export async function handleMoodEvent(
     metrics: MetricsRegistry;
     logger: OpenClawLogger;
     clock?: Clock;
-    omniRouteBaseUrl?: string;
-    omniRouteApiKey?: string;
     spendTracker?: import("../../observability/costGuard.js").SpendTracker;
     degradeModeEnabled?: boolean;
   },
@@ -379,8 +377,6 @@ export async function handleMoodEvent(
       deps.configLoader,
       deps.logger,
       deps.metrics,
-      deps.omniRouteBaseUrl,
-      deps.omniRouteApiKey,
       deps.spendTracker,
       degrade,
     );

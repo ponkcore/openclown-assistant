@@ -35,7 +35,7 @@ import type { OpenClawLogger } from "../../src/shared/types.js";
 interface LLMMock {
   modality: string;
   confidence: number;
-  modelTier: "default" | "fallback" | "emergency" | "failure";
+  modelTier: "default" | "fallback" | "failure";
 }
 
 interface DeterministicCase {
@@ -152,9 +152,7 @@ function makeClassifierConfigLoader(threshold: number = 0.6): ClassifierConfigLo
     systemPromptTemplate: "test prompt {{CANDIDATE_SET}} {{JSON_SCHEMA}}",
     outputJsonSchema: '{"label":"string","confidence":"number"}',
     confidenceThreshold: threshold,
-    defaultModel: { modelAlias: "default-model", providerHint: "fireworks" },
-    fallbackModel: { modelAlias: "fallback-model", providerHint: "fireworks" },
-    emergencyModel: { modelAlias: "emergency-model", providerHint: "openrouter" },
+    call_type: "kbju.modality_router_classifier",
   };
   const tmpPath = filePath + ".tmp";
   fs.writeFileSync(tmpPath, JSON.stringify(cfg), "utf-8");

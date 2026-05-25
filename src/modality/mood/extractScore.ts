@@ -1,51 +1,37 @@
 /**
- * C20 Mood Score Extractor — LLM-backed mood-score parsing via OmniRoute.
+ * C20 Mood Score Extractor — LLM-backed mood-score parsing via registry.
  *
- * Per ADR-018@0.1.0 §Decision (C20):
- *   default model: accounts/fireworks/models/executor
- *   fallback model: accounts/fireworks/models/reviewer
- *   emergency-free model: openrouter/nvidia/nemotron-3-super:free
- *
- * Call chain: default → on error/timeout/invalid-json → fallback →
- *   on second failure → emergency → on third failure → return failure
- *   with score=0, confidence=0, tier='failure'.
+ * Per ADR-024@0.1.0: model/provider resolved from config/llm.json via
+ * manifest.call_type → registry.resolve(). Fallback chain is defined in
+ * the registry (fallback_call_type), not in the manifest.
  *
  * Per ADR-006@0.1.0: forced-output guardrail — hard-validate JSON schema,
  * strict-keys validation, reject + fall back to failure on parse failure.
  */
 
 import fs from "node:fs";
-import type { OpenClawLogger } from "../../shared/types.js";
+import type { OpenClawLogger, CallType } from "../../shared/types.js";
 import type { MetricsRegistry } from "../../observability/metricsEndpoint.js";
 import { PROMETHEUS_METRIC_NAMES } from "../../observability/kpiEvents.js";
-import { callOmniRoute } from "../../llm/omniRouteClient.js";
-import type {
-  OmniRouteConfig,
-  OmniRouteCallOptions,
-  OmniRouteCallResult,
-} from "../../llm/omniRouteClient.js";
+import { chatCompletion } from "../../llm/llmClient.js";
+import type { ChatCompletionResult, LlmCallContext } from "../../llm/llmClient.js";
+import { resolve } from "../../llm/registry.js";
+import type { Resolved } from "../../llm/registry.js";
 import type { SpendTracker } from "../../observability/costGuard.js";
 
 // ── Config types ──────────────────────────────────────────────────────────
 
-export interface ExtractorModelPick {
-  modelAlias: string;
-  providerHint: string;
-}
-
 export interface MoodExtractorConfig {
+  /** Registry call-type alias (ADR-024@0.1.0) */
+  call_type: string;
+  /** Optional operator context (e.g. previous model pick) */
+  comment?: string;
   /** System prompt template for mood-score extraction */
   systemPromptTemplate: string;
   /** JSON schema the LLM must produce */
   outputJsonSchema: string;
   /** Confidence threshold (0.6 default per ADR-018) */
   confidenceThreshold: number;
-  /** Default model per ADR-018 */
-  defaultModel: ExtractorModelPick;
-  /** Fallback model per ADR-018 */
-  fallbackModel: ExtractorModelPick;
-  /** Emergency-free model per ADR-018 */
-  emergencyModel: ExtractorModelPick;
 }
 
 // ── Result type ───────────────────────────────────────────────────────────
@@ -55,7 +41,7 @@ export interface ExtractMoodResult {
   confidence: number;
   inferredComment: string | null;
   /** Which model tier succeeded (for metrics) */
-  modelTier: "default" | "fallback" | "emergency" | "failure";
+  modelTier: "default" | "fallback" | "failure";
 }
 
 // ── Valid output schema ───────────────────────────────────────────────────
@@ -181,8 +167,8 @@ export class MoodExtractorConfigLoader {
     if (typeof cfg.confidenceThreshold !== "number" || cfg.confidenceThreshold < 0 || cfg.confidenceThreshold > 1) {
       throw new Error("mood extractor config must have confidenceThreshold in [0, 1]");
     }
-    if (!cfg.defaultModel || !cfg.fallbackModel || !cfg.emergencyModel) {
-      throw new Error("mood extractor config must have defaultModel, fallbackModel, emergencyModel");
+    if (typeof cfg.call_type !== "string" || cfg.call_type.length === 0) {
+      throw new Error("mood extractor config must have non-empty call_type");
     }
     if (typeof cfg.systemPromptTemplate !== "string" || cfg.systemPromptTemplate.length === 0) {
       throw new Error("mood extractor config must have non-empty systemPromptTemplate");
@@ -204,6 +190,41 @@ function buildUserContent(text: string): string {
   return JSON.stringify({ message_text_ru: text });
 }
 
+// ── Call LLM via registry-resolved provider ────────────────────────────────
+
+async function callWithResolved(
+  callType: string,
+  resolved: Resolved,
+  systemPrompt: string,
+  userContent: string,
+  requestId: string,
+  userId: string,
+  spendTracker: SpendTracker,
+  logger: OpenClawLogger,
+  degradeModeEnabled: boolean
+): Promise<ChatCompletionResult> {
+
+  const opts = {
+    call_type: callType,
+    messages: [
+      { role: "system" as const, content: systemPrompt },
+      { role: "user" as const, content: userContent },
+    ],
+    max_tokens: 64,
+  };
+
+  const ctx: LlmCallContext = {
+    callType: "text_llm" as CallType,
+    requestId,
+    userId,
+    logger,
+    spendTracker,
+    degradeModeEnabled,
+  };
+
+  return chatCompletion(opts, ctx, resolved);
+}
+
 // ── Null spend tracker (for when caller doesn't supply one) ────────────────
 
 function createNullSpendTracker(): SpendTracker {
@@ -219,50 +240,13 @@ function createNullSpendTracker(): SpendTracker {
   } as unknown as SpendTracker;
 }
 
-// ── Call OmniRoute with a specific model ──────────────────────────────────
-
-async function callWithModel(
-  modelPick: ExtractorModelPick,
-  systemPrompt: string,
-  userContent: string,
-  requestId: string,
-  userId: string,
-  omniRouteBaseUrl: string,
-  omniRouteApiKey: string,
-  spendTracker: SpendTracker,
-  logger: OpenClawLogger,
-  degradeModeEnabled: boolean
-): Promise<OmniRouteCallResult> {
-  const config: OmniRouteConfig = {
-    baseUrl: omniRouteBaseUrl,
-    apiKey: omniRouteApiKey,
-    textModelAlias: modelPick.modelAlias,
-    maxInputTokens: 256,
-    maxOutputTokens: 64,
-  };
-
-  const options: OmniRouteCallOptions = {
-    callType: "text_llm",
-    systemPrompt,
-    userContent,
-    requestId,
-    userId,
-    degradeModeEnabled,
-    logger,
-    spendTracker,
-  };
-
-  return callOmniRoute(config, options);
-}
-
 // ── Main extraction function ──────────────────────────────────────────────
 
 /**
  * Extract mood score from free-form Russian text via LLM.
  *
- * Per ADR-018: try default → fallback → emergency. Each transition
- * emits the corresponding kbju_modality_router_llm_call metric.
- * After third failure → return failure with score=0, confidence=0.
+ * Registry resolves call_type → provider/model with optional fallback.
+ * After both tiers fail → return failure with score=0, confidence=0.
  */
 export async function extractMoodFromText(
   text: string,
@@ -271,8 +255,6 @@ export async function extractMoodFromText(
   configLoader: MoodExtractorConfigLoader,
   logger: OpenClawLogger,
   metricsRegistry: MetricsRegistry,
-  omniRouteBaseUrl?: string,
-  omniRouteApiKey?: string,
   spendTracker?: SpendTracker,
   degradeModeEnabled?: boolean
 ): Promise<ExtractMoodResult> {
@@ -292,98 +274,93 @@ export async function extractMoodFromText(
   );
   const userContent = buildUserContent(text);
 
-  const baseUrl = omniRouteBaseUrl ?? process.env.OMNIROUTE_BASE_URL ?? "http://localhost:11434";
-  const apiKey = omniRouteApiKey ?? process.env.OMNIROUTE_API_KEY ?? "";
   const tracker = spendTracker ?? createNullSpendTracker();
   const degrade = degradeModeEnabled ?? false;
 
-  // Tier 1: default model
-  const defaultResult = await callWithModel(
-    config.defaultModel,
-    systemPrompt,
-    userContent,
-    requestId,
-    userId,
-    baseUrl,
-    apiKey,
-    tracker,
-    logger,
-    degrade
-  );
-
-  if (defaultResult.outcome === "success") {
-    const parsed = parseMoodOutput(defaultResult.rawResponseText);
-    if (parsed) {
-      metricsRegistry.increment(
-        PROMETHEUS_METRIC_NAMES.kbju_modality_router_llm_call,
-        { component: "C20", outcome: "success_default" }
-      );
-      return {
-        score: parsed.score,
-        confidence: parsed.confidence,
-        inferredComment: parsed.inferred_comment ?? null,
-        modelTier: "default",
-      };
-    }
+  // Resolve from registry
+  let resolved: Resolved;
+  try {
+    resolved = resolve(config.call_type);
+  } catch (err) {
+    logger.warn(
+      `mood extractor registry resolve failed for call_type="${config.call_type}": ${err instanceof Error ? err.message : String(err)}`
+    );
+    metricsRegistry.increment(
+      PROMETHEUS_METRIC_NAMES.kbju_modality_router_llm_call,
+      { component: "C20", outcome: "failure" }
+    );
+    return { score: 0, confidence: 0, inferredComment: null, modelTier: "failure" };
   }
 
-  // Tier 2: fallback model
-  const fallbackResult = await callWithModel(
-    config.fallbackModel,
-    systemPrompt,
-    userContent,
-    requestId,
-    userId,
-    baseUrl,
-    apiKey,
-    tracker,
-    logger,
-    degrade
-  );
+  // Tier 1: default (registry primary)
+  try {
+    const defaultResult = await callWithResolved(
+      config.call_type,
+      resolved,
+      systemPrompt,
+      userContent,
+      requestId,
+      userId,
+      tracker,
+      logger,
+      degrade
+    );
 
-  if (fallbackResult.outcome === "success") {
-    const parsed = parseMoodOutput(fallbackResult.rawResponseText);
-    if (parsed) {
-      metricsRegistry.increment(
-        PROMETHEUS_METRIC_NAMES.kbju_modality_router_llm_call,
-        { component: "C20", outcome: "success_fallback" }
-      );
-      return {
-        score: parsed.score,
-        confidence: parsed.confidence,
-        inferredComment: parsed.inferred_comment ?? null,
-        modelTier: "fallback",
-      };
+    if (defaultResult.outcome === "success") {
+      const parsed = parseMoodOutput(defaultResult.rawResponseText);
+      if (parsed) {
+        metricsRegistry.increment(
+          PROMETHEUS_METRIC_NAMES.kbju_modality_router_llm_call,
+          { component: "C20", outcome: "success_default" }
+        );
+        return {
+          score: parsed.score,
+          confidence: parsed.confidence,
+          inferredComment: parsed.inferred_comment ?? null,
+          modelTier: "default",
+        };
+      }
     }
+  } catch (err) {
+    logger.warn(
+      `mood extractor default call failed: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
-  // Tier 3: emergency-free model
-  const emergencyResult = await callWithModel(
-    config.emergencyModel,
-    systemPrompt,
-    userContent,
-    requestId,
-    userId,
-    baseUrl,
-    apiKey,
-    tracker,
-    logger,
-    degrade
-  );
-
-  if (emergencyResult.outcome === "success") {
-    const parsed = parseMoodOutput(emergencyResult.rawResponseText);
-    if (parsed) {
-      metricsRegistry.increment(
-        PROMETHEUS_METRIC_NAMES.kbju_modality_router_llm_call,
-        { component: "C20", outcome: "success_emergency" }
+  // Tier 2: fallback (registry fallback_call_type)
+  if (resolved.fallback) {
+    try {
+      const fallbackResult = await callWithResolved(
+        config.call_type,
+        resolved.fallback,
+        systemPrompt,
+        userContent,
+        requestId,
+        userId,
+        tracker,
+        logger,
+        degrade
       );
-      return {
-        score: parsed.score,
-        confidence: parsed.confidence,
-        inferredComment: parsed.inferred_comment ?? null,
-        modelTier: "emergency",
-      };
+
+      if (fallbackResult.outcome === "success") {
+        const parsed = parseMoodOutput(fallbackResult.rawResponseText);
+        if (parsed) {
+          metricsRegistry.increment(
+            PROMETHEUS_METRIC_NAMES.kbju_modality_router_llm_call,
+            { component: "C20", outcome: "success_fallback" }
+          );
+          return {
+            score: parsed.score,
+            confidence: parsed.confidence,
+            inferredComment: parsed.inferred_comment ?? null,
+            modelTier: "fallback",
+          };
+        }
+      }
+    } catch (err) {
+      logger.warn(
+        `mood extractor fallback call failed: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
 

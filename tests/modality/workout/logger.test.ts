@@ -17,13 +17,45 @@ import {
 } from "../../../src/modality/workout/copy.ru.js";
 import { PROMETHEUS_METRIC_NAMES } from "../../../src/observability/kpiEvents.js";
 
-// Mock callOmniRoute
-vi.mock("../../../src/llm/omniRouteClient.js", () => ({
-  callOmniRoute: vi.fn(),
+// Mock llmClient + registry
+vi.mock("../../../src/llm/llmClient.js", () => ({
+  chatCompletion: vi.fn(),
+  vision: vi.fn(),
+  isPromptOrResponseSafeForLogging: vi.fn().mockReturnValue(true),
 }));
 
-import { callOmniRoute } from "../../../src/llm/omniRouteClient.js";
-const mockCallOmniRoute = vi.mocked(callOmniRoute);
+vi.mock("../../../src/llm/registry.js", () => ({
+  resolve: vi.fn(),
+  getApiKey: vi.fn().mockReturnValue("test-api-key"),
+  initRegistry: vi.fn(),
+  closeRegistry: vi.fn(),
+  reload: vi.fn(),
+  _resetLegacyWarned: vi.fn(),
+  adaptMetricsSink: vi.fn(),
+  RegistryError: class RegistryError extends Error { code = ""; },
+}));
+
+import { chatCompletion, vision } from "../../../src/llm/llmClient.js";
+import { resolve } from "../../../src/llm/registry.js";
+import type { Resolved } from "../../../src/llm/registry.js";
+import type { ChatCompletionResult } from "../../../src/llm/llmClient.js";
+
+const mockChatCompletion = vi.mocked(chatCompletion);
+const mockVision = vi.mocked(vision);
+const mockResolve = vi.mocked(resolve);
+
+const MOCK_RESOLVED: Resolved = {
+  provider_id: "fireworks",
+  base_url: "https://api.fireworks.ai/inference/v1",
+  api_key_env: "LLM_FIREWORKS_API_KEY",
+  model: "accounts/fireworks/models/qwen3-vl-30b-a3b",
+  fallback: {
+    provider_id: "fireworks",
+    base_url: "https://api.fireworks.ai/inference/v1",
+    api_key_env: "LLM_FIREWORKS_API_KEY",
+    model: "accounts/fireworks/models/executor",
+  },
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -109,9 +141,7 @@ const EXTRACTOR_CONFIG = {
   systemPromptTemplate: "Extract workout from message. Schema: {{JSON_SCHEMA}}. Respond with ONLY JSON.",
   outputJsonSchema: '{"workout_type":"string","duration_min":"integer|null","distance_km":"number|null","sets":"integer|null","repetitions":"integer|null","confidence":"number"}',
   confidenceThreshold: 0.5,
-  defaultModel: { modelAlias: "accounts/fireworks/models/qwen3-vl-30b-a3b", providerHint: "fireworks" },
-  fallbackModel: { modelAlias: "accounts/fireworks/models/executor", providerHint: "fireworks" },
-  emergencyModel: { modelAlias: "openrouter/nvidia/nemotron-3-super:free", providerHint: "openrouter" },
+  call_type: "kbju.workout_extractor",
 };
 
 function makeExtractorConfigLoader(
@@ -140,10 +170,10 @@ function makeSpendTracker() {
   };
 }
 
-function successfulOmniResult(json: string): import("../../../src/llm/omniRouteClient.js").OmniRouteCallResult {
+function successfulOmniResult(json: string): ChatCompletionResult {
   return {
-    providerAlias: "fireworks",
-    modelAlias: "accounts/fireworks/models/qwen3-vl-30b-a3b",
+    provider_id: "fireworks",
+    model: "accounts/fireworks/models/qwen3-vl-30b-a3b",
     rawResponseText: json,
     inputUnits: 50,
     outputUnits: 30,
@@ -163,6 +193,7 @@ describe("handleWorkoutEvent", () => {
   let spendTracker: ReturnType<typeof makeSpendTracker>;
 
   beforeEach(() => {
+    mockResolve.mockReturnValue(MOCK_RESOLVED);
     const result = makeExtractorConfigLoader();
     loader = result.loader;
     cleanup = result.cleanup;
@@ -182,7 +213,7 @@ describe("handleWorkoutEvent", () => {
   describe("text source — each enum value", () => {
     for (const type of WORKOUT_TYPE_ENUM) {
       it(`persists workout_type="${type}" from text`, async () => {
-        mockCallOmniRoute.mockResolvedValueOnce(successfulOmniResult(
+        mockChatCompletion.mockResolvedValueOnce(successfulOmniResult(
           JSON.stringify({ workout_type: type, duration_min: 30, distance_km: null, sets: null, repetitions: null, confidence: 0.9 }),
         ));
 
@@ -208,7 +239,7 @@ describe("handleWorkoutEvent", () => {
   // ── Voice extraction ─────────────────────────────────────────────────────
 
   it("persists workout from voice source with source='voice'", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successfulOmniResult(
+    mockChatCompletion.mockResolvedValueOnce(successfulOmniResult(
       JSON.stringify({ workout_type: "running", duration_min: 45, distance_km: 5, sets: null, repetitions: null, confidence: 0.85 }),
     ));
 
@@ -232,7 +263,7 @@ describe("handleWorkoutEvent", () => {
   // ── Photo extraction ────────────────────────────────────────────────────
 
   it("persists workout from photo source with source='photo'", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successfulOmniResult(
+    mockVision.mockResolvedValueOnce(successfulOmniResult(
       JSON.stringify({ workout_type: "cycling", duration_min: 60, distance_km: 20, sets: null, repetitions: null, confidence: 0.8 }),
     ));
 
@@ -280,7 +311,7 @@ describe("handleWorkoutEvent", () => {
   // ── Out-of-enum rejection ──────────────────────────────────────────────
 
   it("returns AMBIGUOUS_REPLY when LLM returns out-of-enum type", async () => {
-    mockCallOmniRoute.mockResolvedValue(successfulOmniResult(
+    mockChatCompletion.mockResolvedValue(successfulOmniResult(
       JSON.stringify({ workout_type: "jogging", duration_min: 20, distance_km: null, sets: null, repetitions: null, confidence: 0.8 }),
     ));
 
@@ -301,7 +332,7 @@ describe("handleWorkoutEvent", () => {
   // ── Negative numeric rejection ──────────────────────────────────────────
 
   it("returns AMBIGUOUS_REPLY when LLM returns negative duration", async () => {
-    mockCallOmniRoute.mockResolvedValue(successfulOmniResult(
+    mockChatCompletion.mockResolvedValue(successfulOmniResult(
       JSON.stringify({ workout_type: "running", duration_min: -5, distance_km: null, sets: null, repetitions: null, confidence: 0.9 }),
     ));
 
@@ -322,7 +353,7 @@ describe("handleWorkoutEvent", () => {
   // ── Ambiguous → clarifying reply ────────────────────────────────────────
 
   it("returns AMBIGUOUS_REPLY when all LLM tiers fail", async () => {
-    mockCallOmniRoute.mockRejectedValue(new Error("all down"));
+    mockChatCompletion.mockRejectedValue(new Error("all down"));
 
     const result = await handleWorkoutEvent(
       { userId: "user-1", source: "text", rawText: "что-то", requestId: "req-amb1" },
@@ -339,7 +370,7 @@ describe("handleWorkoutEvent", () => {
   });
 
   it("returns AMBIGUOUS_REPLY when confidence is below threshold", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successfulOmniResult(
+    mockChatCompletion.mockResolvedValueOnce(successfulOmniResult(
       JSON.stringify({ workout_type: "running", duration_min: 30, distance_km: null, sets: null, repetitions: null, confidence: 0.3 }),
     ));
 
@@ -373,7 +404,7 @@ describe("handleWorkoutEvent", () => {
     expect(result.persisted).toBe(false);
     expect(result.text).toBe(OFF_STATE_REPLY);
     expect(store.insertWorkoutEvent).not.toHaveBeenCalled();
-    expect(mockCallOmniRoute).not.toHaveBeenCalled();
+    expect(mockChatCompletion).not.toHaveBeenCalled();
   });
 
   it("skips silently when workout_on=false (voice source)", async () => {
@@ -409,7 +440,7 @@ describe("handleWorkoutEvent", () => {
   // ── Telemetry counter shape ─────────────────────────────────────────────
 
   it("emits kbju_modality_event_persisted counter with {modality, source} labels", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successfulOmniResult(
+    mockChatCompletion.mockResolvedValueOnce(successfulOmniResult(
       JSON.stringify({ workout_type: "running", duration_min: 30, distance_km: null, sets: null, repetitions: null, confidence: 0.9 }),
     ));
 
@@ -430,7 +461,7 @@ describe("handleWorkoutEvent", () => {
   });
 
   it("emits counter with source='voice' for voice input", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successfulOmniResult(
+    mockChatCompletion.mockResolvedValueOnce(successfulOmniResult(
       JSON.stringify({ workout_type: "swimming", duration_min: 45, distance_km: null, sets: null, repetitions: null, confidence: 0.85 }),
     ));
 
@@ -451,7 +482,7 @@ describe("handleWorkoutEvent", () => {
   });
 
   it("emits counter with source='photo' for photo input", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successfulOmniResult(
+    mockVision.mockResolvedValueOnce(successfulOmniResult(
       JSON.stringify({ workout_type: "yoga", duration_min: 60, distance_km: null, sets: null, repetitions: null, confidence: 0.8 }),
     ));
 
@@ -478,7 +509,7 @@ describe("handleWorkoutEvent", () => {
   // ── raw_workout_text NOT in any emit ────────────────────────────────────
 
   it("never includes raw_workout_text in telemetry emit", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successfulOmniResult(
+    mockChatCompletion.mockResolvedValueOnce(successfulOmniResult(
       JSON.stringify({ workout_type: "running", duration_min: 30, distance_km: null, sets: null, repetitions: null, confidence: 0.9 }),
     ));
 
@@ -529,7 +560,7 @@ describe("handleWorkoutEvent", () => {
   // ── Reply format verification ────────────────────────────────────────────
 
   it("returns correct Russian reply for running with distance", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successfulOmniResult(
+    mockChatCompletion.mockResolvedValueOnce(successfulOmniResult(
       JSON.stringify({ workout_type: "running", duration_min: 32, distance_km: 5, sets: null, repetitions: null, confidence: 0.9 }),
     ));
 
@@ -551,7 +582,7 @@ describe("handleWorkoutEvent", () => {
   });
 
   it("returns correct Russian reply for strength with sets×reps", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successfulOmniResult(
+    mockChatCompletion.mockResolvedValueOnce(successfulOmniResult(
       JSON.stringify({ workout_type: "strength", duration_min: null, distance_km: null, sets: 5, repetitions: 10, confidence: 0.85 }),
     ));
 
@@ -571,7 +602,7 @@ describe("handleWorkoutEvent", () => {
   });
 
   it("returns correct Russian reply for yoga with duration only", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successfulOmniResult(
+    mockChatCompletion.mockResolvedValueOnce(successfulOmniResult(
       JSON.stringify({ workout_type: "yoga", duration_min: 60, distance_km: null, sets: null, repetitions: null, confidence: 0.8 }),
     ));
 
