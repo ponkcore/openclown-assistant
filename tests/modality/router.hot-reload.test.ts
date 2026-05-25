@@ -49,9 +49,7 @@ const BASE_CLASSIFIER_CONFIG = {
   systemPromptTemplate: "test {{CANDIDATE_SET}} {{JSON_SCHEMA}}",
   outputJsonSchema: '{"label":"string","confidence":"number"}',
   confidenceThreshold: 0.6,
-  defaultModel: { modelAlias: "default", providerHint: "fireworks" },
-  fallbackModel: { modelAlias: "fallback", providerHint: "fireworks" },
-  emergencyModel: { modelAlias: "emergency", providerHint: "openrouter" },
+  call_type: "kbju.modality_router_classifier",
 };
 
 describe("Hot-reload of config files (ADR-013 pattern)", () => {
@@ -140,7 +138,7 @@ describe("Hot-reload of config files (ADR-013 pattern)", () => {
       const config = loader.getConfig();
       expect(config).not.toBeNull();
       expect(config!.confidenceThreshold).toBe(0.6);
-      expect(config!.defaultModel.modelAlias).toBe("default");
+      expect(config!.call_type).toBe("kbju.modality_router_classifier");
       loader.close();
     });
 

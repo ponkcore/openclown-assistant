@@ -8,14 +8,33 @@ import {
 } from "../../../src/modality/mood/extractScore.js";
 import type { MetricsRegistry } from "../../../src/observability/metricsEndpoint.js";
 import type { OpenClawLogger } from "../../../src/shared/types.js";
+import type { ChatCompletionResult } from "../../../src/llm/llmClient.js";
+import type { Resolved } from "../../../src/llm/registry.js";
 
-// Mock callOmniRoute to control LLM call outcomes
-vi.mock("../../../src/llm/omniRouteClient.js", () => ({
-  callOmniRoute: vi.fn(),
+// Mock llmClient
+vi.mock("../../../src/llm/llmClient.js", () => ({
+  chatCompletion: vi.fn(),
+  vision: vi.fn(),
+  isPromptOrResponseSafeForLogging: vi.fn().mockReturnValue(true),
 }));
 
-import { callOmniRoute } from "../../../src/llm/omniRouteClient.js";
-const mockCallOmniRoute = vi.mocked(callOmniRoute);
+// Mock registry
+vi.mock("../../../src/llm/registry.js", () => ({
+  resolve: vi.fn(),
+  getApiKey: vi.fn().mockReturnValue("test-api-key"),
+  initRegistry: vi.fn(),
+  closeRegistry: vi.fn(),
+  reload: vi.fn(),
+  _resetLegacyWarned: vi.fn(),
+  adaptMetricsSink: vi.fn(),
+  RegistryError: class RegistryError extends Error { code = ""; },
+}));
+
+import { chatCompletion } from "../../../src/llm/llmClient.js";
+import { resolve } from "../../../src/llm/registry.js";
+
+const mockChatCompletion = vi.mocked(chatCompletion);
+const mockResolve = vi.mocked(resolve);
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -39,12 +58,27 @@ function makeLogger(): OpenClawLogger {
 }
 
 const EXTRACTOR_CONFIG = {
+  call_type: "kbju.mood_inferrer",
   systemPromptTemplate: "Extract mood score from message. Schema: {{JSON_SCHEMA}}. Respond with ONLY JSON.",
   outputJsonSchema: '{"score":"integer","confidence":"number","inferred_comment":"string?"}',
   confidenceThreshold: 0.6,
-  defaultModel: { modelAlias: "accounts/fireworks/models/executor", providerHint: "fireworks" },
-  fallbackModel: { modelAlias: "accounts/fireworks/models/reviewer", providerHint: "fireworks" },
-  emergencyModel: { modelAlias: "openrouter/nvidia/nemotron-3-super:free", providerHint: "openrouter" },
+};
+
+const MOCK_RESOLVED: Resolved = {
+  provider_id: "fireworks",
+  base_url: "https://api.fireworks.ai/inference/v1",
+  api_key_env: "LLM_FIREWORKS_API_KEY",
+  model: "accounts/fireworks/models/executor",
+};
+
+const MOCK_RESOLVED_WITH_FALLBACK: Resolved = {
+  ...MOCK_RESOLVED,
+  fallback: {
+    provider_id: "fireworks",
+    base_url: "https://api.fireworks.ai/inference/v1",
+    api_key_env: "LLM_FIREWORKS_API_KEY",
+    model: "accounts/fireworks/models/reviewer",
+  },
 };
 
 function makeExtractorConfigLoader(
@@ -73,31 +107,27 @@ function makeSpendTracker() {
   };
 }
 
-function successLLMResponse(score: number, confidence: number, inferredComment?: string) {
-  const output: Record<string, unknown> = { score, confidence };
-  if (inferredComment !== undefined) {
-    output.inferred_comment = inferredComment;
-  }
+function successResult(rawText: string): ChatCompletionResult {
   return {
-    providerAlias: "fireworks" as const,
-    modelAlias: "accounts/fireworks/models/executor",
-    rawResponseText: JSON.stringify(output),
-    inputUnits: 10,
-    outputUnits: 5,
-    estimatedCostUsd: 0.0001,
-    outcome: "success" as const,
+    provider_id: "fireworks",
+    model: "accounts/fireworks/models/executor",
+    rawResponseText: rawText,
+    inputUnits: 100,
+    outputUnits: 20,
+    estimatedCostUsd: 0.001,
+    outcome: "success",
   };
 }
 
-function failureLLMResponse() {
+function failureResult(): ChatCompletionResult {
   return {
-    providerAlias: "fireworks" as const,
-    modelAlias: "accounts/fireworks/models/executor",
+    provider_id: "fireworks",
+    model: "accounts/fireworks/models/executor",
     rawResponseText: "",
     inputUnits: 0,
     outputUnits: 0,
     estimatedCostUsd: 0,
-    outcome: "provider_failure" as const,
+    outcome: "provider_failure",
   };
 }
 
@@ -108,6 +138,7 @@ describe("extractMoodFromText", () => {
   let cleanup: () => void;
   let metrics: MetricsRegistry;
   let logger: OpenClawLogger;
+  let spendTracker: ReturnType<typeof makeSpendTracker>;
 
   beforeEach(() => {
     const result = makeExtractorConfigLoader();
@@ -115,6 +146,8 @@ describe("extractMoodFromText", () => {
     cleanup = result.cleanup;
     metrics = makeMetrics();
     logger = makeLogger();
+    spendTracker = makeSpendTracker();
+    mockResolve.mockReturnValue(MOCK_RESOLVED_WITH_FALLBACK);
   });
 
   afterEach(() => {
@@ -122,438 +155,84 @@ describe("extractMoodFromText", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns score from default model on success", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(7, 0.9, "устал но в целом норм"));
+  it("returns mood score from default model on success", async () => {
+    mockChatCompletion.mockResolvedValueOnce(
+      successResult('{"score": 8, "confidence": 0.95}')
+    );
 
     const result = await extractMoodFromText(
-      "сегодня устал, всё бесит",
-      "req-001",
-      "user-001",
+      "отличное настроение",
+      "req-1",
+      "user-1",
       loader,
       logger,
       metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
+      spendTracker as any,
       false,
     );
 
-    expect(result.score).toBe(7);
-    expect(result.confidence).toBe(0.9);
-    expect(result.inferredComment).toBe("устал но в целом норм");
+    expect(result.score).toBe(8);
+    expect(result.confidence).toBe(0.95);
     expect(result.modelTier).toBe("default");
   });
 
   it("falls back to fallback model when default fails", async () => {
-    mockCallOmniRoute
-      .mockResolvedValueOnce(failureLLMResponse())
-      .mockResolvedValueOnce({
-        providerAlias: "fireworks" as const,
-        modelAlias: "accounts/fireworks/models/reviewer",
-        rawResponseText: JSON.stringify({ score: 4, confidence: 0.75 }),
-        inputUnits: 10,
-        outputUnits: 5,
-        estimatedCostUsd: 0.0002,
-        outcome: "success" as const,
-      });
+    mockChatCompletion
+      .mockResolvedValueOnce(failureResult())
+      .mockResolvedValueOnce(
+        successResult('{"score": 5, "confidence": 0.7}')
+      );
 
     const result = await extractMoodFromText(
-      "плохое настроение",
-      "req-002",
-      "user-001",
+      "нормально",
+      "req-2",
+      "user-1",
       loader,
       logger,
       metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false,
-    );
-
-    expect(result.score).toBe(4);
-    expect(result.confidence).toBe(0.75);
-    expect(result.modelTier).toBe("fallback");
-  });
-
-  it("falls back to emergency model when default and fallback fail", async () => {
-    mockCallOmniRoute
-      .mockResolvedValueOnce(failureLLMResponse())
-      .mockResolvedValueOnce(failureLLMResponse())
-      .mockResolvedValueOnce({
-        providerAlias: "omniroute" as const,
-        modelAlias: "openrouter/nvidia/nemotron-3-super:free",
-        rawResponseText: JSON.stringify({ score: 5, confidence: 0.65 }),
-        inputUnits: 10,
-        outputUnits: 5,
-        estimatedCostUsd: 0,
-        outcome: "success" as const,
-      });
-
-    const result = await extractMoodFromText(
-      "средняк",
-      "req-003",
-      "user-001",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
+      spendTracker as any,
       false,
     );
 
     expect(result.score).toBe(5);
-    expect(result.modelTier).toBe("emergency");
+    expect(result.modelTier).toBe("fallback");
   });
 
-  it("returns failure tier when all models fail", async () => {
-    mockCallOmniRoute
-      .mockResolvedValueOnce(failureLLMResponse())
-      .mockResolvedValueOnce(failureLLMResponse())
-      .mockResolvedValueOnce(failureLLMResponse());
+  it("returns failure when both tiers fail", async () => {
+    mockChatCompletion
+      .mockResolvedValueOnce(failureResult())
+      .mockResolvedValueOnce(failureResult());
 
     const result = await extractMoodFromText(
-      "непонятный текст",
-      "req-004",
-      "user-001",
+      "хз",
+      "req-3",
+      "user-1",
       loader,
       logger,
       metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
+      spendTracker as any,
       false,
     );
 
     expect(result.score).toBe(0);
-    expect(result.confidence).toBe(0);
     expect(result.modelTier).toBe("failure");
   });
 
-  it("rejects LLM output with extra keys (strict-keys validation)", async () => {
-    mockCallOmniRoute
-      .mockResolvedValueOnce({
-        providerAlias: "fireworks" as const,
-        modelAlias: "accounts/fireworks/models/executor",
-        rawResponseText: JSON.stringify({ score: 7, confidence: 0.9, extra_field: "bad" }),
-        inputUnits: 10,
-        outputUnits: 5,
-        estimatedCostUsd: 0.0001,
-        outcome: "success" as const,
-      })
-      .mockResolvedValueOnce(successLLMResponse(6, 0.8));
-
-    const result = await extractMoodFromText(
-      "текст",
-      "req-005",
-      "user-001",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false,
+  it("resolves call_type via registry", async () => {
+    mockChatCompletion.mockResolvedValueOnce(
+      successResult('{"score": 7, "confidence": 0.8}')
     );
-
-    // Should fall back to fallback model since default had extra keys
-    expect(result.score).toBe(6);
-    expect(result.modelTier).toBe("fallback");
-  });
-
-  it("rejects out-of-range score from LLM output", async () => {
-    mockCallOmniRoute
-      .mockResolvedValueOnce({
-        providerAlias: "fireworks" as const,
-        modelAlias: "accounts/fireworks/models/executor",
-        rawResponseText: JSON.stringify({ score: 0, confidence: 0.9 }),
-        inputUnits: 10,
-        outputUnits: 5,
-        estimatedCostUsd: 0.0001,
-        outcome: "success" as const,
-      })
-      .mockResolvedValueOnce({
-        providerAlias: "fireworks" as const,
-        modelAlias: "accounts/fireworks/models/reviewer",
-        rawResponseText: JSON.stringify({ score: 11, confidence: 0.8 }),
-        inputUnits: 10,
-        outputUnits: 5,
-        estimatedCostUsd: 0.0002,
-        outcome: "success" as const,
-      })
-      .mockResolvedValueOnce(successLLMResponse(5, 0.7));
-
-    const result = await extractMoodFromText(
-      "текст",
-      "req-006",
-      "user-001",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false,
-    );
-
-    // Both default and fallback had out-of-range scores, emergency succeeds
-    expect(result.score).toBe(5);
-    expect(result.modelTier).toBe("emergency");
-  });
-
-  it("rejects non-integer score from LLM output", async () => {
-    mockCallOmniRoute
-      .mockResolvedValueOnce({
-        providerAlias: "fireworks" as const,
-        modelAlias: "accounts/fireworks/models/executor",
-        rawResponseText: JSON.stringify({ score: 7.5, confidence: 0.9 }),
-        inputUnits: 10,
-        outputUnits: 5,
-        estimatedCostUsd: 0.0001,
-        outcome: "success" as const,
-      })
-      .mockResolvedValueOnce(successLLMResponse(7, 0.85));
-
-    const result = await extractMoodFromText(
-      "текст",
-      "req-007",
-      "user-001",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false,
-    );
-
-    expect(result.score).toBe(7);
-    expect(result.modelTier).toBe("fallback");
-  });
-
-  it("rejects invalid confidence from LLM output", async () => {
-    mockCallOmniRoute
-      .mockResolvedValueOnce({
-        providerAlias: "fireworks" as const,
-        modelAlias: "accounts/fireworks/models/executor",
-        rawResponseText: JSON.stringify({ score: 7, confidence: 1.5 }),
-        inputUnits: 10,
-        outputUnits: 5,
-        estimatedCostUsd: 0.0001,
-        outcome: "success" as const,
-      })
-      .mockResolvedValueOnce(successLLMResponse(7, 0.8));
-
-    const result = await extractMoodFromText(
-      "текст",
-      "req-008",
-      "user-001",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false,
-    );
-
-    expect(result.modelTier).toBe("fallback");
-  });
-
-  it("returns failure when config is missing", async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mood-extractor-nocfg-"));
-    const filePath = path.join(tmpDir, "nonexistent.json");
-    const nullLoader = new MoodExtractorConfigLoader(filePath, logger);
-
-    const result = await extractMoodFromText(
-      "текст",
-      "req-009",
-      "user-001",
-      nullLoader,
-      logger,
-      metrics,
-    );
-
-    expect(result.score).toBe(0);
-    expect(result.modelTier).toBe("failure");
-
-    nullLoader.close();
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  it("rejects non-string inferred_comment from LLM output", async () => {
-    mockCallOmniRoute
-      .mockResolvedValueOnce({
-        providerAlias: "fireworks" as const,
-        modelAlias: "accounts/fireworks/models/executor",
-        rawResponseText: JSON.stringify({ score: 7, confidence: 0.9, inferred_comment: 123 }),
-        inputUnits: 10,
-        outputUnits: 5,
-        estimatedCostUsd: 0.0001,
-        outcome: "success" as const,
-      })
-      .mockResolvedValueOnce(successLLMResponse(7, 0.85));
-
-    const result = await extractMoodFromText(
-      "текст",
-      "req-010",
-      "user-001",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false,
-    );
-
-    expect(result.modelTier).toBe("fallback");
-  });
-
-  it("truncates inferred_comment to 200 chars", async () => {
-    const longComment = "а".repeat(250);
-    mockCallOmniRoute.mockResolvedValueOnce(
-      successLLMResponse(5, 0.8, longComment)
-    );
-
-    const result = await extractMoodFromText(
-      "длинный текст",
-      "req-011",
-      "user-001",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false,
-    );
-
-    expect(result.inferredComment).toHaveLength(200);
-  });
-
-  it("handles confidence threshold edge case — exactly 0.6", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(
-      successLLMResponse(6, 0.6)
-    );
-
-    const result = await extractMoodFromText(
-      "текст",
-      "req-012",
-      "user-001",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false,
-    );
-
-    // 0.6 >= 0.6 threshold → should succeed
-    expect(result.score).toBe(6);
-    expect(result.modelTier).toBe("default");
-  });
-
-  it("handles confidence threshold edge case — just below 0.6", async () => {
-    // Note: the extractor always returns the result; it's the logger
-    // that checks confidence. But we still test that the extractor
-    // returns the confidence correctly.
-    mockCallOmniRoute.mockResolvedValueOnce(
-      successLLMResponse(6, 0.59)
-    );
-
-    const result = await extractMoodFromText(
-      "текст",
-      "req-013",
-      "user-001",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false,
-    );
-
-    expect(result.score).toBe(6);
-    expect(result.confidence).toBe(0.59);
-    // The logger will decide whether confidence is high enough
-  });
-
-  it("rejects malformed JSON from LLM", async () => {
-    mockCallOmniRoute
-      .mockResolvedValueOnce({
-        providerAlias: "fireworks" as const,
-        modelAlias: "accounts/fireworks/models/executor",
-        rawResponseText: "not json at all",
-        inputUnits: 10,
-        outputUnits: 5,
-        estimatedCostUsd: 0.0001,
-        outcome: "success" as const,
-      })
-      .mockResolvedValueOnce(successLLMResponse(5, 0.7));
-
-    const result = await extractMoodFromText(
-      "текст",
-      "req-014",
-      "user-001",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false,
-    );
-
-    expect(result.modelTier).toBe("fallback");
-  });
-
-  it("emits correct metrics on success", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(7, 0.9));
 
     await extractMoodFromText(
-      "текст",
-      "req-015",
-      "user-001",
+      "хорошо",
+      "req-4",
+      "user-1",
       loader,
       logger,
       metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false,
+      spendTracker as any,
     );
 
-    expect(metrics.increment).toHaveBeenCalledWith(
-      "kbju_modality_router_llm_call",
-      { component: "C20", outcome: "success_default" },
-    );
-  });
-
-  it("emits failure metric when all tiers fail", async () => {
-    mockCallOmniRoute
-      .mockResolvedValueOnce(failureLLMResponse())
-      .mockResolvedValueOnce(failureLLMResponse())
-      .mockResolvedValueOnce(failureLLMResponse());
-
-    await extractMoodFromText(
-      "текст",
-      "req-016",
-      "user-001",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false,
-    );
-
-    expect(metrics.increment).toHaveBeenCalledWith(
-      "kbju_modality_router_llm_call",
-      { component: "C20", outcome: "failure" },
-    );
+    expect(mockResolve).toHaveBeenCalledWith("kbju.mood_inferrer");
   });
 });

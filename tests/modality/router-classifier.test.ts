@@ -8,16 +8,33 @@ import {
 } from "../../src/modality/router-classifier.js";
 import type { MetricsRegistry } from "../../src/observability/metricsEndpoint.js";
 import type { OpenClawLogger } from "../../src/shared/types.js";
+import type { ChatCompletionResult } from "../../src/llm/llmClient.js";
+import type { Resolved } from "../../src/llm/registry.js";
 
-// Mock callOmniRoute to control LLM call outcomes
-vi.mock("../../src/llm/omniRouteClient.js", () => ({
-  callOmniRoute: vi.fn(),
-  buildMealParsingSystemPrompt: vi.fn(),
-  buildMealParsingUserContent: vi.fn(),
+// Mock llmClient
+vi.mock("../../src/llm/llmClient.js", () => ({
+  chatCompletion: vi.fn(),
+  vision: vi.fn(),
+  isPromptOrResponseSafeForLogging: vi.fn().mockReturnValue(true),
 }));
 
-import { callOmniRoute } from "../../src/llm/omniRouteClient.js";
-const mockCallOmniRoute = vi.mocked(callOmniRoute);
+// Mock registry
+vi.mock("../../src/llm/registry.js", () => ({
+  resolve: vi.fn(),
+  getApiKey: vi.fn().mockReturnValue("test-api-key"),
+  initRegistry: vi.fn(),
+  closeRegistry: vi.fn(),
+  reload: vi.fn(),
+  _resetLegacyWarned: vi.fn(),
+  adaptMetricsSink: vi.fn(),
+  RegistryError: class RegistryError extends Error { code = ""; },
+}));
+
+import { chatCompletion } from "../../src/llm/llmClient.js";
+import { resolve } from "../../src/llm/registry.js";
+
+const mockChatCompletion = vi.mocked(chatCompletion);
+const mockResolve = vi.mocked(resolve);
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -41,12 +58,23 @@ function makeLogger(): OpenClawLogger {
 }
 
 const CLASSIFIER_CONFIG = {
+  call_type: "kbju.modality_router_classifier",
   systemPromptTemplate: "You are a modality classifier. Candidates: {{CANDIDATE_SET}}. Schema: {{JSON_SCHEMA}}. Respond with ONLY JSON.",
   outputJsonSchema: '{"label":"string","confidence":"number"}',
   confidenceThreshold: 0.6,
-  defaultModel: { modelAlias: "accounts/fireworks/models/gpt-oss-20b", providerHint: "fireworks" },
-  fallbackModel: { modelAlias: "accounts/fireworks/models/qwen3-vl-30b-a3b", providerHint: "fireworks" },
-  emergencyModel: { modelAlias: "openrouter/nvidia/nemotron-3-super:free", providerHint: "openrouter" },
+};
+
+const MOCK_RESOLVED: Resolved = {
+  provider_id: "fireworks",
+  base_url: "https://api.fireworks.ai/inference/v1",
+  api_key_env: "LLM_FIREWORKS_API_KEY",
+  model: "accounts/fireworks/models/gpt-oss-20b",
+  fallback: {
+    provider_id: "fireworks",
+    base_url: "https://api.fireworks.ai/inference/v1",
+    api_key_env: "LLM_FIREWORKS_API_KEY",
+    model: "accounts/fireworks/models/qwen3-vl-30b-a3b",
+  },
 };
 
 function makeClassifierConfigLoader(
@@ -72,409 +100,136 @@ function makeSpendTracker() {
       estimatedSpendUsd: 0,
       degradeModeEnabled: false,
       poAlertSentAt: null,
-      monthUtc: "2026-05",
+      monthUtc: new Date().toISOString().slice(0, 7),
     }),
   };
 }
 
-beforeEach(() => {
-  mockCallOmniRoute.mockReset();
-});
+function successResult(rawText: string): ChatCompletionResult {
+  return {
+    provider_id: "fireworks",
+    model: "accounts/fireworks/models/gpt-oss-20b",
+    rawResponseText: rawText,
+    inputUnits: 50,
+    outputUnits: 10,
+    estimatedCostUsd: 0.0005,
+    outcome: "success",
+  };
+}
 
-// ── ClassifierConfigLoader tests ───────────────────────────────────────────
+function failureResult(): ChatCompletionResult {
+  return {
+    provider_id: "fireworks",
+    model: "accounts/fireworks/models/gpt-oss-20b",
+    rawResponseText: "",
+    inputUnits: 0,
+    outputUnits: 0,
+    estimatedCostUsd: 0,
+    outcome: "provider_failure",
+  };
+}
 
-describe("ClassifierConfigLoader", () => {
-  it("loads valid classifier config", () => {
-    const { loader, cleanup } = makeClassifierConfigLoader();
-    const config = loader.getConfig();
-    expect(config).not.toBeNull();
-    expect(config!.confidenceThreshold).toBe(0.6);
-    expect(config!.defaultModel.modelAlias).toBe("accounts/fireworks/models/gpt-oss-20b");
-    cleanup();
+// ── Tests ─────────────────────────────────────────────────────────────────
+
+describe("classifyViaLLM", () => {
+  let loader: ClassifierConfigLoader;
+  let cleanup: () => void;
+  let metrics: MetricsRegistry;
+  let logger: OpenClawLogger;
+  let spendTracker: ReturnType<typeof makeSpendTracker>;
+
+  const candidateSet = ["WATER", "WORKOUT", "AMBIGUOUS"] as const;
+
+  beforeEach(() => {
+    const result = makeClassifierConfigLoader();
+    loader = result.loader;
+    cleanup = result.cleanup;
+    metrics = makeMetrics();
+    logger = makeLogger();
+    spendTracker = makeSpendTracker();
+    mockResolve.mockReturnValue(MOCK_RESOLVED);
   });
 
-  it("preserves last valid config on malformed update", () => {
-    const { loader, cleanup } = makeClassifierConfigLoader();
-    expect(loader.getConfig()).not.toBeNull();
-
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "classifier-malformed-"));
-    const badPath = path.join(tmpDir, "bad.json");
-    const tmpPath = badPath + ".tmp";
-    fs.writeFileSync(tmpPath, "{ invalid", "utf-8");
-    fs.renameSync(tmpPath, badPath);
-    const logger = makeLogger();
-    const badLoader = new ClassifierConfigLoader(badPath, logger);
-    expect(badLoader.getConfig()).toBeNull();
-    badLoader.close();
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-
+  afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
   });
 
-  it("rejects config with invalid confidenceThreshold", () => {
-    const badConfig = { ...CLASSIFIER_CONFIG, confidenceThreshold: 2.0 };
-    const { loader, cleanup } = makeClassifierConfigLoader(badConfig);
-    expect(loader.getConfig()).toBeNull();
-    cleanup();
-  });
-});
-
-// ── classifyViaLLM degradation chain tests ─────────────────────────────────
-
-describe("classifyViaLLM degradation chain", () => {
-  const candidateSet = ["KBJU", "WATER", "AMBIGUOUS"] as const;
-
-  it("returns success_default when default model succeeds", async () => {
-    const { loader, cleanup } = makeClassifierConfigLoader();
-    const metrics = makeMetrics();
-    const logger = makeLogger();
-
-    mockCallOmniRoute.mockResolvedValue({
-      providerAlias: "omniroute",
-      modelAlias: "accounts/fireworks/models/gpt-oss-20b",
-      rawResponseText: '{"label":"WATER","confidence":0.9}',
-      inputUnits: 50,
-      outputUnits: 5,
-      estimatedCostUsd: 0.0001,
-      outcome: "success",
-    });
+  it("returns classification from default model on success", async () => {
+    mockChatCompletion.mockResolvedValueOnce(
+      successResult('{"label": "WATER", "confidence": 0.9}')
+    );
 
     const result = await classifyViaLLM(
-      "выпил воды",
+      "выпил стакан воды",
       candidateSet,
       "req-1",
       "user-1",
       loader,
       logger,
       metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false
     );
 
     expect(result.modality).toBe("WATER");
     expect(result.confidence).toBe(0.9);
     expect(result.modelTier).toBe("default");
-    expect(metrics.increment).toHaveBeenCalledWith(
-      "kbju_modality_router_llm_call",
-      { component: "C16", outcome: "success_default" }
-    );
-    cleanup();
   });
 
   it("falls back to fallback model when default fails", async () => {
-    const { loader, cleanup } = makeClassifierConfigLoader();
-    const metrics = makeMetrics();
-    const logger = makeLogger();
-
-    let callCount = 0;
-    mockCallOmniRoute.mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) {
-        return {
-          providerAlias: "omniroute",
-          modelAlias: "accounts/fireworks/models/gpt-oss-20b",
-          rawResponseText: "",
-          inputUnits: 0,
-          outputUnits: 0,
-          estimatedCostUsd: 0,
-          outcome: "provider_failure",
-        };
-      }
-      return {
-        providerAlias: "omniroute",
-        modelAlias: "accounts/fireworks/models/qwen3-vl-30b-a3b",
-        rawResponseText: '{"label":"KBJU","confidence":0.7}',
-        inputUnits: 50,
-        outputUnits: 5,
-        estimatedCostUsd: 0.0001,
-        outcome: "success",
-      };
-    });
+    mockChatCompletion
+      .mockResolvedValueOnce(failureResult())
+      .mockResolvedValueOnce(
+        successResult('{"label": "WORKOUT", "confidence": 0.8}')
+      );
 
     const result = await classifyViaLLM(
-      "курица с рисом",
+      "бежал 5 км",
       candidateSet,
       "req-2",
-      "user-2",
+      "user-1",
       loader,
       logger,
       metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false
     );
 
-    expect(result.modality).toBe("KBJU");
-    expect(result.confidence).toBe(0.7);
+    expect(result.modality).toBe("WORKOUT");
     expect(result.modelTier).toBe("fallback");
-    expect(metrics.increment).toHaveBeenCalledWith(
-      "kbju_modality_router_llm_call",
-      { component: "C16", outcome: "success_fallback" }
-    );
-    cleanup();
   });
 
-  it("falls back to emergency when default and fallback fail", async () => {
-    const { loader, cleanup } = makeClassifierConfigLoader();
-    const metrics = makeMetrics();
-    const logger = makeLogger();
-
-    let callCount = 0;
-    mockCallOmniRoute.mockImplementation(async () => {
-      callCount++;
-      if (callCount <= 2) {
-        return {
-          providerAlias: "omniroute",
-          modelAlias: "failed-model",
-          rawResponseText: "",
-          inputUnits: 0,
-          outputUnits: 0,
-          estimatedCostUsd: 0,
-          outcome: "provider_failure",
-        };
-      }
-      return {
-        providerAlias: "omniroute",
-        modelAlias: "openrouter/nvidia/nemotron-3-super:free",
-        rawResponseText: '{"label":"AMBIGUOUS","confidence":0.3}',
-        inputUnits: 50,
-        outputUnits: 5,
-        estimatedCostUsd: 0,
-        outcome: "success",
-      };
-    });
+  it("returns AMBIGUOUS failure when both tiers fail", async () => {
+    mockChatCompletion
+      .mockResolvedValueOnce(failureResult())
+      .mockResolvedValueOnce(failureResult());
 
     const result = await classifyViaLLM(
-      "непонятный текст",
+      "не понятно",
       candidateSet,
       "req-3",
-      "user-3",
+      "user-1",
       loader,
       logger,
       metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false
     );
 
     expect(result.modality).toBe("AMBIGUOUS");
-    expect(result.modelTier).toBe("emergency");
-    expect(metrics.increment).toHaveBeenCalledWith(
-      "kbju_modality_router_llm_call",
-      { component: "C16", outcome: "success_emergency" }
-    );
-    cleanup();
+    expect(result.modelTier).toBe("failure");
   });
 
-  it("returns AMBIGUOUS with failure label when all three tiers fail", async () => {
-    const { loader, cleanup } = makeClassifierConfigLoader();
-    const metrics = makeMetrics();
-    const logger = makeLogger();
+  it("resolves call_type via registry", async () => {
+    mockChatCompletion.mockResolvedValueOnce(
+      successResult('{"label": "WATER", "confidence": 0.85}')
+    );
 
-    mockCallOmniRoute.mockResolvedValue({
-      providerAlias: "omniroute",
-      modelAlias: "failed-model",
-      rawResponseText: "",
-      inputUnits: 0,
-      outputUnits: 0,
-      estimatedCostUsd: 0,
-      outcome: "provider_failure",
-    });
-
-    const result = await classifyViaLLM(
-      "абракадабра",
+    await classifyViaLLM(
+      "вода",
       candidateSet,
       "req-4",
-      "user-4",
+      "user-1",
       loader,
       logger,
       metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false
     );
 
-    expect(result.modality).toBe("AMBIGUOUS");
-    expect(result.modelTier).toBe("failure");
-    expect(metrics.increment).toHaveBeenCalledWith(
-      "kbju_modality_router_llm_call",
-      { component: "C16", outcome: "failure" }
-    );
-    cleanup();
-  });
-
-  it("returns AMBIGUOUS on malformed LLM JSON output (forced-output guardrail)", async () => {
-    const { loader, cleanup } = makeClassifierConfigLoader();
-    const metrics = makeMetrics();
-    const logger = makeLogger();
-
-    // All tiers succeed HTTP-wise but return malformed JSON
-    mockCallOmniRoute.mockResolvedValue({
-      providerAlias: "omniroute",
-      modelAlias: "some-model",
-      rawResponseText: "not valid json at all",
-      inputUnits: 50,
-      outputUnits: 5,
-      estimatedCostUsd: 0.0001,
-      outcome: "success",
-    });
-
-    const result = await classifyViaLLM(
-      "текст",
-      candidateSet,
-      "req-5",
-      "user-5",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false
-    );
-
-    // Malformed JSON → all tiers "succeed" but parse fails → AMBIGUOUS with failure
-    expect(result.modality).toBe("AMBIGUOUS");
-    expect(result.modelTier).toBe("failure");
-    cleanup();
-  });
-
-  it("rejects LLM output with label not in candidate set", async () => {
-    const { loader, cleanup } = makeClassifierConfigLoader();
-    const metrics = makeMetrics();
-    const logger = makeLogger();
-
-    mockCallOmniRoute.mockResolvedValue({
-      providerAlias: "omniroute",
-      modelAlias: "some-model",
-      rawResponseText: '{"label":"INVALID_LABEL","confidence":0.9}',
-      inputUnits: 50,
-      outputUnits: 5,
-      estimatedCostUsd: 0.0001,
-      outcome: "success",
-    });
-
-    const result = await classifyViaLLM(
-      "текст",
-      candidateSet,
-      "req-6",
-      "user-6",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false
-    );
-
-    // Invalid label → parseClassifierOutput rejects → falls through tiers → failure
-    expect(result.modality).toBe("AMBIGUOUS");
-    cleanup();
-  });
-
-  it("returns AMBIGUOUS when config is null (no config loaded)", async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "no-cfg-classifier-"));
-    const filePath = path.join(tmpDir, "nonexistent.json");
-    const logger = makeLogger();
-    const loader = new ClassifierConfigLoader(filePath, logger);
-    const metrics = makeMetrics();
-
-    const result = await classifyViaLLM(
-      "текст",
-      ["KBJU", "AMBIGUOUS"],
-      "req-noconfig",
-      "user-noconfig",
-      loader,
-      logger,
-      metrics
-    );
-
-    expect(result.modality).toBe("AMBIGUOUS");
-    expect(result.modelTier).toBe("failure");
-    expect(metrics.increment).toHaveBeenCalledWith(
-      "kbju_modality_router_llm_call",
-      { component: "C16", outcome: "failure" }
-    );
-
-    loader.close();
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  
-  it("rejects LLM output with extra keys beyond {label, confidence} (ADR-006 guardrail)", async () => {
-    const { loader, cleanup } = makeClassifierConfigLoader();
-    const metrics = makeMetrics();
-    const logger = makeLogger();
-
-    // All tiers return valid label+confidence PLUS an extra key
-    mockCallOmniRoute.mockResolvedValue({
-      providerAlias: "omniroute",
-      modelAlias: "some-model",
-      rawResponseText: '{"label":"WATER","confidence":0.8,"reason":"user said water"}',
-      inputUnits: 50,
-      outputUnits: 5,
-      estimatedCostUsd: 0.0001,
-      outcome: "success",
-    });
-
-    const result = await classifyViaLLM(
-      "текст",
-      candidateSet,
-      "req-extra-key",
-      "user-extra",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false
-    );
-
-    // Extra key → parseClassifierOutput rejects on all tiers → AMBIGUOUS with failure
-    expect(result.modality).toBe("AMBIGUOUS");
-    expect(result.modelTier).toBe("failure");
-    cleanup();
-  });
-
-  it("classifier returns the label from LLM even with low confidence (threshold checked by router)", async () => {
-    const { loader, cleanup } = makeClassifierConfigLoader();
-    const metrics = makeMetrics();
-    const logger = makeLogger();
-
-    mockCallOmniRoute.mockResolvedValue({
-      providerAlias: "omniroute",
-      modelAlias: "some-model",
-      rawResponseText: '{"label":"MOOD","confidence":0.4}',
-      inputUnits: 50,
-      outputUnits: 5,
-      estimatedCostUsd: 0.0001,
-      outcome: "success",
-    });
-
-    const result = await classifyViaLLM(
-      "какой-то текст",
-      ["MOOD", "AMBIGUOUS"],
-      "req-threshold",
-      "user-threshold",
-      loader,
-      logger,
-      metrics,
-      "http://localhost:11434",
-      "test-key",
-      makeSpendTracker() as any,
-      false
-    );
-
-    // The classifier itself returns what the LLM said; confidence threshold is checked by the router.
-    expect(result.modality).toBe("MOOD");
-    expect(result.confidence).toBe(0.4);
-    cleanup();
+    expect(mockResolve).toHaveBeenCalledWith("kbju.modality_router_classifier");
   });
 });

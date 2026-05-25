@@ -82,8 +82,6 @@ export async function handleWaterEvent(
     configLoader: ExtractorConfigLoader;
     metrics: MetricsRegistry;
     logger: OpenClawLogger;
-    omniRouteBaseUrl?: string;
-    omniRouteApiKey?: string;
     spendTracker?: import("../../observability/costGuard.js").SpendTracker;
     degradeModeEnabled?: boolean;
   },
@@ -127,8 +125,6 @@ export async function handleWaterEvent(
       deps.configLoader,
       deps.logger,
       deps.metrics,
-      deps.omniRouteBaseUrl,
-      deps.omniRouteApiKey,
       deps.spendTracker,
       degrade,
     );

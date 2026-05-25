@@ -12,13 +12,43 @@ import { OUT_OF_RANGE_REPLY, OFF_STATE_REPLY, LOW_CONFIDENCE_REPLY } from "../..
 import { buildWaterKeyboard, WATER_PRESETS } from "../../../src/modality/water/keyboard.js";
 import { PROMETHEUS_METRIC_NAMES } from "../../../src/observability/kpiEvents.js";
 
-// Mock callOmniRoute
-vi.mock("../../../src/llm/omniRouteClient.js", () => ({
-  callOmniRoute: vi.fn(),
+// Mock llmClient + registry
+vi.mock("../../../src/llm/llmClient.js", () => ({
+  chatCompletion: vi.fn(),
+  vision: vi.fn(),
+  isPromptOrResponseSafeForLogging: vi.fn().mockReturnValue(true),
 }));
 
-import { callOmniRoute } from "../../../src/llm/omniRouteClient.js";
-const mockCallOmniRoute = vi.mocked(callOmniRoute);
+vi.mock("../../../src/llm/registry.js", () => ({
+  resolve: vi.fn(),
+  getApiKey: vi.fn().mockReturnValue("test-api-key"),
+  initRegistry: vi.fn(),
+  closeRegistry: vi.fn(),
+  reload: vi.fn(),
+  _resetLegacyWarned: vi.fn(),
+  adaptMetricsSink: vi.fn(),
+  RegistryError: class RegistryError extends Error { code = ""; },
+}));
+
+import { chatCompletion } from "../../../src/llm/llmClient.js";
+import { resolve } from "../../../src/llm/registry.js";
+import type { Resolved } from "../../../src/llm/registry.js";
+
+const mockChatCompletion = vi.mocked(chatCompletion);
+const mockResolve = vi.mocked(resolve);
+
+const MOCK_RESOLVED: Resolved = {
+  provider_id: "fireworks",
+  base_url: "https://api.fireworks.ai/inference/v1",
+  api_key_env: "LLM_FIREWORKS_API_KEY",
+  model: "accounts/fireworks/models/gpt-oss-20b",
+  fallback: {
+    provider_id: "fireworks",
+    base_url: "https://api.fireworks.ai/inference/v1",
+    api_key_env: "LLM_FIREWORKS_API_KEY",
+    model: "accounts/fireworks/models/minimax-m2p7",
+  },
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -96,9 +126,7 @@ const EXTRACTOR_CONFIG = {
   systemPromptTemplate: "Extract volume. Schema: {{JSON_SCHEMA}}. Respond with ONLY JSON.",
   outputJsonSchema: '{"volume_ml":"integer","confidence":"number"}',
   confidenceThreshold: 0.6,
-  defaultModel: { modelAlias: "accounts/fireworks/models/gpt-oss-20b", providerHint: "fireworks" },
-  fallbackModel: { modelAlias: "accounts/fireworks/models/minimax-m2p7", providerHint: "fireworks" },
-  emergencyModel: { modelAlias: "openrouter/nvidia/nemotron-3-super:free", providerHint: "openrouter" },
+  call_type: "kbju.water_volume_extractor",
 };
 
 function makeConfigLoader(): { loader: ExtractorConfigLoader; cleanup: () => void } {
@@ -114,8 +142,8 @@ function makeConfigLoader(): { loader: ExtractorConfigLoader; cleanup: () => voi
 
 function successLLMResponse(volumeMl: number, confidence: number) {
   return {
-    providerAlias: "fireworks" as const,
-    modelAlias: "accounts/fireworks/models/gpt-oss-20b",
+    provider_id: "fireworks",
+    model: "accounts/fireworks/models/gpt-oss-20b",
     rawResponseText: JSON.stringify({ volume_ml: volumeMl, confidence }),
     inputUnits: 10,
     outputUnits: 5,
@@ -126,8 +154,8 @@ function successLLMResponse(volumeMl: number, confidence: number) {
 
 function failureLLMResponse() {
   return {
-    providerAlias: "fireworks" as const,
-    modelAlias: "accounts/fireworks/models/gpt-oss-20b",
+    provider_id: "fireworks",
+    model: "accounts/fireworks/models/gpt-oss-20b",
     rawResponseText: "",
     inputUnits: 0,
     outputUnits: 0,
@@ -137,6 +165,8 @@ function failureLLMResponse() {
 }
 
 function makeDeps(overrides?: Record<string, unknown>) {
+  mockResolve.mockReturnValue(MOCK_RESOLVED);
+  process.env.LLM_FIREWORKS_API_KEY = "test-api-key";
   const store = makeStubStore();
   const { loader, cleanup } = makeConfigLoader();
   const metrics = makeMetrics();
@@ -158,8 +188,6 @@ function makeDeps(overrides?: Record<string, unknown>) {
       configLoader: loader,
       metrics,
       logger,
-      omniRouteBaseUrl: "http://localhost:11434",
-      omniRouteApiKey: "test-key",
       spendTracker: spendTracker as any,
       degradeModeEnabled: false,
       ...overrides,
@@ -210,7 +238,7 @@ describe("handleWaterEvent", () => {
     const { deps, cleanup: cl, store } = makeDeps();
     cleanup = cl;
 
-    mockCallOmniRoute.mockResolvedValueOnce(
+    mockChatCompletion.mockResolvedValueOnce(
       successLLMResponse(250, 0.9)
     );
 
@@ -234,7 +262,7 @@ describe("handleWaterEvent", () => {
     const { deps, cleanup: cl, store } = makeDeps();
     cleanup = cl;
 
-    mockCallOmniRoute.mockResolvedValueOnce(
+    mockChatCompletion.mockResolvedValueOnce(
       successLLMResponse(750, 0.85)
     );
 
@@ -286,7 +314,7 @@ describe("handleWaterEvent", () => {
     const { deps, cleanup: cl, store } = makeDeps();
     cleanup = cl;
 
-    mockCallOmniRoute.mockResolvedValueOnce(
+    mockChatCompletion.mockResolvedValueOnce(
       successLLMResponse(9999, 0.95)
     );
 
@@ -326,7 +354,7 @@ describe("handleWaterEvent", () => {
     const { deps, cleanup: cl, store } = makeDeps();
     cleanup = cl;
 
-    mockCallOmniRoute.mockResolvedValueOnce(
+    mockChatCompletion.mockResolvedValueOnce(
       successLLMResponse(300, 0.3)
     );
 
@@ -360,7 +388,7 @@ describe("handleWaterEvent", () => {
     const { deps, cleanup: cl, metrics } = makeDeps();
     cleanup = cl;
 
-    mockCallOmniRoute.mockResolvedValueOnce(
+    mockChatCompletion.mockResolvedValueOnce(
       successLLMResponse(500, 0.9)
     );
 
@@ -379,7 +407,7 @@ describe("handleWaterEvent", () => {
     const { deps, cleanup: cl, logger } = makeDeps();
     cleanup = cl;
 
-    mockCallOmniRoute.mockResolvedValueOnce(
+    mockChatCompletion.mockResolvedValueOnce(
       successLLMResponse(250, 0.9)
     );
 
@@ -400,7 +428,7 @@ describe("handleWaterEvent", () => {
     const { deps, cleanup: cl, metrics } = makeDeps();
     cleanup = cl;
 
-    mockCallOmniRoute.mockResolvedValueOnce(
+    mockChatCompletion.mockResolvedValueOnce(
       successLLMResponse(250, 0.9)
     );
 
@@ -452,7 +480,7 @@ describe("handleWaterEvent", () => {
     const { deps, cleanup: cl, store } = makeDeps();
     cleanup = cl;
 
-    mockCallOmniRoute
+    mockChatCompletion
       .mockResolvedValueOnce(failureLLMResponse())
       .mockResolvedValueOnce(failureLLMResponse())
       .mockResolvedValueOnce(failureLLMResponse());

@@ -1,12 +1,11 @@
 import { readFile } from "node:fs/promises";
-import type { ProviderAlias, KBJUValues } from "../shared/types.js";
+import type { ProviderAlias, KBJUValues, ComponentId } from "../shared/types.js";
 import type { PreflightResult, SpendTracker } from "../observability/costGuard.js";
 import { buildRedactedEvent, emitLog } from "../observability/events.js";
 import { KPI_EVENT_NAMES } from "../observability/kpiEvents.js";
 import { isSuspiciousLlmOutput } from "../kbju/validation.js";
 import {
   LOW_CONFIDENCE_THRESHOLD,
-  VISION_MODEL_ALIAS,
   VISION_TIMEOUT_MS,
   VISION_RETRY_DELAY_MS,
   VISION_LATENCY_BUDGET_MS,
@@ -22,6 +21,11 @@ import {
   isLowConfidence,
   computeDraftConfidence,
 } from "./photoConfidence.js";
+import { resolve, getApiKey } from "../llm/registry.js";
+import type { Resolved } from "../llm/registry.js";
+
+// C7 component ID for observability
+const C7 = "C7" as ComponentId;
 
 async function readImageFile(
   request: PhotoRecognitionRequest,
@@ -127,11 +131,81 @@ export function validateVisionOutput(raw: unknown): {
   };
 }
 
+// ── Resolved config from registry ────────────────────────────────────────
+
+interface ResolvedPhotoConfig {
+  providerAlias: ProviderAlias;
+  baseUrl: string;
+  apiKey: string;
+  modelAlias: string;
+}
+
+function resolvePhotoConfig(callType: string): ResolvedPhotoConfig {
+  const resolved = resolve(callType);
+  return {
+    providerAlias: resolved.provider_id as ProviderAlias,
+    baseUrl: resolved.base_url,
+    apiKey: getApiKey(resolved.api_key_env),
+    modelAlias: resolved.model,
+  };
+}
+
+// ── Build a failure result ───────────────────────────────────────────────
+
+function makeFailureResult(
+  resolved: ResolvedPhotoConfig,
+  outcome: PhotoRecognitionOutcome,
+  overrides?: Partial<PhotoRecognitionResult>
+): PhotoRecognitionResult {
+  return {
+    providerAlias: resolved.providerAlias,
+    modelAlias: resolved.modelAlias,
+    items: [],
+    totalKBJU: { caloriesKcal: 0, proteinG: 0, fatG: 0, carbsG: 0 },
+    confidence01: 0,
+    lowConfidenceLabelShown: true,
+    needsUserConfirmation: true,
+    estimatedCostUsd: 0,
+    outcome,
+    photoDeleted: false,
+    transientFailure: false,
+    ...overrides,
+  };
+}
+
 export async function recognizePhoto(
   config: PhotoRecognitionConfig,
   request: PhotoRecognitionRequest
 ): Promise<PhotoRecognitionResult> {
   const startTime = Date.now();
+
+  // Resolve provider config from registry
+  let resolved: ResolvedPhotoConfig;
+  try {
+    resolved = resolvePhotoConfig(config.call_type);
+  } catch (err) {
+    emitLog(
+      request.logger,
+      buildRedactedEvent(
+        "error",
+        "kbju-meal-logging",
+        C7,
+        KPI_EVENT_NAMES.provider_call_finished,
+        request.requestId,
+        request.userId,
+        "registry_error",
+        request.degradeModeEnabled,
+        {
+          call_type: config.call_type,
+          error_code: "registry_resolve_failed",
+        }
+      )
+    );
+    return makeFailureResult(
+      { providerAlias: "omniroute", baseUrl: "", apiKey: "", modelAlias: "unknown" },
+      "provider_failure",
+    );
+  }
 
   if (!request.photoFilePath) {
     emitLog(
@@ -139,7 +213,7 @@ export async function recognizePhoto(
       buildRedactedEvent(
         "warn",
         "kbju-meal-logging",
-        "C7",
+        C7,
         KPI_EVENT_NAMES.photo_recognition_failed,
         request.requestId,
         request.userId,
@@ -149,19 +223,7 @@ export async function recognizePhoto(
       )
     );
 
-    return {
-      providerAlias: "omniroute",
-      modelAlias: config.modelAlias,
-      items: [],
-      totalKBJU: { caloriesKcal: 0, proteinG: 0, fatG: 0, carbsG: 0 },
-      confidence01: 0,
-      lowConfidenceLabelShown: true,
-      needsUserConfirmation: true,
-      estimatedCostUsd: 0,
-      outcome: "no_photo_path",
-      photoDeleted: false,
-      transientFailure: false,
-    };
+    return makeFailureResult(resolved, "no_photo_path");
   }
 
   const preflight = await request.spendTracker.preflightCheck("vision_llm");
@@ -171,35 +233,26 @@ export async function recognizePhoto(
       buildRedactedEvent(
         "warn",
         "kbju-meal-logging",
-        "C7",
+        C7,
         KPI_EVENT_NAMES.budget_blocked,
         request.requestId,
         request.userId,
         "budget_blocked",
         request.degradeModeEnabled,
         {
-          call_type: "vision_llm",
+          call_type: config.call_type,
           estimated_cost_usd: preflight.estimatedCallCostUsd,
-          provider_alias: "omniroute" as ProviderAlias,
+          provider_alias: resolved.providerAlias,
         }
       )
     );
 
     const deletionOk = await safeDeletePhoto(request);
 
-    return {
-      providerAlias: "omniroute",
-      modelAlias: config.modelAlias,
-      items: [],
-      totalKBJU: { caloriesKcal: 0, proteinG: 0, fatG: 0, carbsG: 0 },
-      confidence01: 0,
-      lowConfidenceLabelShown: true,
-      needsUserConfirmation: true,
-      estimatedCostUsd: 0,
-      outcome: "budget_blocked",
+    return makeFailureResult(resolved, "budget_blocked", {
+      estimatedCostUsd: preflight.estimatedCallCostUsd,
       photoDeleted: deletionOk,
-      transientFailure: false,
-    };
+    });
   }
 
   emitLog(
@@ -207,22 +260,23 @@ export async function recognizePhoto(
     buildRedactedEvent(
       "info",
       "kbju-meal-logging",
-      "C7",
+      C7,
       KPI_EVENT_NAMES.provider_call_started,
       request.requestId,
       request.userId,
       "success",
       request.degradeModeEnabled,
       {
-        call_type: "vision_llm",
-        provider_alias: "omniroute" as ProviderAlias,
-        model_alias: config.modelAlias,
+        call_type: config.call_type,
+        provider_alias: resolved.providerAlias,
+        model_alias: resolved.modelAlias,
       }
     )
   );
 
   const firstAttempt = await attemptVisionCall(
     config,
+    resolved,
     request,
     preflight,
     startTime
@@ -248,6 +302,7 @@ export async function recognizePhoto(
 
     const retryAttempt = await attemptVisionCall(
       config,
+      resolved,
       request,
       preflight,
       startTime
@@ -263,6 +318,7 @@ export async function recognizePhoto(
 
 async function attemptVisionCall(
   config: PhotoRecognitionConfig,
+  resolved: ResolvedPhotoConfig,
   request: PhotoRecognitionRequest,
   preflight: PreflightResult,
   startTime: number
@@ -281,7 +337,7 @@ async function attemptVisionCall(
     );
 
     const body = {
-      model: config.modelAlias,
+      model: resolved.modelAlias,
       messages: [
         { role: "system", content: systemPrompt },
         {
@@ -304,12 +360,12 @@ async function attemptVisionCall(
     const timer = setTimeout(() => controller.abort(), perAttemptTimeout);
 
     const httpResponse = await fetch(
-      `${config.baseUrl}/v1/chat/completions`,
+      `${resolved.baseUrl}/chat/completions`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${config.apiKey}`,
+          Authorization: `Bearer ${resolved.apiKey}`,
         },
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -327,24 +383,24 @@ async function attemptVisionCall(
         buildRedactedEvent(
           "warn",
           "kbju-meal-logging",
-          "C7",
+          C7,
           KPI_EVENT_NAMES.provider_call_finished,
           request.requestId,
           request.userId,
           "provider_failure",
           request.degradeModeEnabled,
           {
-            call_type: "vision_llm",
-            provider_alias: "omniroute" as ProviderAlias,
-            model_alias: config.modelAlias,
+            call_type: config.call_type,
+            provider_alias: resolved.providerAlias,
+            model_alias: resolved.modelAlias,
             error_code: `http_${httpResponse.status}`,
           }
         )
       );
 
       return {
-        providerAlias: "omniroute",
-        modelAlias: config.modelAlias,
+        providerAlias: resolved.providerAlias,
+        modelAlias: resolved.modelAlias,
         items: [],
         totalKBJU: { caloriesKcal: 0, proteinG: 0, fatG: 0, carbsG: 0 },
         confidence01: 0,
@@ -370,16 +426,16 @@ async function attemptVisionCall(
         buildRedactedEvent(
           "warn",
           "kbju-meal-logging",
-          "C7",
+          C7,
           KPI_EVENT_NAMES.photo_recognition_failed,
           request.requestId,
           request.userId,
           "validation_blocked",
           request.degradeModeEnabled,
           {
-            call_type: "vision_llm",
-            provider_alias: "omniroute" as ProviderAlias,
-            model_alias: config.modelAlias,
+            call_type: config.call_type,
+            provider_alias: resolved.providerAlias,
+            model_alias: resolved.modelAlias,
             reason: "suspicious_output_rejected",
           }
         )
@@ -388,8 +444,8 @@ async function attemptVisionCall(
       await safeDeletePhoto(request);
 
       return {
-        providerAlias: "omniroute",
-        modelAlias: config.modelAlias,
+        providerAlias: resolved.providerAlias,
+        modelAlias: resolved.modelAlias,
         items: [],
         totalKBJU: { caloriesKcal: 0, proteinG: 0, fatG: 0, carbsG: 0 },
         confidence01: 0,
@@ -411,16 +467,16 @@ async function attemptVisionCall(
         buildRedactedEvent(
           "warn",
           "kbju-meal-logging",
-          "C7",
+          C7,
           KPI_EVENT_NAMES.photo_recognition_failed,
           request.requestId,
           request.userId,
           "validation_blocked",
           request.degradeModeEnabled,
           {
-            call_type: "vision_llm",
-            provider_alias: "omniroute" as ProviderAlias,
-            model_alias: config.modelAlias,
+            call_type: config.call_type,
+            provider_alias: resolved.providerAlias,
+            model_alias: resolved.modelAlias,
             reason: "json_parse_error",
           }
         )
@@ -429,8 +485,8 @@ async function attemptVisionCall(
       await safeDeletePhoto(request);
 
       return {
-        providerAlias: "omniroute",
-        modelAlias: config.modelAlias,
+        providerAlias: resolved.providerAlias,
+        modelAlias: resolved.modelAlias,
         items: [],
         totalKBJU: { caloriesKcal: 0, proteinG: 0, fatG: 0, carbsG: 0 },
         confidence01: 0,
@@ -450,16 +506,16 @@ async function attemptVisionCall(
         buildRedactedEvent(
           "warn",
           "kbju-meal-logging",
-          "C7",
+          C7,
           KPI_EVENT_NAMES.photo_recognition_failed,
           request.requestId,
           request.userId,
           "validation_blocked",
           request.degradeModeEnabled,
           {
-            call_type: "vision_llm",
-            provider_alias: "omniroute" as ProviderAlias,
-            model_alias: config.modelAlias,
+            call_type: config.call_type,
+            provider_alias: resolved.providerAlias,
+            model_alias: resolved.modelAlias,
             reason: "schema_validation_failed",
             validation_errors: validation.errors,
           }
@@ -469,8 +525,8 @@ async function attemptVisionCall(
       await safeDeletePhoto(request);
 
       return {
-        providerAlias: "omniroute",
-        modelAlias: config.modelAlias,
+        providerAlias: resolved.providerAlias,
+        modelAlias: resolved.modelAlias,
         items: [],
         totalKBJU: { caloriesKcal: 0, proteinG: 0, fatG: 0, carbsG: 0 },
         confidence01: 0,
@@ -498,16 +554,16 @@ async function attemptVisionCall(
       buildRedactedEvent(
         "info",
         "kbju-meal-logging",
-        "C7",
+        C7,
         KPI_EVENT_NAMES.provider_call_finished,
         request.requestId,
         request.userId,
         "success",
         request.degradeModeEnabled,
         {
-          call_type: "vision_llm",
-          provider_alias: "omniroute" as ProviderAlias,
-          model_alias: config.modelAlias,
+          call_type: config.call_type,
+          provider_alias: resolved.providerAlias,
+          model_alias: resolved.modelAlias,
           item_count: photoItems.length,
           confidence: draftConfidence,
           cost_usd: preflight.estimatedCallCostUsd,
@@ -518,8 +574,8 @@ async function attemptVisionCall(
     const deletionOk = await safeDeletePhoto(request);
 
     return {
-      providerAlias: "omniroute",
-      modelAlias: config.modelAlias,
+      providerAlias: resolved.providerAlias,
+      modelAlias: resolved.modelAlias,
       items: photoItems,
       totalKBJU,
       confidence01: draftConfidence,
@@ -541,24 +597,24 @@ async function attemptVisionCall(
       buildRedactedEvent(
         "warn",
         "kbju-meal-logging",
-        "C7",
+        C7,
         KPI_EVENT_NAMES.provider_call_finished,
         request.requestId,
         request.userId,
         "provider_failure",
         request.degradeModeEnabled,
         {
-          call_type: "vision_llm",
-          provider_alias: "omniroute" as ProviderAlias,
-          model_alias: config.modelAlias,
+          call_type: config.call_type,
+          provider_alias: resolved.providerAlias,
+          model_alias: resolved.modelAlias,
           error_code: errorCode,
         }
       )
     );
 
     return {
-      providerAlias: "omniroute",
-      modelAlias: config.modelAlias,
+      providerAlias: resolved.providerAlias,
+      modelAlias: resolved.modelAlias,
       items: [],
       totalKBJU: { caloriesKcal: 0, proteinG: 0, fatG: 0, carbsG: 0 },
       confidence01: 0,
@@ -613,7 +669,7 @@ async function safeDeletePhoto(
       buildRedactedEvent(
         "critical",
         "kbju-meal-logging",
-        "C7",
+        C7,
         KPI_EVENT_NAMES.raw_media_delete_failed,
         request.requestId,
         request.userId,

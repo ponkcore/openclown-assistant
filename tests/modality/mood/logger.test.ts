@@ -22,13 +22,43 @@ import {
 import { buildMoodKeyboard, buildMoodConfirmKeyboard, parseScoreCallback } from "../../../src/modality/mood/keyboard.js";
 import { PROMETHEUS_METRIC_NAMES, KPI_EVENT_NAMES } from "../../../src/observability/kpiEvents.js";
 
-// Mock callOmniRoute
-vi.mock("../../../src/llm/omniRouteClient.js", () => ({
-  callOmniRoute: vi.fn(),
+// Mock llmClient + registry
+vi.mock("../../../src/llm/llmClient.js", () => ({
+  chatCompletion: vi.fn(),
+  vision: vi.fn(),
+  isPromptOrResponseSafeForLogging: vi.fn().mockReturnValue(true),
 }));
 
-import { callOmniRoute } from "../../../src/llm/omniRouteClient.js";
-const mockCallOmniRoute = vi.mocked(callOmniRoute);
+vi.mock("../../../src/llm/registry.js", () => ({
+  resolve: vi.fn(),
+  getApiKey: vi.fn().mockReturnValue("test-api-key"),
+  initRegistry: vi.fn(),
+  closeRegistry: vi.fn(),
+  reload: vi.fn(),
+  _resetLegacyWarned: vi.fn(),
+  adaptMetricsSink: vi.fn(),
+  RegistryError: class RegistryError extends Error { code = ""; },
+}));
+
+import { chatCompletion } from "../../../src/llm/llmClient.js";
+import { resolve } from "../../../src/llm/registry.js";
+import type { Resolved } from "../../../src/llm/registry.js";
+
+const mockChatCompletion = vi.mocked(chatCompletion);
+const mockResolve = vi.mocked(resolve);
+
+const MOCK_RESOLVED: Resolved = {
+  provider_id: "fireworks",
+  base_url: "https://api.fireworks.ai/inference/v1",
+  api_key_env: "LLM_FIREWORKS_API_KEY",
+  model: "accounts/fireworks/models/executor",
+  fallback: {
+    provider_id: "fireworks",
+    base_url: "https://api.fireworks.ai/inference/v1",
+    api_key_env: "LLM_FIREWORKS_API_KEY",
+    model: "accounts/fireworks/models/reviewer",
+  },
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -107,9 +137,7 @@ const EXTRACTOR_CONFIG = {
   systemPromptTemplate: "Extract mood score from message. Schema: {{JSON_SCHEMA}}. Respond with ONLY JSON.",
   outputJsonSchema: '{"score":"integer","confidence":"number","inferred_comment":"string?"}',
   confidenceThreshold: 0.6,
-  defaultModel: { modelAlias: "accounts/fireworks/models/executor", providerHint: "fireworks" },
-  fallbackModel: { modelAlias: "accounts/fireworks/models/reviewer", providerHint: "fireworks" },
-  emergencyModel: { modelAlias: "openrouter/nvidia/nemotron-3-super:free", providerHint: "openrouter" },
+  call_type: "kbju.mood_inferrer",
 };
 
 function makeConfigLoader(): { loader: MoodExtractorConfigLoader; cleanup: () => void } {
@@ -129,8 +157,8 @@ function successLLMResponse(score: number, confidence: number, inferredComment?:
     output.inferred_comment = inferredComment;
   }
   return {
-    providerAlias: "fireworks" as const,
-    modelAlias: "accounts/fireworks/models/executor",
+    provider_id: "fireworks",
+    model: "accounts/fireworks/models/executor",
     rawResponseText: JSON.stringify(output),
     inputUnits: 10,
     outputUnits: 5,
@@ -141,8 +169,8 @@ function successLLMResponse(score: number, confidence: number, inferredComment?:
 
 function failureLLMResponse() {
   return {
-    providerAlias: "fireworks" as const,
-    modelAlias: "accounts/fireworks/models/executor",
+    provider_id: "fireworks",
+    model: "accounts/fireworks/models/executor",
     rawResponseText: "",
     inputUnits: 0,
     outputUnits: 0,
@@ -152,6 +180,7 @@ function failureLLMResponse() {
 }
 
 function makeDeps(overrides?: Record<string, unknown>) {
+  mockResolve.mockReturnValue(MOCK_RESOLVED);
   const store = makeStubStore();
   const { loader, cleanup } = makeConfigLoader();
   const metrics = makeMetrics();
@@ -283,7 +312,7 @@ describe("handleMoodEvent", () => {
   // ── Free-form text inference ────────────────────────────────────────
 
   it("enters PENDING-CONFIRM for free-form text with LLM inference", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(6, 0.8, "устал"));
+    mockChatCompletion.mockResolvedValueOnce(successLLMResponse(6, 0.8, "устал"));
 
     const result = await handleMoodEvent(
       { userId: "user-001", source: "text", rawText: "сегодня устал, всё бесит", requestId: "req-007" },
@@ -298,7 +327,7 @@ describe("handleMoodEvent", () => {
   });
 
   it("shows KEYBOARD_PROMPT when LLM returns low confidence", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(5, 0.3));
+    mockChatCompletion.mockResolvedValueOnce(successLLMResponse(5, 0.3));
 
     const result = await handleMoodEvent(
       { userId: "user-001", source: "text", rawText: "какой-то текст", requestId: "req-008" },
@@ -313,7 +342,7 @@ describe("handleMoodEvent", () => {
 
   it("persists on confirm-via-keyboard", async () => {
     // First: enter pending state
-    mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(6, 0.8, "устал"));
+    mockChatCompletion.mockResolvedValueOnce(successLLMResponse(6, 0.8, "устал"));
     await handleMoodEvent(
       { userId: "user-001", source: "text", rawText: "сегодня устал", requestId: "req-009a" },
       deps,
@@ -340,7 +369,7 @@ describe("handleMoodEvent", () => {
 
   it("persists with user-chosen score when overriding inferred via keyboard", async () => {
     // Enter pending state with inferred score 6
-    mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(6, 0.8));
+    mockChatCompletion.mockResolvedValueOnce(successLLMResponse(6, 0.8));
     await handleMoodEvent(
       { userId: "user-001", source: "text", rawText: "сегодня устал", requestId: "req-010a" },
       deps,
@@ -437,7 +466,7 @@ describe("handleMoodEvent", () => {
     deps.clock = clock;
 
     // Enter pending state
-    mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(6, 0.8));
+    mockChatCompletion.mockResolvedValueOnce(successLLMResponse(6, 0.8));
     await handleMoodEvent(
       { userId: "user-001", source: "text", rawText: "сегодня устал", requestId: "req-013a" },
       deps,
@@ -466,7 +495,7 @@ describe("handleMoodEvent", () => {
     deps.clock = clock;
 
     // Enter pending state at t=0
-    mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(6, 0.8));
+    mockChatCompletion.mockResolvedValueOnce(successLLMResponse(6, 0.8));
     await handleMoodEvent(
       { userId: "user-001", source: "text", rawText: "сегодня устал", requestId: "req-013c" },
       deps,
@@ -490,7 +519,7 @@ describe("handleMoodEvent", () => {
     deps.clock = clock;
 
     // Enter pending state
-    mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(6, 0.8));
+    mockChatCompletion.mockResolvedValueOnce(successLLMResponse(6, 0.8));
     await handleMoodEvent(
       { userId: "user-001", source: "text", rawText: "сегодня устал", requestId: "req-014a" },
       deps,
@@ -540,7 +569,7 @@ describe("handleMoodEvent", () => {
 
   it("emits kbju_modality_event_persisted with mood inferred labels on confirm", async () => {
     // Enter pending state
-    mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(6, 0.8));
+    mockChatCompletion.mockResolvedValueOnce(successLLMResponse(6, 0.8));
     await handleMoodEvent(
       { userId: "user-001", source: "text", rawText: "сегодня устал", requestId: "req-017a" },
       deps,
@@ -665,7 +694,7 @@ describe("handleMoodEvent", () => {
   });
 
   it("provides confirm keyboard for pending inference", async () => {
-    mockCallOmniRoute.mockResolvedValueOnce(successLLMResponse(6, 0.8));
+    mockChatCompletion.mockResolvedValueOnce(successLLMResponse(6, 0.8));
 
     const result = await handleMoodEvent(
       { userId: "user-001", source: "text", rawText: "сегодня устал", requestId: "req-026" },

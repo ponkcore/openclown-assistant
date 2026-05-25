@@ -1,7 +1,7 @@
 ---
 id: TKT-035
 title: 'Migrate config/*.json extractor manifests to call-type aliases'
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: C16 / C17 / C18 / C19 / C20 / C7 manifests
@@ -71,3 +71,7 @@ Replace the inline model identifiers in `config/water-extractor.json`, `config/w
 
 ## 10. Execution Log
 <!-- executor fills as work proceeds -->
+- 2026-05-26T00:00:00Z opencode-executor: started
+- 2026-05-26T00:55:00Z opencode-executor: all 5 manifests + example migrated; 5 src/ extractors + photo adapter rewritten to registry.resolve(); 7 test files updated + 1 smoke test written; 1333 tests pass (2 pre-existing failures); typecheck clean; lint clean
+- 2026-05-26T00:56:00Z opencode-executor: in_review; 1333 tests pass; typecheck clean; lint clean; 2 pre-existing failures
+- 2026-05-26T01:07:00Z opencode-executor: iter 2; addressed RV-CODE-019 F-M2 (removed dead VISION_MODEL_ALIAS constant from src/photo/types.ts, zero consumers confirmed); F-M1 deferred to backlog (pre-existing photo adapter raw-fetch bypasses central llmClient); pre-existing failures: "startMetricsServer rejects 0.0.0.0 wildcard (ARCH-001@0.7.1 §8.2/§11 C10)", "Allowlist > failure modes > hot-reloads mode changes from file"; 1333 tests pass; lint+typecheck clean

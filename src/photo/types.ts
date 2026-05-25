@@ -5,7 +5,6 @@ export const LOW_CONFIDENCE_THRESHOLD = 0.70;
 
 export const LOW_CONFIDENCE_LABEL_RU = "низкая уверенность";
 
-export const VISION_MODEL_ALIAS = "qwen3-vl-30b-a3b-instruct";
 
 export const VISION_TIMEOUT_MS = 15000;
 
@@ -14,9 +13,8 @@ export const VISION_RETRY_DELAY_MS = 500;
 export const VISION_LATENCY_BUDGET_MS = 12000;
 
 export interface PhotoRecognitionConfig {
-  baseUrl: string;
-  apiKey: string;
-  modelAlias: string;
+  /** Registry call-type alias (ADR-024@0.1.0) for photo recognition */
+  call_type: string;
   maxInputTokens: number;
   maxOutputTokens: number;
   maxLatencyMs: number;

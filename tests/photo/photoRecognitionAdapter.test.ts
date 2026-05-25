@@ -14,13 +14,35 @@ import {
   type VisionStructuredResponse,
 } from "../../src/photo/types.js";
 
+vi.mock("../../src/llm/registry.js", () => ({
+  resolve: vi.fn(),
+  getApiKey: vi.fn().mockReturnValue("test-key"),
+  initRegistry: vi.fn(),
+  closeRegistry: vi.fn(),
+  reload: vi.fn(),
+  _resetLegacyWarned: vi.fn(),
+  adaptMetricsSink: vi.fn(),
+  RegistryError: class RegistryError extends Error { code = ""; },
+}));
+
+import { resolve, getApiKey } from "../../src/llm/registry.js";
+import type { Resolved } from "../../src/llm/registry.js";
+
+const mockResolve = vi.mocked(resolve);
+const mockGetApiKey = vi.mocked(getApiKey);
+
+const MOCK_RESOLVED: Resolved = {
+  provider_id: "fireworks",
+  base_url: "https://api.fireworks.ai/inference/v1",
+  api_key_env: "LLM_FIREWORKS_API_KEY",
+  model: "accounts/fireworks/models/qwen3-vl-30b-a3b",
+};
+
 const FAKE_IMAGE_BUFFER = Buffer.from("fake-jpeg-bytes");
 const fakeImageFileReader = vi.fn().mockResolvedValue(FAKE_IMAGE_BUFFER);
 
 const mockConfig: PhotoRecognitionConfig = {
-  baseUrl: "https://omniroute.example.com",
-  apiKey: "test-key",
-  modelAlias: "qwen3-vl-30b-a3b-instruct",
+  call_type: "kbju.photo_recognition",
   maxInputTokens: 6000,
   maxOutputTokens: 800,
   maxLatencyMs: 12000,
@@ -209,6 +231,8 @@ describe("recognizePhoto", () => {
     fakeImageFileReader.mockClear();
     fakeImageFileReader.mockResolvedValue(FAKE_IMAGE_BUFFER);
     fetchSpy = vi.fn();
+    mockResolve.mockReturnValue(MOCK_RESOLVED);
+    mockGetApiKey.mockReturnValue("test-key");
     vi.stubGlobal("fetch", fetchSpy);
   });
 
