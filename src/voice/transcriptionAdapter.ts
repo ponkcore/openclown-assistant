@@ -15,6 +15,10 @@
  * Per TKT-034@0.1.0: "Do NOT change the C5 contract surface
  *   (transcript text + duration metadata + raw-audio deletion obligation).
  *   This is an indirection swap, not a feature change."
+ *
+ * RV-CODE-020 F-M2: registry_error is now propagated as a distinct
+ *   TranscriptionOutcome + error_kind discriminator rather than
+ *   collapsed to generic "provider_failure".
  */
 
 import { readFile } from "node:fs/promises";
@@ -28,11 +32,14 @@ import {
   type TranscriptionConfig,
   type TranscriptionRequest,
   type TranscriptionResult,
+  type TranscriptionOutcome,
+  type TranscriptionErrorKind,
 } from "./types.js";
 import {
   transcribe as voiceTranscribe,
   type TranscribeOpts,
   type VoiceCallContext,
+  type TranscribeOutcome,
 } from "./voiceClient.js";
 import type { Resolved } from "../llm/registry.js";
 
@@ -58,14 +65,41 @@ export class DurationExceededError extends Error {
 /**
  * Build a Resolved override from the legacy TranscriptionConfig so that
  * callers who pass explicit config (without the registry) continue to work.
+ *
+ * F-L1 (RV-CODE-020): Guard against double `/v1` — strip trailing `/v1`
+ * from baseUrl before appending.
  */
 function buildResolvedFromConfig(config: TranscriptionConfig): Resolved {
+  const base = config.baseUrl.replace(/\/v1\/?$/, "");
   return {
     provider_id: config.providerAlias,
-    base_url: `${config.baseUrl}/v1`,
+    base_url: `${base}/v1`,
     api_key_env: `LLM_${config.providerAlias.toUpperCase()}_API_KEY`,
     model: config.modelAlias,
   };
+}
+
+/**
+ * Map the voiceClient's TranscribeOutcome to the adapter's
+ * TranscriptionOutcome, preserving typed distinctions per
+ * RV-CODE-020 F-M2.
+ */
+function mapOutcome(voiceOutcome: TranscribeOutcome): {
+  outcome: TranscriptionOutcome;
+  error_kind?: TranscriptionErrorKind;
+} {
+  switch (voiceOutcome) {
+    case "success":
+      return { outcome: "success" };
+    case "registry_error":
+      // Preserve the typed distinction — do NOT collapse to provider_failure
+      return { outcome: "registry_error", error_kind: "registry_error" };
+    case "stall_detected":
+      return { outcome: "provider_failure", error_kind: "stall_detected" };
+    case "provider_failure":
+    default:
+      return { outcome: "provider_failure", error_kind: "provider_failure" };
+  }
 }
 
 export async function transcribeVoice(
@@ -212,8 +246,33 @@ export async function transcribeVoice(
     };
   }
 
-  // ── Failure path — delete audio, return failure ────────────────────────
+  // ── Failure path — preserve typed outcome, delete audio ────────────────
   await safeDeleteAudio(request, config.providerAlias);
+
+  const { outcome, error_kind } = mapOutcome(voiceResult.outcome);
+
+  // Emit a failure log with the error_kind discriminator for observability
+  if (error_kind) {
+    emitLog(
+      request.logger,
+      buildRedactedEvent(
+        "warn",
+        "kbju-meal-logging",
+        "C5",
+        KPI_EVENT_NAMES.provider_call_finished,
+        request.requestId,
+        request.userId,
+        outcome,
+        request.degradeModeEnabled,
+        {
+          call_type: "transcription",
+          provider_alias: config.providerAlias,
+          model_alias: config.modelAlias,
+          error_code: error_kind,
+        }
+      )
+    );
+  }
 
   return {
     providerAlias: config.providerAlias,
@@ -221,8 +280,9 @@ export async function transcribeVoice(
     transcriptText: "",
     confidence: null,
     estimatedCostUsd: preflight.estimatedCallCostUsd,
-    outcome: "provider_failure",
+    outcome,
     audioDeleted: true,
+    error_kind,
   };
 }
 

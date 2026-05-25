@@ -43,6 +43,14 @@ export interface TranscriptionResult {
   estimatedCostUsd: number;
   outcome: TranscriptionOutcome;
   audioDeleted: boolean;
+  /**
+   * Structured error discriminator from the underlying voiceClient.
+   * Present when outcome is "provider_failure" or "registry_error".
+   * Preserves the voiceClient's typed outcome so downstream observability
+   * and diagnostics can distinguish e.g. "API key missing" from "HTTP 500".
+   * `undefined` on success / duration_exceeded / budget_blocked.
+   */
+  error_kind?: TranscriptionErrorKind;
 }
 
 export type TranscriptionOutcome =
@@ -50,7 +58,18 @@ export type TranscriptionOutcome =
   | "duration_exceeded"
   | "provider_failure"
   | "budget_blocked"
+  | "registry_error"
   | "deletion_failed";
+
+/**
+ * Fine-grained error kinds from the voiceClient, carried through the
+ * adapter boundary for observability without collapsing to generic
+ * "provider_failure".
+ */
+export type TranscriptionErrorKind =
+  | "provider_failure"
+  | "registry_error"
+  | "stall_detected";
 
 export interface VoiceFailureState {
   consecutiveFailures: number;

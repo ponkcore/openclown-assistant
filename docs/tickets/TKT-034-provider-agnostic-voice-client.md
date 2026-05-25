@@ -77,3 +77,4 @@ Refactor the existing C5 Voice Transcription Provider client into a generic `src
 
 - 2026-05-25T22:19:21Z opencode-executor: started
 - 2026-05-26T02:05:00Z opencode-executor: in_review; tests 52 pass (voice); lint clean; typecheck clean
+- 2026-05-26T02:20:00Z opencode-executor: iter 2; addressed RV-CODE-020 F-M2 (preserve typed registry_error through adapter boundary); F-M1 deferred to backlog (registry auth_header_template knob outside §5 Outputs but authorised by §2; ADR-024@0.1.0 §Schema patch needed); F-L1 (double /v1 guard) and F-L2 (comment accuracy) addressed as one-liners

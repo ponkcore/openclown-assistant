@@ -11,7 +11,7 @@
  * C13 Stall Watchdog (ADR-012@0.1.0) wraps transcribe — ONE place.
  * Retry: ONE max, only on transport failure, only inside latency cap
  *   (PRD-001@0.3.0 §G3).
- * All log emits pass through redactPii.
+ * All log emits pass through buildRedactedEvent (which applies redactPii internally).
  */
 
 import type { OpenClawLogger, ComponentId } from "../shared/types.js";

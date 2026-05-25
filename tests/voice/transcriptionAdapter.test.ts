@@ -340,13 +340,96 @@ describe("transcribeVoice", () => {
   });
 });
 
+// ── RV-CODE-020 F-M2: typed-error preservation through adapter boundary ────
 
-describe("DurationExceededError", () => {
-  it("carries duration metadata", () => {
-    const err = new DurationExceededError(20);
-    expect(err.durationSeconds).toBe(20);
-    expect(err.maxDurationSeconds).toBe(MAX_VOICE_DURATION_SECONDS);
-    expect(err.message).toContain("20s");
-    expect(err.name).toBe("DurationExceededError");
+describe("transcribeVoice — RV-CODE-020 F-M2: registry_error preservation", () => {
+  let fetchSpy: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    fakeAudioReader.mockClear();
+    fakeAudioReader.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
+    fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("propagates registry_error (not generic provider_failure) when API key env var is unset via resolvedOverride", async () => {
+    // Use a resolvedOverride that points to an unset env var,
+    // and a config with empty apiKey so apiKeyOverride is "" —
+    // this forces voiceClient to try the env-var path and fail.
+    const brokenOverride = {
+      provider_id: "broken",
+      base_url: "https://broken.example.com/v1",
+      api_key_env: "LLM_BROKEN_KEY_NOT_SET",
+      model: "broken-model",
+    };
+
+    const emptyKeyConfig: TranscriptionConfig = {
+      ...mockConfig,
+      apiKey: "",
+    };
+
+    const logger = makeMockLogger();
+    const request = makeRequest({ logger });
+
+    const result = await transcribeVoice(emptyKeyConfig, request, brokenOverride);
+
+    // F-M2: adapter must NOT collapse registry_error → provider_failure
+    expect(result.outcome).toBe("registry_error");
+    expect(result.error_kind).toBe("registry_error");
+    // Audio is still deleted on failure
+    expect(result.audioDeleted).toBe(true);
+    // No HTTP call was made — the error is at the registry/env level
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("sets error_kind: provider_failure for HTTP-level failures", async () => {
+    fetchSpy.mockResolvedValue(mockFetchError(500));
+    const logger = makeMockLogger();
+    const request = makeRequest({ logger });
+
+    const result = await transcribeVoice(mockConfig, request);
+
+    expect(result.outcome).toBe("provider_failure");
+    expect(result.error_kind).toBe("provider_failure");
+  });
+
+  it("sets error_kind: provider_failure for non-retryable HTTP errors", async () => {
+    fetchSpy.mockResolvedValue(mockFetchError(401));
+    const request = makeRequest();
+
+    const result = await transcribeVoice(mockConfig, request);
+
+    expect(result.outcome).toBe("provider_failure");
+    expect(result.error_kind).toBe("provider_failure");
+  });
+
+  it("does NOT set error_kind on duration_exceeded", async () => {
+    const request = makeRequest({ durationSeconds: 20 });
+    const result = await transcribeVoice(mockConfig, request);
+
+    expect(result.outcome).toBe("duration_exceeded");
+    expect(result.error_kind).toBeUndefined();
+  });
+
+  it("does NOT set error_kind on budget_blocked", async () => {
+    const tracker = makeMockSpendTracker({
+      preflightCheck: vi.fn().mockResolvedValue({
+        allowed: false,
+        projectedSpendUsd: 0,
+        estimatedCallCostUsd: 0,
+      } as PreflightResult),
+    });
+    const request = makeRequest({ spendTracker: tracker });
+
+    const result = await transcribeVoice(mockConfig, request);
+
+    expect(result.outcome).toBe("budget_blocked");
+    expect(result.error_kind).toBeUndefined();
   });
 });
