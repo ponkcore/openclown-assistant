@@ -5,7 +5,6 @@ export const LOW_CONFIDENCE_THRESHOLD = 0.70;
 
 export const LOW_CONFIDENCE_LABEL_RU = "низкая уверенность";
 
-export const VISION_MODEL_ALIAS = "qwen3-vl-30b-a3b-instruct";
 
 export const VISION_TIMEOUT_MS = 15000;
 
