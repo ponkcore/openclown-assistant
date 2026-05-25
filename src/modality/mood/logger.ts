@@ -31,6 +31,7 @@ import {
 } from "./extractScore.js";
 import {
   SUCCESS_REPLY,
+  COMMENT_TRUNCATED_REPLY,
   SUCCESS_REPLY_WITH_COMMENT,
   OUT_OF_RANGE_REPLY,
   KEYBOARD_PROMPT,
@@ -73,7 +74,7 @@ export interface MoodReply {
 
 const SCORE_MIN = 1;
 const SCORE_MAX = 10;
-const COMMENT_MAX_LENGTH = 200;
+const COMMENT_MAX_LENGTH = 280;
 const CONFIDENCE_THRESHOLD = 0.6;
 
 // C20 component ID for observability — not yet in ComponentId union;
@@ -121,11 +122,12 @@ function extractExplicitScore(text: string): { score: number; commentText: strin
   return null;
 }
 
-/** Truncate comment text to COMMENT_MAX_LENGTH silently (per UX simplicity). */
-function truncateComment(text: string | null): string | null {
-  if (!text) return null;
-  if (text.length <= COMMENT_MAX_LENGTH) return text;
-  return text.slice(0, COMMENT_MAX_LENGTH);
+/** Truncate comment text to COMMENT_MAX_LENGTH (280 chars). Returns truncated text and whether overflow occurred. Uses Array.from for astral-plane safety. */
+function truncateComment(text: string | null): { text: string | null; wasTruncated: boolean } {
+  if (!text) return { text: null, wasTruncated: false };
+  const chars = Array.from(text);
+  if (chars.length <= COMMENT_MAX_LENGTH) return { text, wasTruncated: false };
+  return { text: chars.slice(0, COMMENT_MAX_LENGTH).join(""), wasTruncated: true };
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────
@@ -202,14 +204,14 @@ export async function handleMoodEvent(
           };
         }
 
-        const commentText = truncateComment(pending.inferredComment);
+        const truncResult = truncateComment(pending.inferredComment);
         const eventSource: MoodEventSource = "inferred";
 
         const { event_id } = await deps.store.insertMoodEvent(
           userId,
           eventSource,
           finalScore,
-          commentText,
+          truncResult.text,
           true, // inferred_from_text
           null, // raw_text not stored for confirmed inferences
         );
@@ -235,9 +237,14 @@ export async function handleMoodEvent(
           { modality: "mood", source: eventSource, score: finalScore },
         ));
 
-        const replyText = commentText
-          ? SUCCESS_REPLY_WITH_COMMENT.replace("{score}", String(finalScore))
-          : SUCCESS_REPLY.replace("{score}", String(finalScore));
+        let replyText: string;
+        if (truncResult.wasTruncated) {
+          replyText = COMMENT_TRUNCATED_REPLY.replace("{score}", String(finalScore));
+        } else if (truncResult.text) {
+          replyText = SUCCESS_REPLY_WITH_COMMENT.replace("{score}", String(finalScore));
+        } else {
+          replyText = SUCCESS_REPLY.replace("{score}", String(finalScore));
+        }
 
         return {
           text: replyText,
@@ -254,7 +261,7 @@ export async function handleMoodEvent(
         return persistDirectScore(
           userId,
           parsed.score,
-          null, // no comment when overriding via keyboard
+          null, false, // no comment when overriding via keyboard; wasTruncated=false
           "keyboard",
           requestId,
           deps,
@@ -287,7 +294,7 @@ export async function handleMoodEvent(
       return persistDirectScore(
         userId,
         score,
-        null, // no comment for keyboard tap
+        null, false, // no comment for keyboard tap; wasTruncated=false
         "keyboard",
         requestId,
         deps,
@@ -346,12 +353,12 @@ export async function handleMoodEvent(
         return reply;
       }
 
-      const truncatedComment = truncateComment(commentText);
+      const truncResult = truncateComment(commentText);
       const eventSource: MoodEventSource = "text";
       const reply = await persistDirectScore(
         userId,
         explicitScore,
-        truncatedComment,
+        truncResult.text, truncResult.wasTruncated,
         eventSource,
         requestId,
         deps,
@@ -459,6 +466,7 @@ async function persistDirectScore(
   userId: string,
   score: number,
   commentText: string | null,
+  wasTruncated: boolean,
   eventSource: MoodEventSource,
   requestId: string,
   deps: {
@@ -499,9 +507,14 @@ async function persistDirectScore(
     { modality: "mood", source: eventSource, score },
   ));
 
-  const replyText = commentText
-    ? SUCCESS_REPLY_WITH_COMMENT.replace("{score}", String(score))
-    : SUCCESS_REPLY.replace("{score}", String(score));
+  let replyText: string;
+  if (wasTruncated) {
+    replyText = COMMENT_TRUNCATED_REPLY.replace("{score}", String(score));
+  } else if (commentText) {
+    replyText = SUCCESS_REPLY_WITH_COMMENT.replace("{score}", String(score));
+  } else {
+    replyText = SUCCESS_REPLY.replace("{score}", String(score));
+  }
 
   return {
     text: replyText,

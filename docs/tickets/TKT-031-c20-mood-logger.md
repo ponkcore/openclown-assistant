@@ -28,7 +28,7 @@ Land the C20 Mood Logger that infers mood score from free-form Russian text with
 - `src/modality/mood/logger.ts`: 1–10 numeric / numeric+comment / free-form-text-with-inference → `mood_events` row insert (G4).
 - Free-form-text inference via ADR-018@0.1.0 LLM pick (default `accounts/fireworks/models/executor`; fallback `accounts/fireworks/models/reviewer`).
 - Score-range guardrail: `mood_score` ∈ [1,10] integer; reject out-of-range → clarifying-reply.
-- Optional comment: truncate to ≤200 chars; drop comment if overlength rather than fail-open.
+- Optional comment: truncate to ≤280 chars; emit friendly Russian notice on overflow.
 - 5-minute pending-confirmation TTL for inferred scores.
 - 1–10 inline keyboard for direct numeric input.
 - Russian-language reply copy in `src/modality/mood/copy.ru.ts`.
