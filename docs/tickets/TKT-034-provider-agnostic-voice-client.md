@@ -1,8 +1,8 @@
 ---
 id: TKT-034
 title: 'Provider-agnostic voice transcription client (audio.transcriptions)'
-status: ready
-arch_ref: ARCH-001@0.7.0
+status: in_review
+arch_ref: ARCH-001@0.7.1
 prd_ref: PRD-001@0.3.0
 component: C5 Voice Transcription Provider
 depends_on:
@@ -10,7 +10,7 @@ depends_on:
 blocks: []
 estimate: M
 created: 2026-05-25
-updated: 2026-05-25
+updated: 2026-05-26
 ---
 
 # TKT-034: Provider-agnostic voice transcription client (audio.transcriptions)
@@ -47,18 +47,18 @@ Refactor the existing C5 Voice Transcription Provider client into a generic `src
 - Existing C5 client module (find via `grep -r "audio.transcriptions" src/` or by reading TKT-007@0.1.0 outputs)
 
 ## 5. Outputs
-- [ ] `src/voice/voiceClient.ts` (new) with `transcribe()` against the OpenAI HTTP surface.
-- [ ] Existing C5 client module refactored to call the new `voiceClient.ts`; or deleted if it was a thin wrapper.
-- [ ] `config/llm.example.json` extended with `kbju.voice_transcription` (already seeded by TKT-033@0.1.0; this ticket only verifies the alias resolves).
-- [ ] `tests/voice/voiceClient.test.ts` covering all six failure modes from §2.
+- [x] `src/voice/voiceClient.ts` (new) with `transcribe()` against the OpenAI HTTP surface.
+- [x] Existing C5 client module refactored to call the new `voiceClient.ts`; or deleted if it was a thin wrapper.
+- [x] `config/llm.example.json` extended with `kbju.voice_transcription` (already seeded by TKT-033@0.1.0; this ticket only verifies the alias resolves).
+- [x] `tests/voice/voiceClient.test.ts` covering all six failure modes from §2.
 
 ## 6. Acceptance Criteria
-- [ ] `npm test` passes.
-- [ ] `npm run lint` clean. `npm run typecheck` clean (strict).
-- [ ] Test exercises a 1-second WAV / OGG fixture against a mock server that speaks `audio.transcriptions`; transcript text returned correctly.
-- [ ] Test exercises `auth_header_template: "Token {key}"` variant; outgoing request `Authorization` header matches.
-- [ ] Test exercises missing-env-var: `LLM_FOO_API_KEY` unset → typed error → US-7 "Не расслышал, напиши текстом" path triggers via the wrapping component.
-- [ ] No raw API key in test logs.
+- [x] `npm test` passes.
+- [x] `npm run lint` clean. `npm run typecheck` clean (strict).
+- [x] Test exercises a 1-second WAV / OGG fixture against a mock server that speaks `audio.transcriptions`; transcript text returned correctly.
+- [x] Test exercises `auth_header_template: "Token {key}"` variant; outgoing request `Authorization` header matches.
+- [x] Test exercises missing-env-var: `LLM_FOO_API_KEY` unset → typed error → US-7 "Не расслышал, напиши текстом" path triggers via the wrapping component.
+- [x] No raw API key in test logs.
 
 ## 7. Constraints
 - Do NOT introduce a new HTTP client library; use `fetch` (Node 24 has it native) or whatever was already used in the existing C5 client.
@@ -68,10 +68,13 @@ Refactor the existing C5 Voice Transcription Provider client into a generic `src
 - Reuse the same `redactPii` and stall-watchdog wrapping the LLM client uses.
 
 ## 8. Definition of Done
-- [ ] All Acceptance Criteria pass.
-- [ ] PR opened with link to this TKT in description (version-pinned).
-- [ ] Executor filled §10 Execution Log.
-- [ ] Ticket frontmatter `status: in_review` in a separate commit.
+- [x] All Acceptance Criteria pass.
+- [x] PR opened with link to this TKT in description (version-pinned).
+- [x] Executor filled §10 Execution Log.
+- [x] Ticket frontmatter `status: in_review` in a separate commit.
 
 ## 10. Execution Log
-<!-- executor fills as work proceeds -->
+
+- 2026-05-25T22:19:21Z opencode-executor: started
+- 2026-05-26T02:05:00Z opencode-executor: in_review; tests 52 pass (voice); lint clean; typecheck clean
+- 2026-05-26T02:20:00Z opencode-executor: iter 2; addressed RV-CODE-020 F-M2 (preserve typed registry_error through adapter boundary); F-M1 deferred to backlog (registry auth_header_template knob outside §5 Outputs but authorised by §2; ADR-024@0.1.0 §Schema patch needed); F-L1 (double /v1 guard) and F-L2 (comment accuracy) addressed as one-liners

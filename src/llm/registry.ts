@@ -21,6 +21,7 @@ import type { OpenClawLogger } from "../shared/types.js";
 export interface ProviderEntry {
   base_url: string;
   api_key_env: string;
+  auth_header_template?: string;
   comment?: string;
 }
 
@@ -45,6 +46,7 @@ export type Resolved = {
   base_url: string;
   api_key_env: string;
   model: string;
+  auth_header_template?: string;
   fallback?: Resolved;
 };
 
@@ -179,6 +181,7 @@ class LlmRegistry {
       base_url: provider.base_url,
       api_key_env: provider.api_key_env,
       model: entry.model,
+      auth_header_template: provider.auth_header_template,
     };
 
     if (entry.fallback_call_type) {
