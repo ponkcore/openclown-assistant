@@ -1,5 +1,10 @@
 /**
- * PRD-003@0.1.3 right-to-delete cascade verification tests (TKT-021).
+ * PRD-003@0.1.3 right-to-delete cascade verification tests (TKT-032 rewrite).
+ *
+ * The unit-test assertions for the TypeScript module (`rightToDelete.ts`) are
+ * retained; the regex-on-migration-file check is replaced with a live-DB
+ * integration test that verifies ON DELETE CASCADE FK constraints actually
+ * fire when a user row is deleted.
  *
  * Verifies:
  * - The seven new modality tables appear in createDeletionSqlByTable()
@@ -8,11 +13,15 @@
  * - modality_settings is deleted after modality_settings_audit
  * - sleep_pairing_state is present (PK-based table uses user_id column)
  * - The right-to-delete transaction covers all seven in a single boundary
+ * - [LIVE DB] ON DELETE CASCADE FK constraints exist on all seven tables
+ * - [LIVE DB] Deleting a user cascades to all seven modality tables
  */
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll, afterAll } from "vitest";
+import type { Pool } from "pg";
+import { withPostgres } from "../_helpers/postgres.js";
 import {
   createDeletionSqlByTable,
   hardDeleteUserRows,
@@ -30,7 +39,26 @@ const modalityDeletionTables: UserScopedDeletionTable[] = [
   "modality_settings",
 ];
 
-describe("PRD-003 right-to-delete cascade (TKT-021)", () => {
+let pool: Pool;
+let cleanup: () => Promise<void>;
+
+beforeAll(async () => {
+  const ctx = await withPostgres();
+  pool = ctx.pool;
+  cleanup = ctx.cleanup;
+}, 120_000);
+
+afterAll(async () => {
+  await cleanup();
+});
+
+// ---------------------------------------------------------------------------
+// Unit tests for the TypeScript module logic (no Docker dependency for the
+// logic itself, but the file lives in tests/db/ so it's part of the
+// integration suite)
+// ---------------------------------------------------------------------------
+
+describe("PRD-003 right-to-delete — TS module logic", () => {
   it("includes all seven modality tables in createDeletionSqlByTable()", () => {
     const sqlByTable = createDeletionSqlByTable();
     for (const table of modalityDeletionTables) {
@@ -107,14 +135,14 @@ describe("PRD-003 right-to-delete cascade (TKT-021)", () => {
     // Verify all modality tables were queried
     for (const table of modalityDeletionTables) {
       const found = queries.find(
-        (q) => q.sql.includes(`DELETE FROM ${table}`) && q.values[0] === userId
+        (q) => q.sql.includes(`DELETE FROM ${table}`) && q.values[0] === userId,
       );
       expect(found).toBeDefined();
     }
 
     // Verify users table was also queried
     const usersQuery = queries.find(
-      (q) => q.sql.includes("DELETE FROM users") && q.values[0] === userId
+      (q) => q.sql.includes("DELETE FROM users") && q.values[0] === userId,
     );
     expect(usersQuery).toBeDefined();
 
@@ -125,11 +153,177 @@ describe("PRD-003 right-to-delete cascade (TKT-021)", () => {
       expect(q.values[0]).toBe(userId);
     }
   });
+});
 
-  it("right-to-delete migration file exists and references all seven tables", () => {
-    const migrationSql = readFileSync(resolve(process.cwd(), "migrations/004_prd003_right_to_delete_cascade.sql"), "utf8");
+// ---------------------------------------------------------------------------
+// Live-DB integration tests — verify ON DELETE CASCADE FK constraints and
+// actual cascade behavior
+// ---------------------------------------------------------------------------
+
+describe("PRD-003 right-to-delete — live DB cascade verification", () => {
+  it("all seven modality tables have ON DELETE CASCADE FK to users(id)", async () => {
+    interface FkRow { relname: string; confdeltype: string }
+    const result = await pool.query<FkRow>(
+      `SELECT cf.relname, cn.confdeltype
+       FROM pg_constraint cn
+       JOIN pg_class cf ON cf.oid = cn.conrelid
+       JOIN pg_namespace nf ON nf.oid = cf.relnamespace
+       JOIN pg_class cp ON cp.oid = cn.confrelid
+       JOIN pg_namespace np ON np.oid = cp.relnamespace
+       WHERE cn.contype = 'f'
+         AND nf.nspname = 'public'
+         AND cf.relname = ANY($1)
+         AND np.nspname = 'public'
+         AND cp.relname = 'users'`,
+      [modalityDeletionTables],
+    );
+    const cascadeByTable = new Map(result.rows.map((r) => [r.relname, r.confdeltype]));
     for (const table of modalityDeletionTables) {
-      expect(migrationSql).toContain(table);
+      expect(
+        cascadeByTable.has(table),
+        `${table} should have an FK to users(id)`,
+      ).toBe(true);
+      // confdeltype 'c' = CASCADE
+      expect(
+        cascadeByTable.get(table),
+        `${table} FK should be ON DELETE CASCADE`,
+      ).toBe("c");
     }
   });
+
+  it("deleting a user cascades to all seven modality tables", async () => {
+    // 1. Insert a test user
+    const userId = await insertTestUser(pool);
+
+    // 2. Insert a row into each modality table for that user
+    await insertModalityTestRows(pool, userId);
+
+    // 3. Verify rows exist before deletion
+    for (const table of modalityDeletionTables) {
+      const count = await rowCount(pool, table, userId);
+      expect(count, `${table} should have a row for test user before deletion`).toBeGreaterThanOrEqual(1);
+    }
+
+    // 4. Delete the user
+    await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+
+    // 5. Verify all modality rows are gone
+    for (const table of modalityDeletionTables) {
+      const count = await rowCount(pool, table, userId);
+      expect(count, `${table} rows should be cascade-deleted`).toBe(0);
+    }
+  });
+
+  it("deleting one user does not cascade to another user's rows", async () => {
+    // 1. Insert two test users
+    const userA = await insertTestUser(pool, "A");
+    const userB = await insertTestUser(pool, "B");
+
+    // 2. Insert modality rows for both
+    await insertModalityTestRows(pool, userA);
+    await insertModalityTestRows(pool, userB);
+
+    // 3. Delete user A
+    await pool.query("DELETE FROM users WHERE id = $1", [userA]);
+
+    // 4. User B's rows should survive
+    for (const table of modalityDeletionTables) {
+      const count = await rowCount(pool, table, userB);
+      expect(count, `${table} rows for user B should survive`).toBeGreaterThanOrEqual(1);
+    }
+
+    // Cleanup user B
+    await pool.query("DELETE FROM users WHERE id = $1", [userB]);
+  });
 });
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Whitelist of table names that may be used as SQL identifiers. */
+const VALID_TABLE_RE = /^[a-z_][a-z0-9_]*$/;
+
+/** Insert a user and return the generated id. */
+async function insertTestUser(p: Pool, suffix = ""): Promise<string> {
+  const tgUid = `tg-test-user-${Date.now()}-${suffix}`;
+  const tgChatId = `tg-chat-${Date.now()}-${suffix}`;
+  const result = await p.query<{ id: string }>(
+    `INSERT INTO users (telegram_user_id, telegram_chat_id, timezone, onboarding_status)
+     VALUES ($1, $2, 'UTC', 'active')
+     RETURNING id`,
+    [tgUid, tgChatId],
+  );
+  return result.rows[0].id;
+}
+
+/** Insert one row into each of the seven modality tables for the given user. */
+async function insertModalityTestRows(p: Pool, userId: string): Promise<void> {
+  // water_events
+  await p.query(
+    `INSERT INTO water_events (user_id, ts_utc, volume_ml, source)
+     VALUES ($1, now(), 250, 'keyboard')`,
+    [userId],
+  );
+
+  // sleep_records
+  await p.query(
+    `INSERT INTO sleep_records (user_id, start_ts_utc, end_ts_utc, duration_min,
+       attribution_date_local, attribution_tz, is_nap, is_paired_origin)
+     VALUES ($1, now() - interval '8 hours', now(), 480,
+       CURRENT_DATE, 'UTC', false, false)`,
+    [userId],
+  );
+
+  // sleep_pairing_state
+  await p.query(
+    `INSERT INTO sleep_pairing_state (user_id, leg_event_ts_utc, expires_at_utc)
+     VALUES ($1, now(), now() + interval '2 hours')`,
+    [userId],
+  );
+
+  // workout_events
+  await p.query(
+    `INSERT INTO workout_events (user_id, ts_utc, type, source)
+     VALUES ($1, now(), 'running', 'text')`,
+    [userId],
+  );
+
+  // mood_events
+  await p.query(
+    `INSERT INTO mood_events (user_id, ts_utc, score, source)
+     VALUES ($1, now(), 7, 'keyboard')`,
+    [userId],
+  );
+
+  // modality_settings
+  await p.query(
+    `INSERT INTO modality_settings (user_id)
+     VALUES ($1)`,
+    [userId],
+  );
+
+  // modality_settings_audit
+  await p.query(
+    `INSERT INTO modality_settings_audit (user_id, modality, old_value, new_value, ts_utc)
+     VALUES ($1, 'water', true, false, now())`,
+    [userId],
+  );
+}
+
+/**
+ * Count rows in a modality table for the given user_id.
+ * The table name is validated against a whitelist regex before interpolation
+ * to guard against identifier injection (values come from a hardcoded array,
+ * but the explicit check makes the intent clear and catches typos early).
+ */
+async function rowCount(p: Pool, table: string, userId: string): Promise<number> {
+  if (!VALID_TABLE_RE.test(table)) {
+    throw new Error(`Invalid table name for SQL interpolation: ${table}`);
+  }
+  const result = await p.query<{ cnt: string }>(
+    `SELECT count(*) AS cnt FROM ${table} WHERE user_id = $1`,
+    [userId],
+  );
+  return Number(result.rows[0].cnt);
+}

@@ -4,15 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run --exclude 'tests/db/**'",
+    "test:integration": "vitest run tests/db",
     "lint": "tsc --noEmit --project tsconfig.json",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "build": "tsc --project tsconfig.json"
   },
   "devDependencies": {
+    "@testcontainers/postgresql": "^12.0.0",
     "@types/luxon": "^3.7.1",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.20.0",
+    "testcontainers": "^12.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"

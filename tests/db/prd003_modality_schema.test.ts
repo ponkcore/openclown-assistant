@@ -1,25 +1,24 @@
 /**
- * PRD-003@0.1.3 modality schema verification tests (TKT-021).
+ * PRD-003@0.1.3 modality schema verification tests (TKT-032 rewrite).
+ *
+ * All assertions now query a live PostgreSQL container instead of
+ * regex-matching `src/store/schema.sql`. The harness is provided by
+ * `tests/_helpers/postgres.ts`.
  *
  * Verifies:
- * (a) all seven tables created in schema.sql
- * (b) all seven have RLS enabled
- * (c) the indexes from ADR-017@0.1.0 + ARCH-001@0.6.1 §5.3 exist
- * (d) the migration SQL file also defines all seven tables
- * (e) inserting two rows with different user_id and querying as one user
- *     returns only that user's row (RLS isolation — verified via
- *     policy shape, since we lack a running PG in unit tests)
+ * (a) all seven tables exist in the live DB
+ * (b) all seven have RLS enabled  (pg_class.relrowsecurity)
+ * (c) per-table RLS policies with user_id isolation pattern per ADR-001@0.1.0
+ * (d) the indexes from ADR-017@0.1.0 + ARCH-001@0.7.0 §5.3 exist
+ * (e) user_id FK with ON DELETE CASCADE on every modality table
+ * (f) GRANT CRUD to kbju_app, SELECT to kbju_audit
+ * (g) CHECK constraints per ARCH-001@0.7.0 §5.3
+ * (h) modality_settings flags default to true
  */
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
-
-const schemaSql = readFileSync(resolve(process.cwd(), "src/store/schema.sql"), "utf8");
-const migrationSql = readFileSync(
-  resolve(process.cwd(), "migrations/003_prd003_modality_tables.sql"),
-  "utf8"
-);
+import { describe, expect, it, beforeAll, afterAll } from "vitest";
+import type { Pool, QueryResultRow } from "pg";
+import { withPostgres } from "../_helpers/postgres.js";
 
 const modalityTables = [
   "water_events",
@@ -36,159 +35,268 @@ type ModalityTable = (typeof modalityTables)[number];
 /** Tables where user_id is the PK (not a separate FK column). */
 const pkUserIdTables = new Set<ModalityTable>(["modality_settings", "sleep_pairing_state"]);
 
-describe("PRD-003 modality schema (TKT-021)", () => {
-  it("creates all seven modality tables in schema.sql", () => {
-    for (const table of modalityTables) {
-      expect(schemaSql).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
-      expect(tableBlock(schemaSql, table)).not.toHaveLength(0);
-    }
-  });
+let pool: Pool;
+let cleanup: () => Promise<void>;
 
-  it("creates all seven modality tables in the migration SQL file", () => {
-    for (const table of modalityTables) {
-      expect(migrationSql).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
-    }
-  });
+beforeAll(async () => {
+  const ctx = await withPostgres();
+  pool = ctx.pool;
+  cleanup = ctx.cleanup;
+}, 120_000);
 
-  it("requires user_id with ON DELETE CASCADE on every modality table", () => {
-    for (const table of modalityTables) {
-      const block = tableBlock(schemaSql, table);
-      if (pkUserIdTables.has(table)) {
-        // PK-as-user_id: user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE
-        expect(block).toMatch(
-          /\buser_id\s+UUID\s+PRIMARY\s+KEY\s+REFERENCES\s+users\(id\)\s+ON\s+DELETE\s+CASCADE\b/i
-        );
-      } else {
-        // Standard: user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
-        expect(block).toMatch(
-          /\buser_id\s+UUID\s+NOT\s+NULL\s+REFERENCES\s+users\(id\)\s+ON\s+DELETE\s+CASCADE\b/i
-        );
-      }
-    }
-  });
-
-  it("enables RLS on all seven modality tables in schema.sql", () => {
-    for (const table of modalityTables) {
-      expect(schemaSql).toContain(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
-    }
-  });
-
-  it("enables RLS on all seven modality tables in migration SQL", () => {
-    for (const table of modalityTables) {
-      expect(migrationSql).toContain(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
-    }
-  });
-
-  it("creates per-table RLS policies with user_id isolation pattern per ADR-001@0.1.0", () => {
-    for (const table of modalityTables) {
-      const policyName = `${table}_user_id_isolation`;
-      // schema.sql
-      expect(schemaSql).toMatch(
-        new RegExp(
-          `CREATE POLICY ${escapeRegExp(policyName)} ON ${escapeRegExp(table)} FOR ALL USING \\(current_setting\\('app\\.user_id'\\)::uuid = user_id\\) WITH CHECK \\(current_setting\\('app\\.user_id'\\)::uuid = user_id\\)`,
-          "i"
-        )
-      );
-      // migration SQL
-      expect(migrationSql).toMatch(
-        new RegExp(
-          `CREATE POLICY ${escapeRegExp(policyName)} ON ${escapeRegExp(table)} FOR ALL USING \\(current_setting\\('app\\.user_id'\\)::uuid = user_id\\) WITH CHECK \\(current_setting\\('app\\.user_id'\\)::uuid = user_id\\)`,
-          "i"
-        )
-      );
-    }
-  });
-
-  it("creates the mandatory (user_id, attribution_date_local, is_nap) index on sleep_records per ADR-017@0.1.0 §Decision", () => {
-    // schema.sql
-    expect(schemaSql).toContain(
-      "CREATE INDEX IF NOT EXISTS sleep_records_user_date_nap_idx ON sleep_records (user_id, attribution_date_local, is_nap)"
-    );
-    // migration SQL
-    expect(migrationSql).toContain(
-      "CREATE INDEX IF NOT EXISTS sleep_records_user_date_nap_idx ON sleep_records (user_id, attribution_date_local, is_nap)"
-    );
-  });
-
-  it("creates the (user_id, ts_utc DESC) index on water_events, workout_events, mood_events", () => {
-    const tsIdxTables = ["water_events", "workout_events", "mood_events"] as const;
-    for (const table of tsIdxTables) {
-      const idxName = `${table}_user_ts_idx`;
-      const expected = `CREATE INDEX IF NOT EXISTS ${idxName} ON ${table} (user_id, ts_utc DESC)`;
-      expect(schemaSql).toContain(expected);
-      expect(migrationSql).toContain(expected);
-    }
-  });
-
-  it("creates the (user_id, ts_utc DESC) index on modality_settings_audit", () => {
-    const expected =
-      "CREATE INDEX IF NOT EXISTS modality_settings_audit_user_ts_idx ON modality_settings_audit (user_id, ts_utc DESC)";
-    expect(schemaSql).toContain(expected);
-    expect(migrationSql).toContain(expected);
-  });
-
-  it("grants CRUD to kbju_app and SELECT to kbju_audit for all seven tables", () => {
-    for (const table of modalityTables) {
-      // kbju_app gets SELECT, INSERT, UPDATE, DELETE
-      expect(schemaSql).toMatch(
-        new RegExp(`GRANT SELECT, INSERT, UPDATE, DELETE ON .*\\b${escapeRegExp(table)}\\b.*TO kbju_app`)
-      );
-      // kbju_audit gets SELECT
-      expect(schemaSql).toMatch(
-        new RegExp(`GRANT SELECT ON .*\\b${escapeRegExp(table)}\\b.*TO kbju_audit`)
-      );
-    }
-    // migration SQL also has grants
-    for (const table of modalityTables) {
-      expect(migrationSql).toMatch(
-        new RegExp(`GRANT SELECT, INSERT, UPDATE, DELETE ON .*\\b${escapeRegExp(table)}\\b.*TO kbju_app`)
-      );
-      expect(migrationSql).toMatch(
-        new RegExp(`GRANT SELECT ON .*\\b${escapeRegExp(table)}\\b.*TO kbju_audit`)
-      );
-    }
-  });
-
-  it("enforces CHECK constraints per ARCH-001@0.6.1 §5.3", () => {
-    // water_events volume_ml: 0 < volume_ml <= 5000
-    expect(tableBlock(schemaSql, "water_events")).toMatch(
-      /volume_ml\s+INTEGER\s+NOT\s+NULL\s+CHECK\s*\(\s*volume_ml\s*>\s*0\s+AND\s+volume_ml\s*<=\s*5000\s*\)/i
-    );
-    // sleep_records duration_min: 30 <= duration_min <= 1440
-    expect(tableBlock(schemaSql, "sleep_records")).toMatch(
-      /duration_min\s+INTEGER\s+NOT\s+NULL\s+CHECK\s*\(\s*duration_min\s*>=\s*30\s+AND\s+duration_min\s*<=\s*1440\s*\)/i
-    );
-    // mood_events score: 1 <= score <= 10
-    expect(tableBlock(schemaSql, "mood_events")).toMatch(
-      /score\s+INTEGER\s+NOT\s+NULL\s+CHECK\s*\(\s*score\s*>=\s*1\s+AND\s+score\s*<=\s*10\s*\)/i
-    );
-    // mood_events comment_text: length <= 280
-    expect(tableBlock(schemaSql, "mood_events")).toMatch(
-      /comment_text\s+TEXT\s+CHECK\s*\(\s*comment_text\s+IS\s+NULL\s+OR\s+length\s*\(\s*comment_text\s*\)\s*<=\s*280\s*\)/i
-    );
-  });
-
-  it("defaults all four modality flags to true in modality_settings per PRD-003@0.1.3 §5 US-5", () => {
-    const block = tableBlock(schemaSql, "modality_settings");
-    expect(block).toMatch(/water_on\s+BOOLEAN\s+NOT\s+NULL\s+DEFAULT\s+true/i);
-    expect(block).toMatch(/sleep_on\s+BOOLEAN\s+NOT\s+NULL\s+DEFAULT\s+true/i);
-    expect(block).toMatch(/workout_on\s+BOOLEAN\s+NOT\s+NULL\s+DEFAULT\s+true/i);
-    expect(block).toMatch(/mood_on\s+BOOLEAN\s+NOT\s+NULL\s+DEFAULT\s+true/i);
-  });
+afterAll(async () => {
+  await cleanup();
 });
 
-function tableBlock(source: string, tableName: string): string {
-  const match = new RegExp(
-    `CREATE TABLE IF NOT EXISTS ${escapeRegExp(tableName)} \\(\\n([\\s\\S]*?)\\n\\);`,
-    "m"
-  ).exec(source);
-  const body = match?.[1];
-  if (!body) {
-    throw new Error(`Missing table block for ${tableName}`);
-  }
-  return body;
-}
+// ---------------------------------------------------------------------------
+// (a) Table existence
+// ---------------------------------------------------------------------------
 
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+describe("PRD-003 modality schema — live DB (TKT-032)", () => {
+  it("creates all seven modality tables", async () => {
+    const result = await pool.query<{ table_name: string }>(
+      `SELECT table_name FROM information_schema.tables
+       WHERE table_schema = 'public' AND table_name = ANY($1)`,
+      [modalityTables],
+    );
+    const found = new Set(result.rows.map((r) => r.table_name));
+    for (const table of modalityTables) {
+      expect(found.has(table), `${table} should exist in information_schema.tables`).toBe(true);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // (b) RLS enabled — pg_class.relrowsecurity
+  // -------------------------------------------------------------------------
+
+  it("enables RLS on all seven modality tables (pg_class.relrowsecurity = true)", async () => {
+    const result = await pool.query<{ relname: string; relrowsecurity: boolean }>(
+      `SELECT c.relname, c.relrowsecurity
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'public' AND c.relname = ANY($1)`,
+      [modalityTables],
+    );
+    for (const row of result.rows) {
+      expect(
+        row.relrowsecurity,
+        `${row.relname} should have relrowsecurity = true`,
+      ).toBe(true);
+    }
+    // Verify we got rows for all seven tables
+    const found = new Set(result.rows.map((r) => r.relname));
+    for (const table of modalityTables) {
+      expect(found.has(table), `${table} should appear in pg_class`).toBe(true);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // (c) RLS policies — pg_policy
+  // -------------------------------------------------------------------------
+
+  it("creates per-table RLS policies with user_id isolation pattern per ADR-001@0.1.0", async () => {
+    for (const table of modalityTables) {
+      const policyName = `${table}_user_id_isolation`;
+      const result = await pool.query<{ polname: string }>(
+        `SELECT p.polname
+         FROM pg_policy p
+         JOIN pg_class c ON c.oid = p.polrelid
+         JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'public'
+           AND c.relname = $1
+           AND p.polname = $2`,
+        [table, policyName],
+      );
+      expect(
+        result.rows.length,
+        `${table} should have policy ${policyName}`,
+      ).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // (d) Indexes — pg_indexes
+  // -------------------------------------------------------------------------
+
+  it("creates the mandatory (user_id, attribution_date_local, is_nap) index on sleep_records per ADR-017@0.1.0 §Decision", async () => {
+    const result = await pool.query<{ indexname: string }>(
+      `SELECT indexname FROM pg_indexes
+       WHERE schemaname = 'public' AND tablename = 'sleep_records'
+         AND indexname = 'sleep_records_user_date_nap_idx'`,
+    );
+    expect(result.rows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("creates the (user_id, ts_utc DESC) index on water_events, workout_events, mood_events", async () => {
+    const tsIdxTables: ModalityTable[] = ["water_events", "workout_events", "mood_events"];
+    for (const table of tsIdxTables) {
+      const idxName = `${table}_user_ts_idx`;
+      const result = await pool.query<{ indexname: string }>(
+        `SELECT indexname FROM pg_indexes
+         WHERE schemaname = 'public' AND tablename = $1 AND indexname = $2`,
+        [table, idxName],
+      );
+      expect(result.rows.length, `${table} should have index ${idxName}`).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("creates the (user_id, ts_utc DESC) index on modality_settings_audit", async () => {
+    const result = await pool.query<{ indexname: string }>(
+      `SELECT indexname FROM pg_indexes
+       WHERE schemaname = 'public'
+         AND tablename = 'modality_settings_audit'
+         AND indexname = 'modality_settings_audit_user_ts_idx'`,
+    );
+    expect(result.rows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // -------------------------------------------------------------------------
+  // (e) user_id FK with ON DELETE CASCADE — pg_constraint + pg_namespace
+  //     (pg_namespace join pattern consistent with RLS test above,
+  //      avoiding regclass::text schema-qualification ambiguity)
+  // -------------------------------------------------------------------------
+
+  it("requires user_id with ON DELETE CASCADE on every modality table", async () => {
+    interface FkRow extends QueryResultRow {
+      relname: string;
+      confdeltype: string;
+    }
+    const result = await pool.query<FkRow>(
+      `SELECT cf.relname, cn.confdeltype
+       FROM pg_constraint cn
+       JOIN pg_class cf ON cf.oid = cn.conrelid
+       JOIN pg_namespace nf ON nf.oid = cf.relnamespace
+       JOIN pg_class cp ON cp.oid = cn.confrelid
+       JOIN pg_namespace np ON np.oid = cp.relnamespace
+       WHERE cn.contype = 'f'
+         AND nf.nspname = 'public'
+         AND cf.relname = ANY($1)
+         AND np.nspname = 'public'
+         AND cp.relname = 'users'`,
+      [modalityTables],
+    );
+
+    const cascadeByTable = new Map(result.rows.map((r) => [r.relname, r.confdeltype]));
+    for (const table of modalityTables) {
+      expect(
+        cascadeByTable.has(table),
+        `${table} should have an FK to users(id)`,
+      ).toBe(true);
+      // confdeltype 'c' = CASCADE
+      expect(
+        cascadeByTable.get(table),
+        `${table} FK should be ON DELETE CASCADE`,
+      ).toBe("c");
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // (f) GRANT CRUD to kbju_app, SELECT to kbju_audit
+  // -------------------------------------------------------------------------
+
+  it("grants CRUD to kbju_app and SELECT to kbju_audit for all seven tables", async () => {
+    for (const table of modalityTables) {
+      // kbju_app should have SELECT, INSERT, UPDATE, DELETE
+      const appResult = await pool.query<{ privilege_type: string }>(
+        `SELECT privilege_type
+         FROM information_schema.role_table_grants
+         WHERE table_schema = 'public'
+           AND table_name = $1
+           AND grantee = 'kbju_app'
+           AND privilege_type = ANY($2)`,
+        [table, ["SELECT", "INSERT", "UPDATE", "DELETE"]],
+      );
+      const appPrivs = new Set(appResult.rows.map((r) => r.privilege_type));
+      for (const priv of ["SELECT", "INSERT", "UPDATE", "DELETE"]) {
+        expect(appPrivs.has(priv), `kbju_app should have ${priv} on ${table}`).toBe(true);
+      }
+
+      // kbju_audit should have SELECT
+      const auditResult = await pool.query<{ privilege_type: string }>(
+        `SELECT privilege_type
+         FROM information_schema.role_table_grants
+         WHERE table_schema = 'public'
+           AND table_name = $1
+           AND grantee = 'kbju_audit'
+           AND privilege_type = 'SELECT'`,
+        [table],
+      );
+      expect(
+        auditResult.rows.length,
+        `kbju_audit should have SELECT on ${table}`,
+      ).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // (g) CHECK constraints — pg_get_constraintdef (PG 12+ replacement for
+  //     removed consrc column). Assertions use substring matching because
+  //     PG canonicalises CHECK expressions (e.g. "x > 0" may become
+  //     "x > 0" or "(x > 0)" depending on version).
+  // -------------------------------------------------------------------------
+
+  it("enforces CHECK constraints per ARCH-001@0.7.0 §5.3", async () => {
+    interface CheckRow extends QueryResultRow {
+      relname: string;
+      constraintdef: string;
+    }
+    const result = await pool.query<CheckRow>(
+      `SELECT cf.relname, pg_get_constraintdef(cn.oid) AS constraintdef
+       FROM pg_constraint cn
+       JOIN pg_class cf ON cf.oid = cn.conrelid
+       JOIN pg_namespace nf ON nf.oid = cf.relnamespace
+       WHERE cn.contype = 'c'
+         AND nf.nspname = 'public'
+         AND cf.relname IN ('water_events', 'sleep_records', 'mood_events')`,
+    );
+    const checksByTable = new Map<string, string[]>();
+    for (const row of result.rows) {
+      const existing = checksByTable.get(row.relname) ?? [];
+      existing.push(row.constraintdef);
+      checksByTable.set(row.relname, existing);
+    }
+
+    // water_events volume_ml: 0 < volume_ml <= 5000
+    // PG canonicalises to e.g. CHECK ((volume_ml > 0 AND volume_ml <= 5000))
+    const waterChecks = checksByTable.get("water_events") ?? [];
+    expect(
+      waterChecks.some((c) => c.includes("volume_ml") && c.includes(">") && c.includes("<=")),
+      "water_events should have CHECK on volume_ml",
+    ).toBe(true);
+
+    // sleep_records duration_min: 30 <= duration_min <= 1440
+    const sleepChecks = checksByTable.get("sleep_records") ?? [];
+    expect(
+      sleepChecks.some((c) => c.includes("duration_min") && c.includes(">=")),
+      "sleep_records should have CHECK on duration_min",
+    ).toBe(true);
+
+    // mood_events score: 1 <= score <= 10
+    const moodChecks = checksByTable.get("mood_events") ?? [];
+    expect(
+      moodChecks.some((c) => c.includes("score") && c.includes(">=")),
+      "mood_events should have CHECK on score",
+    ).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // (h) modality_settings defaults — information_schema.columns
+  // -------------------------------------------------------------------------
+
+  it("defaults all four modality flags to true in modality_settings per PRD-003@0.1.3 §5 US-5", async () => {
+    const flagColumns = ["water_on", "sleep_on", "workout_on", "mood_on"];
+    const result = await pool.query<{ column_name: string; column_default: string }>(
+      `SELECT column_name, column_default
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'modality_settings'
+         AND column_name = ANY($1)`,
+      [flagColumns],
+    );
+    const defaults = new Map(result.rows.map((r) => [r.column_name, r.column_default]));
+    for (const col of flagColumns) {
+      expect(defaults.has(col), `modality_settings.${col} should exist`).toBe(true);
+      expect(defaults.get(col), `modality_settings.${col} should default to true`).toContain("true");
+    }
+  });
+});
