@@ -1,12 +1,17 @@
 ---
 id: ADR-002
 title: OmniRoute-First LLM Routing
-status: proposed
+status: superseded
 arch_ref: ARCH-001@0.2.0
 created: 2026-04-26
-updated: 2026-04-26
-superseded_by: null
+updated: 2026-05-25
+superseded_by: ADR-022
 ---
+
+> **Superseded by ADR-022@0.1.0** as of ARCH-001@0.7.0. PRD-001@0.3.0 §7 demoted
+> OmniRoute from "first-class architectural element" to "one supported provider example
+> among many". Body preserved verbatim below per the supersession discipline; references
+> in newer artefacts should cite ADR-022@0.1.0.
 
 # ADR-002: OmniRoute-First LLM Routing
 

@@ -61,7 +61,7 @@ Land the four modality storage schemas (water / sleep / workout / mood) plus the
 - [ ] `npm run lint` clean.
 - [ ] `npm run typecheck` clean (strict).
 - [ ] Migration up + down tested: `npm run migrate:up && npm run migrate:down && npm run migrate:up` reaches the same final schema (idempotent, reversible).
-- [ ] Each new table has at least one RLS policy with `FOR ALL TO authenticated USING (user_id = current_setting('app.current_user_id')::bigint)` shape (mirrors ADR-001@0.1.0).
+- [ ] Each new table has at least one RLS policy with `FOR ALL TO authenticated USING (user_id = current_setting('app.current_user_id')::uuid)` shape (mirrors ADR-001@0.1.0).
 - [ ] `sleep_records` index `(user_id, attribution_date_local, is_nap)` exists (verifiable via `pg_indexes`).
 
 ## 7. Constraints (hard rules for Executor)

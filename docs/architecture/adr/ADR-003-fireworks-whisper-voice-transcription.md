@@ -1,12 +1,18 @@
 ---
 id: ADR-003
 title: Fireworks Whisper Voice Transcription
-status: proposed
+status: superseded
 arch_ref: ARCH-001@0.2.0
 created: 2026-04-26
-updated: 2026-04-26
-superseded_by: null
+updated: 2026-05-25
+superseded_by: ADR-023
 ---
+
+> **Superseded by ADR-023@0.1.0** as of ARCH-001@0.7.0. PRD-001@0.3.0 §7 demoted the
+> Fireworks Whisper V3 Turbo lock to one example default among many; voice transcription
+> now goes through the provider-agnostic OpenAI-compatible HTTP surface configured by
+> `config/llm.json` (ADR-024@0.1.0). Body preserved verbatim below for empirical
+> cost / latency / privacy comparisons.
 
 # ADR-003: Fireworks Whisper Voice Transcription
 
