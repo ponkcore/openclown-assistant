@@ -86,3 +86,34 @@ None.
 
 - **Rollback:** The PR adds 3 new source files and 3 new test files plus additive interface/mock changes. No existing behavior is modified. `git revert` cleanly removes all changes. Rollback is obvious from the diff alone. No concern.
 
+
+## Iteration 2 verdict (Reviewer, 2026-05-25)
+
+**F-M1 closure verification:**
+
+1. `src/summary/adaptiveComposer.ts:174` — `Promise.all` replaced with `Promise.allSettled` over the 4 modality queries. ✅
+2. `src/summary/adaptiveComposer.ts:120–135` — `settledValue<T>` helper: generic, type-safe (`PromiseSettledResult<T>` → `T`), no `as any` / `as unknown as`. On rejection: guards `reason` with `instanceof Error`, emits `logger.warn("c22_modality_query_failed", { modality, error_name, error_message })`, returns typed `fallback` (`[]`). ✅
+3. `src/summary/adaptiveComposer.ts:55` — `logger: OpenClawLogger` added to `AdaptiveComposerDeps` interface. `OpenClawLogger` imported at line 21. ✅
+4. Settings-service fallback (`src/summary/adaptiveComposer.ts:162–167`, mode (b)) structurally consistent with the new `settledValue` pattern (mode (a)): both catch failure, log, return safe default. ✅
+5. `tests/summary/adaptiveComposer.test.ts:285–313` (test #13): mocks `getWaterEventsInWindow` to `reject`, asserts KBJU present (`line 298`), water section suppressed (`lines 300–301`), other sections delivered (`line 303`: `["sleep", "workout", "mood"]`), `logger.warn` called with structured event (`lines 308–312`). ✅
+6. Cascading `logger` mock in `tests/summary/adaptiveComposer.naps.test.ts` (lines 47–54, 92, 131, 147, 162) and `tests/summary/adaptiveComposer.ordering.test.ts` (lines 27–34, 73, 83, 113, 137). Minimal `makeMockLogger()` with `info`/`warn`/`error`/`critical` stubs. ✅
+7. Out-of-zone diff clean: iter-2 touches exactly 5 files — ticket §10 append (allowed), `src/summary/adaptiveComposer.ts`, `tests/summary/adaptiveComposer.test.ts`, `tests/summary/adaptiveComposer.naps.test.ts`, `tests/summary/adaptiveComposer.ordering.test.ts` — all in TKT-027@0.1.0 §5 Outputs. ✅
+
+**F-M1: closed.**
+
+**F-L1..F-L5: unchanged, deferred to backlog.**
+
+**New findings introduced by iter-2: none.** Minor comment cleanup (removal of stale ARCH-001@0.6.2 §6.2.2 inline notes in section renderers) is cosmetic, not a finding.
+
+**Iteration-2 status:**
+- F-M1: closed
+- F-L1..F-L5: unchanged, deferred
+
+**New findings introduced by iter-2: none**
+
+**Updated overall verdict:**
+- [x] pass
+- [ ] pass_with_changes (Lows only — F-L1..F-L5 deferred; backlog after merge)
+- [ ] fail
+
+**Recommendation to PO:** merge — F-M1 closed, only Low findings remain (deferred to backlog).
