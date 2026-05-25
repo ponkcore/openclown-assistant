@@ -1,7 +1,7 @@
 ---
 id: TKT-032
 title: 'Real-Postgres integration test infrastructure (testcontainers)'
-status: in_review
+status: done
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: Test infrastructure
@@ -10,6 +10,9 @@ blocks: []
 estimate: M
 created: 2026-05-25
 updated: 2026-05-25
+closed_at: 2026-05-25
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-016
 ---
 
 # TKT-032: Real-Postgres integration test infrastructure (testcontainers)
@@ -77,3 +80,4 @@ Stand up `testcontainers-node`-based PostgreSQL integration tests so DDL / RLS /
 - 2026-05-25T21:28Z opencode-executor: all §5 Outputs implemented; typecheck clean; lint clean; unit test suite passes (2 pre-existing failures unrelated to this TKT)
 - 2026-05-25T21:29Z opencode-executor: in_review; tests N/A (Docker not in sandbox, integration not invoked live); lint clean; typecheck clean
 - 2026-05-25T21:35Z opencode-executor: iter 2; addressed RV-CODE-016 F-H1 (consrc→pg_get_constraintdef) + F-M1 (pg_namespace join for regclass); F-M2 deferred to Docker-capable host; F-L1 (rowCount identifier validation) addressed; tests static-only
+- 2026-05-25T18:38Z opencode-orchestrator: merged in commit 16619d3; RV-CODE-016 verdict=pass_with_changes after iter 2 (F-H1+F-M1+F-L1 fixed; F-M2 backlogged as BACKLOG-006 — live integration run pending Docker-capable host); status=done
