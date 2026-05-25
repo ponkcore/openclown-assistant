@@ -17,7 +17,7 @@ The executor wired `runMigrations(pool)` into `startServer()` immediately after 
 - [ ] pass_with_changes
 - [ ] fail
 
-One-sentence justification: Core wiring is correct and all TKT-041 ACs met, but the 120 s timeout promised in TKT-041@0.1.0 §2 is not implemented, and the PG pool is never closed on the success path.
+One-sentence justification: Core wiring is correct and all TKT-041@0.1.0 ACs met, but the 120 s timeout promised in TKT-041@0.1.0 §2 is not implemented, and the PG pool is never closed on the success path.
 Recommendation to PO: approve & merge with Medium findings backlogged for a fast-follow TKT.
 
 ## Contract compliance (each must be ticked or marked finding)
@@ -30,7 +30,7 @@ Recommendation to PO: approve & merge with Medium findings backlogged for a fast
   - `npm run typecheck` clean — same `tsc --noEmit` pass.
   - Fresh-DB migration before listening: `tests/deployment/bootEntrypoint.test.ts:506-535` schema-string assertion validates all 7 `PRD-003@0.1.3` tables; `tests/deployment/bootEntrypoint.test.ts:583-624` verifies `runMigrations` called and `server.listening` true.
   - Migration-failure → exit non-zero + no bind: `tests/deployment/bootEntrypoint.test.ts:537-581` simulates `runMigrations` throwing, asserts `process.exit(1)`, and asserts `server.listen` never called.
-- [x] CI green (lint, typecheck, tests for TKT-041 — 3 pre-existing test failures are unrelated).
+- [x] CI green (lint, typecheck, tests for TKT-041@0.1.0 — 3 pre-existing test failures are unrelated).
 - [x] Definition of Done complete (`§10 Execution Log` filled, PR opened).
 - [x] Ticket frontmatter `status: in_review` in a separate commit (commit `529fd91` is dedicated to the flip only).
 
