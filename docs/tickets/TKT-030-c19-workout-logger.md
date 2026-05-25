@@ -3,7 +3,7 @@ id: TKT-030
 title: C19 Workout Logger — closed-enum extraction + forced-output JSON schema + photo
   support
 version: 0.1.0
-status: in_review
+status: done
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C19
@@ -59,3 +59,4 @@ Land the C19 Workout Logger that extracts canonical workout events from text / v
 - 2026-05-25T00:00:00Z opencode-executor: started
 - 2026-05-25T13:20:00Z opencode-executor: in_review; tests 63 pass; lint clean; typecheck clean
 - 2026-05-25T11:10:00Z opencode-orchestrator: F-H1 reclassified as reviewer false-positive (validator + parser already use `<= 0` at PR head; 4 explicit zero-rejection tests pass; verified locally 65/65 modality/workout tests). RV-CODE-009 verdict overridden iter1→pass_with_changes (recommendation merge); F-L1 + F-L2 informational only.
+- 2026-05-25T11:18:00Z opencode-orchestrator: merged in commit 4de97f9 (PR #13)
