@@ -76,3 +76,4 @@ Stand up `testcontainers-node`-based PostgreSQL integration tests so DDL / RLS /
 - 2026-05-25T21:20Z opencode-executor: started
 - 2026-05-25T21:28Z opencode-executor: all §5 Outputs implemented; typecheck clean; lint clean; unit test suite passes (2 pre-existing failures unrelated to this TKT)
 - 2026-05-25T21:29Z opencode-executor: in_review; tests N/A (Docker not in sandbox, integration not invoked live); lint clean; typecheck clean
+- 2026-05-25T21:35Z opencode-executor: iter 2; addressed RV-CODE-016 F-H1 (consrc→pg_get_constraintdef) + F-M1 (pg_namespace join for regclass); F-M2 deferred to Docker-capable host; F-L1 (rowCount identifier validation) addressed; tests static-only

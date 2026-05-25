@@ -162,25 +162,30 @@ describe("PRD-003 right-to-delete — TS module logic", () => {
 
 describe("PRD-003 right-to-delete — live DB cascade verification", () => {
   it("all seven modality tables have ON DELETE CASCADE FK to users(id)", async () => {
-    interface FkRow { conrelid_name: string; confdeltype: string }
+    interface FkRow { relname: string; confdeltype: string }
     const result = await pool.query<FkRow>(
-      `SELECT conrelid::regclass::text AS conrelid_name, confdeltype
-       FROM pg_constraint
-       WHERE contype = 'f'
-         AND conrelid::regclass::text = ANY($1)
-         AND confrelid::regclass::text = 'public.users'`,
-      [modalityDeletionTables.map((t) => `public.${t}`)],
+      `SELECT cf.relname, cn.confdeltype
+       FROM pg_constraint cn
+       JOIN pg_class cf ON cf.oid = cn.conrelid
+       JOIN pg_namespace nf ON nf.oid = cf.relnamespace
+       JOIN pg_class cp ON cp.oid = cn.confrelid
+       JOIN pg_namespace np ON np.oid = cp.relnamespace
+       WHERE cn.contype = 'f'
+         AND nf.nspname = 'public'
+         AND cf.relname = ANY($1)
+         AND np.nspname = 'public'
+         AND cp.relname = 'users'`,
+      [modalityDeletionTables],
     );
-    const cascadeByTable = new Map(result.rows.map((r) => [r.conrelid_name, r.confdeltype]));
+    const cascadeByTable = new Map(result.rows.map((r) => [r.relname, r.confdeltype]));
     for (const table of modalityDeletionTables) {
-      const qualified = `public.${table}`;
       expect(
-        cascadeByTable.has(qualified),
+        cascadeByTable.has(table),
         `${table} should have an FK to users(id)`,
       ).toBe(true);
       // confdeltype 'c' = CASCADE
       expect(
-        cascadeByTable.get(qualified),
+        cascadeByTable.get(table),
         `${table} FK should be ON DELETE CASCADE`,
       ).toBe("c");
     }
@@ -235,6 +240,9 @@ describe("PRD-003 right-to-delete — live DB cascade verification", () => {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Whitelist of table names that may be used as SQL identifiers. */
+const VALID_TABLE_RE = /^[a-z_][a-z0-9_]*$/;
 
 /** Insert a user and return the generated id. */
 async function insertTestUser(p: Pool, suffix = ""): Promise<string> {
@@ -303,9 +311,16 @@ async function insertModalityTestRows(p: Pool, userId: string): Promise<void> {
   );
 }
 
-/** Count rows in a modality table for the given user_id. */
+/**
+ * Count rows in a modality table for the given user_id.
+ * The table name is validated against a whitelist regex before interpolation
+ * to guard against identifier injection (values come from a hardcoded array,
+ * but the explicit check makes the intent clear and catches typos early).
+ */
 async function rowCount(p: Pool, table: string, userId: string): Promise<number> {
-  // All seven tables have user_id; parameterised to satisfy SQL-safety rules
+  if (!VALID_TABLE_RE.test(table)) {
+    throw new Error(`Invalid table name for SQL interpolation: ${table}`);
+  }
   const result = await p.query<{ cnt: string }>(
     `SELECT count(*) AS cnt FROM ${table} WHERE user_id = $1`,
     [userId],

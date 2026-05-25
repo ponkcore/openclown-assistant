@@ -151,33 +151,40 @@ describe("PRD-003 modality schema — live DB (TKT-032)", () => {
   });
 
   // -------------------------------------------------------------------------
-  // (e) user_id FK with ON DELETE CASCADE — pg_constraint
+  // (e) user_id FK with ON DELETE CASCADE — pg_constraint + pg_namespace
+  //     (pg_namespace join pattern consistent with RLS test above,
+  //      avoiding regclass::text schema-qualification ambiguity)
   // -------------------------------------------------------------------------
 
   it("requires user_id with ON DELETE CASCADE on every modality table", async () => {
     interface FkRow extends QueryResultRow {
-      conrelid_name: string;
+      relname: string;
       confdeltype: string;
     }
     const result = await pool.query<FkRow>(
-      `SELECT conrelid::regclass::text AS conrelid_name, confdeltype
-       FROM pg_constraint
-       WHERE contype = 'f'
-         AND conrelid::regclass::text = ANY($1)
-         AND confrelid::regclass::text = 'users'`,
-      [modalityTables.map((t) => `public.${t}`)],
+      `SELECT cf.relname, cn.confdeltype
+       FROM pg_constraint cn
+       JOIN pg_class cf ON cf.oid = cn.conrelid
+       JOIN pg_namespace nf ON nf.oid = cf.relnamespace
+       JOIN pg_class cp ON cp.oid = cn.confrelid
+       JOIN pg_namespace np ON np.oid = cp.relnamespace
+       WHERE cn.contype = 'f'
+         AND nf.nspname = 'public'
+         AND cf.relname = ANY($1)
+         AND np.nspname = 'public'
+         AND cp.relname = 'users'`,
+      [modalityTables],
     );
 
-    const cascadeByTable = new Map(result.rows.map((r) => [r.conrelid_name, r.confdeltype]));
+    const cascadeByTable = new Map(result.rows.map((r) => [r.relname, r.confdeltype]));
     for (const table of modalityTables) {
-      const qualified = `public.${table}`;
       expect(
-        cascadeByTable.has(qualified),
+        cascadeByTable.has(table),
         `${table} should have an FK to users(id)`,
       ).toBe(true);
       // confdeltype 'c' = CASCADE
       expect(
-        cascadeByTable.get(qualified),
+        cascadeByTable.get(table),
         `${table} FK should be ON DELETE CASCADE`,
       ).toBe("c");
     }
@@ -222,47 +229,50 @@ describe("PRD-003 modality schema — live DB (TKT-032)", () => {
   });
 
   // -------------------------------------------------------------------------
-  // (g) CHECK constraints — pg_constraint
+  // (g) CHECK constraints — pg_get_constraintdef (PG 12+ replacement for
+  //     removed consrc column). Assertions use substring matching because
+  //     PG canonicalises CHECK expressions (e.g. "x > 0" may become
+  //     "x > 0" or "(x > 0)" depending on version).
   // -------------------------------------------------------------------------
 
   it("enforces CHECK constraints per ARCH-001@0.7.0 §5.3", async () => {
     interface CheckRow extends QueryResultRow {
-      conrelid_name: string;
-      consrc: string;
+      relname: string;
+      constraintdef: string;
     }
     const result = await pool.query<CheckRow>(
-      `SELECT conrelid::regclass::text AS conrelid_name, consrc
-       FROM pg_constraint
-       WHERE contype = 'c'
-         AND conrelid::regclass::text IN (
-           'public.water_events',
-           'public.sleep_records',
-           'public.mood_events'
-         )`,
+      `SELECT cf.relname, pg_get_constraintdef(cn.oid) AS constraintdef
+       FROM pg_constraint cn
+       JOIN pg_class cf ON cf.oid = cn.conrelid
+       JOIN pg_namespace nf ON nf.oid = cf.relnamespace
+       WHERE cn.contype = 'c'
+         AND nf.nspname = 'public'
+         AND cf.relname IN ('water_events', 'sleep_records', 'mood_events')`,
     );
     const checksByTable = new Map<string, string[]>();
     for (const row of result.rows) {
-      const existing = checksByTable.get(row.conrelid_name) ?? [];
-      existing.push(row.consrc);
-      checksByTable.set(row.conrelid_name, existing);
+      const existing = checksByTable.get(row.relname) ?? [];
+      existing.push(row.constraintdef);
+      checksByTable.set(row.relname, existing);
     }
 
     // water_events volume_ml: 0 < volume_ml <= 5000
-    const waterChecks = checksByTable.get("public.water_events") ?? [];
+    // PG canonicalises to e.g. CHECK ((volume_ml > 0 AND volume_ml <= 5000))
+    const waterChecks = checksByTable.get("water_events") ?? [];
     expect(
       waterChecks.some((c) => c.includes("volume_ml") && c.includes(">") && c.includes("<=")),
       "water_events should have CHECK on volume_ml",
     ).toBe(true);
 
     // sleep_records duration_min: 30 <= duration_min <= 1440
-    const sleepChecks = checksByTable.get("public.sleep_records") ?? [];
+    const sleepChecks = checksByTable.get("sleep_records") ?? [];
     expect(
       sleepChecks.some((c) => c.includes("duration_min") && c.includes(">=")),
       "sleep_records should have CHECK on duration_min",
     ).toBe(true);
 
     // mood_events score: 1 <= score <= 10
-    const moodChecks = checksByTable.get("public.mood_events") ?? [];
+    const moodChecks = checksByTable.get("mood_events") ?? [];
     expect(
       moodChecks.some((c) => c.includes("score") && c.includes(">=")),
       "mood_events should have CHECK on score",
