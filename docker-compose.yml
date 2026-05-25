@@ -1,6 +1,9 @@
 services:
   kbju-sidecar:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_PILOT_USER_IDS: ${TELEGRAM_PILOT_USER_IDS}
@@ -75,6 +78,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runtime
     entrypoint: ["node", "-e", "require('./dist/src/deployment/healthCheck.js').startMetricsServer()"]
     environment:
       METRICS_HOST: "metrics"
