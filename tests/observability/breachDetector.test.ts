@@ -74,6 +74,7 @@ function makeStubStore(): TenantStore {
     getModalitySettings: vi.fn().mockResolvedValue(null),
     setModalitySetting: vi.fn().mockResolvedValue({ oldValue: true, newValue: false }),
     insertWaterEvent: vi.fn().mockResolvedValue({ event_id: "e1" }),
+    insertMoodEvent: vi.fn().mockResolvedValue({ event_id: "me1" }),
   };
 }
 

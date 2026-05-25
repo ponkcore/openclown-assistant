@@ -559,6 +559,8 @@ export interface TenantScopedRepository {
   setModalitySetting(userId: string, modality: ModalityToggleName, value: boolean): Promise<ModalitySettingToggleResult>;
   // ── C17 Water Events (TKT-029@0.1.0) ───────────────────────────────────
   insertWaterEvent(userId: string, source: WaterEventSource, volumeMl: number, rawText: string | null): Promise<{ event_id: string }>;
+  // ── C20 Mood Events (TKT-031@0.1.0) ───────────────────────────────────
+  insertMoodEvent(userId: string, source: MoodEventSource, score: number, commentText: string | null, inferredFromText: boolean, rawText: string | null): Promise<{ event_id: string }>;
 }
 
 export interface TenantStore extends TenantScopedRepository {
@@ -577,6 +579,24 @@ export interface WaterEventRow {
   ts_utc: string;
   volume_ml: number;
   source: WaterEventSource;
+  raw_text: string | null;
+  created_at: string;
+}
+
+// ── C20 Mood Events (TKT-031@0.1.0 / TKT-021@0.1.0 schema) ────────────
+
+/** Mood event source per mood_events table (TKT-021@0.1.0). */
+export type MoodEventSource = "text" | "keyboard" | "inferred";
+
+/** Mood event row shape from mood_events table (TKT-021@0.1.0). */
+export interface MoodEventRow {
+  event_id: string;
+  user_id: string;
+  ts_utc: string;
+  score: number;
+  comment_text: string | null;
+  source: MoodEventSource;
+  inferred_from_text: boolean;
   raw_text: string | null;
   created_at: string;
 }
