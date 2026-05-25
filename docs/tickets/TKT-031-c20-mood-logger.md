@@ -3,7 +3,7 @@ id: TKT-031
 title: C20 Mood Logger — free-form-text inference + score-range guardrail + inline
   keyboard
 version: 0.1.0
-status: in_review
+status: done
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C20
@@ -63,3 +63,4 @@ Land the C20 Mood Logger that infers mood score from free-form Russian text with
 - 2026-05-25T00:17:58Z opencode-executor: started
 - 2026-05-25T00:34:07Z opencode-executor: in_review; tests 50 pass; lint clean; typecheck clean
 - 2026-05-25T07:30:00Z opencode-executor iter2: closed F-M1 (copy aligned with ARCH-001@0.6.2 §6.2.2 C20 verbatim strings — INFERRED_PENDING_REPLY = "Записать как {score}/10? Или укажи точную оценку 1-10."; KEYBOARD_PROMPT = "Оцени настроение от 1 до 10." added; low-confidence-LLM and no-text paths now route to KEYBOARD_PROMPT instead of OUT_OF_RANGE_REPLY), F-M2 (added TTL boundary test "TTL: alive at 4:59, dead at 5:00:01" in tests/modality/mood/logger.test.ts). F-L1 (spec inconsistency 200 vs 280 between TKT-031@0.1.0 §2 and PRD-003@0.1.3 §2 G4 / ARCH-001@0.6.2 §6.2.2) → filed Q-TKT-031-01 for PO arbitration; current 200-silent implementation preserved per ticket §2.
+- 2026-05-25T07:51:00Z opencode-orchestrator: merged in commit 8aeeb65 (PR #11); RV-CODE-007 verdict iter2=pass_with_changes (2 Mediums closed; F-L1 deferred via Q-TKT-031-01)
