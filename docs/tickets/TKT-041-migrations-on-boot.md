@@ -1,7 +1,7 @@
 ---
 id: TKT-041
 title: Wire migrations on boot (runMigrations before server.listen)
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: src/main.ts boot path
@@ -67,3 +67,5 @@ Run pending database migrations as part of `src/main.ts startServer()` before `s
 
 ## 10. Execution Log
 <!-- executor fills as work proceeds -->
+- 2026-05-25T12:00:00Z opencode-executor: started
+- 2026-05-25T19:40:00Z opencode-executor: in_review; tests 21 pass; lint clean; typecheck clean
