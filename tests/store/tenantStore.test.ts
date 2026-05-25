@@ -60,6 +60,7 @@ const expectedTenantStoreMethods = [
   "createKbjuAccuracyLabel",
   "getModalitySettings",
   "setModalitySetting",
+  "insertWaterEvent",
 ] as const satisfies readonly (keyof TenantStore)[];
 
 describe("tenant store typing and transactions", () => {

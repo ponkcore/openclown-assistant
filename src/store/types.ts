@@ -557,8 +557,26 @@ export interface TenantScopedRepository {
   // ── C21 Modality Settings (TKT-028@0.1.0) ───────────────────────────────
   getModalitySettings(userId: string): Promise<ModalitySettingsRow | null>;
   setModalitySetting(userId: string, modality: ModalityToggleName, value: boolean): Promise<ModalitySettingToggleResult>;
+  // ── C17 Water Events (TKT-029@0.1.0) ───────────────────────────────────
+  insertWaterEvent(userId: string, source: WaterEventSource, volumeMl: number, rawText: string | null): Promise<{ event_id: string }>;
 }
 
 export interface TenantStore extends TenantScopedRepository {
   withTransaction<T>(userId: string, action: (repository: TenantScopedRepository) => Promise<T>): Promise<T>;
+}
+
+// ── C17 Water Events (TKT-029@0.1.0 / TKT-021@0.1.0 schema) ────────────
+
+/** Water event source per water_events table (TKT-021@0.1.0). */
+export type WaterEventSource = "text" | "voice" | "keyboard";
+
+/** Water event row shape from water_events table (TKT-021@0.1.0). */
+export interface WaterEventRow {
+  event_id: string;
+  user_id: string;
+  ts_utc: string;
+  volume_ml: number;
+  source: WaterEventSource;
+  raw_text: string | null;
+  created_at: string;
 }

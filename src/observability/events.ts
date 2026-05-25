@@ -60,6 +60,14 @@ const ALLOWED_EXTRA_KEYS: readonly string[] = [
   "actual_stall_ms",
   "retry_count",
   "kill_switch_path",
+  "modality",
+  "volume_ml",
+  "duration_min",
+  "distance_km",
+  "score",
+  "is_nap",
+  "attribution_date_local",
+  "event_id",
 ];
 
 const CORE_EVENT_KEYS: readonly string[] = [

@@ -251,3 +251,74 @@ describe("emitLog emit-boundary redaction (D-I9 / TKT-015 AC-2)", () => {
     expect(meta.message_subtype).toBe("sticker");
   });
 });
+
+describe("C17 modality-event structured-log keys (TKT-029 iter2 / RV-CODE-006 F-M2)", () => {
+  it("modality and volume_ml propagate through redactPii allowlist", () => {
+    const event = buildRedactedEvent(
+      "info",
+      "kbju-meal-logging",
+      "C4" as ComponentId,
+      KPI_EVENT_NAMES.meal_content_received,
+      "req-water-1",
+      "user-uuid-001",
+      "success" as MetricOutcome,
+      false,
+      { modality: "water", volume_ml: 250 },
+    );
+    expect(event.modality).toBe("water");
+    expect(event.volume_ml).toBe(250);
+  });
+
+  it("mood_comment_text is still redacted via LOG_FORBIDDEN_FIELDS (TKT-026 regression guard)", () => {
+    const event = buildRedactedEvent(
+      "info",
+      "kbju-meal-logging",
+      "C4" as ComponentId,
+      KPI_EVENT_NAMES.meal_content_received,
+      "req-mood-1",
+      "user-uuid-001",
+      "success" as MetricOutcome,
+      false,
+      { mood_comment_text: "secret mood text" },
+    );
+    // mood_comment_text is NOT in ALLOWED_EXTRA_KEYS so redactPii drops it entirely.
+    // It is also in LOG_FORBIDDEN_FIELDS as a safety net for direct event mutation (emitLog path).
+    // so it is dropped by redactPii AND forced to [REDACTED] by the forbidden-field sweep.
+    expect(event.mood_comment_text).toBeUndefined();
+  });
+
+  it("pre-seeded sibling modality keys propagate through redactPii allowlist", () => {
+    const event = buildRedactedEvent(
+      "info",
+      "kbju-meal-logging",
+      "C4" as ComponentId,
+      KPI_EVENT_NAMES.meal_content_received,
+      "req-sleep-1",
+      "user-uuid-001",
+      "success" as MetricOutcome,
+      false,
+      { modality: "sleep", duration_min: 480, is_nap: false, attribution_date_local: "2026-05-25", event_id: "abc-123" },
+    );
+    expect(event.modality).toBe("sleep");
+    expect(event.duration_min).toBe(480);
+    expect(event.is_nap).toBe(false);
+    expect(event.attribution_date_local).toBe("2026-05-25");
+    expect(event.event_id).toBe("abc-123");
+  });
+
+  it("raw_text is still dropped (not in ALLOWED_EXTRA_KEYS, in LOG_FORBIDDEN_FIELDS)", () => {
+    const event = buildRedactedEvent(
+      "info",
+      "kbju-meal-logging",
+      "C4" as ComponentId,
+      KPI_EVENT_NAMES.meal_content_received,
+      "req-raw-1",
+      "user-uuid-001",
+      "success" as MetricOutcome,
+      false,
+      { raw_text: "выпил стакан" },
+    );
+    // raw_text is in LOG_FORBIDDEN_FIELDS (added TKT-029 iter1) and NOT in ALLOWED_EXTRA_KEYS
+    expect(event.raw_text).toBeUndefined();
+  });
+});
