@@ -51,3 +51,6 @@ backups/
 # Operator-edited config files (live in the kbju_config named volume, not git)
 config/allowlist.json
 config/llm.json
+
+# Incident bundles (diag-bundle.sh output; operators attach to GitHub issues)
+/incidents/

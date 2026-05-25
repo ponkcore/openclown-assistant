@@ -1,7 +1,7 @@
 ---
 id: TKT-046
 title: GitHub incident issue template + docs/incidents/{README,TEMPLATE}.md
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: docs/incidents / .github/ISSUE_TEMPLATE
@@ -66,3 +66,5 @@ Land the artefact-side of the incident pipeline: a GitHub `incident.md` issue te
 
 ## 10. Execution Log
 <!-- executor fills as work proceeds -->
+- 2026-05-25T00:00:00Z opencode-executor: started
+- 2026-05-25T00:00:00Z opencode-executor: in_review; validate_docs passes; lint clean; all AC met
