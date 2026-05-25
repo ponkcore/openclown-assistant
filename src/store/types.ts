@@ -569,6 +569,11 @@ export interface TenantScopedRepository {
   gcExpiredSleepPairingState(nowUtc: string): Promise<{ rows_deleted: number }>;
   // ── C19 Workout Events (TKT-030@0.1.0) ───────────────────────────────────
   insertWorkoutEvent(userId: string, source: WorkoutEventSource, workoutType: WorkoutTypeEnum, durationMin: number | null, distanceKm: number | null, sets: number | null, reps: number | null, rawWorkoutText: string | null, rawDescription: string | null): Promise<{ event_id: string }>;
+  // ── C22 Adaptive Summary Composer SELECT methods (TKT-027@0.1.0) ────────
+  getWaterEventsInWindow(userId: string, startUtc: string, endUtc: string): Promise<WaterEventRow[]>;
+  getSleepRecordsInWindow(userId: string, startUtc: string, endUtc: string): Promise<SleepRecordRow[]>;
+  getWorkoutEventsInWindow(userId: string, startUtc: string, endUtc: string): Promise<WorkoutEventRow[]>;
+  getMoodEventsInWindow(userId: string, startUtc: string, endUtc: string): Promise<MoodEventRow[]>;
 }
 
 export interface TenantStore extends TenantScopedRepository {

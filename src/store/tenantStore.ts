@@ -49,7 +49,9 @@ import type {
   MoodEventRow,
   WorkoutEventSource,
   WorkoutTypeEnum,
+  WorkoutEventRow,
   SleepPairingStateRow,
+  SleepRecordRow,
   UserProfileRow,
   UserRow,
   UserTargetRow,
@@ -341,6 +343,24 @@ export class TenantPostgresStore implements TenantStore {
       [nowUtc],
     );
     return { rows_deleted: result.rowCount ?? 0 };
+  }
+
+  // ── C22 Adaptive Summary Composer SELECT methods (TKT-027@0.1.0) ────────
+
+  public async getWaterEventsInWindow(userId: string, startUtc: string, endUtc: string): Promise<WaterEventRow[]> {
+    return this.withTransaction(userId, (repository) => repository.getWaterEventsInWindow(userId, startUtc, endUtc));
+  }
+
+  public async getSleepRecordsInWindow(userId: string, startUtc: string, endUtc: string): Promise<SleepRecordRow[]> {
+    return this.withTransaction(userId, (repository) => repository.getSleepRecordsInWindow(userId, startUtc, endUtc));
+  }
+
+  public async getWorkoutEventsInWindow(userId: string, startUtc: string, endUtc: string): Promise<WorkoutEventRow[]> {
+    return this.withTransaction(userId, (repository) => repository.getWorkoutEventsInWindow(userId, startUtc, endUtc));
+  }
+
+  public async getMoodEventsInWindow(userId: string, startUtc: string, endUtc: string): Promise<MoodEventRow[]> {
+    return this.withTransaction(userId, (repository) => repository.getMoodEventsInWindow(userId, startUtc, endUtc));
   }
 }
 
@@ -1119,6 +1139,56 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
     );
     return { rows_deleted: result.rowCount ?? 0 };
   }
+
+  // ── C22 Adaptive Summary Composer SELECT methods (TKT-027@0.1.0) ────────
+
+  public async getWaterEventsInWindow(userId: string, startUtc: string, endUtc: string): Promise<WaterEventRow[]> {
+    const result = await this.db.query<WaterEventRow>(
+      `SELECT event_id, user_id, ts_utc, volume_ml, source, raw_text, created_at
+       FROM water_events
+       WHERE user_id = $1 AND ts_utc >= $2 AND ts_utc < $3
+       ORDER BY ts_utc`,
+      [userId, startUtc, endUtc],
+    );
+    return result.rows;
+  }
+
+  public async getSleepRecordsInWindow(userId: string, startUtc: string, endUtc: string): Promise<SleepRecordRow[]> {
+    // Sleep is queried by attribution_date_local per ADR-017@0.1.0 §Consequences.
+    // Convert UTC bounds to local-date bounds using the period context.
+    // The caller must pass startUtc/endUtc that align with the period.
+    // We query by attribution_date_local BETWEEN the date portion of the bounds.
+    const result = await this.db.query<SleepRecordRow>(
+      `SELECT record_id, user_id, start_ts_utc, end_ts_utc, duration_min, attribution_date_local, attribution_tz, is_nap, is_paired_origin, created_at
+       FROM sleep_records
+       WHERE user_id = $1 AND attribution_date_local >= $2::date AND attribution_date_local <= $3::date
+       ORDER BY end_ts_utc`,
+      [userId, startUtc, endUtc],
+    );
+    return result.rows;
+  }
+
+  public async getWorkoutEventsInWindow(userId: string, startUtc: string, endUtc: string): Promise<WorkoutEventRow[]> {
+    const result = await this.db.query<WorkoutEventRow>(
+      `SELECT event_id, user_id, ts_utc, type, duration_min, distance_km, weight_kg, reps, sets, source, raw_workout_text, raw_description, created_at
+       FROM workout_events
+       WHERE user_id = $1 AND ts_utc >= $2 AND ts_utc < $3
+       ORDER BY ts_utc`,
+      [userId, startUtc, endUtc],
+    );
+    return result.rows;
+  }
+
+  public async getMoodEventsInWindow(userId: string, startUtc: string, endUtc: string): Promise<MoodEventRow[]> {
+    const result = await this.db.query<MoodEventRow>(
+      `SELECT event_id, user_id, ts_utc, score, comment_text, source, inferred_from_text, raw_text, created_at
+       FROM mood_events
+       WHERE user_id = $1 AND ts_utc >= $2 AND ts_utc < $3
+       ORDER BY ts_utc`,
+      [userId, startUtc, endUtc],
+    );
+    return result.rows;
+  }
 }
 
 function expectOne<Row extends QueryResultRow>(result: QueryResult<Row>, entityName: string): Row {
@@ -1382,6 +1452,28 @@ export class BreachDetectingTenantStore implements TenantStore {
 
   public async gcExpiredSleepPairingState(nowUtc: string): Promise<{ rows_deleted: number }> {
     return this.inner.gcExpiredSleepPairingState(nowUtc);
+  }
+
+  // ── C22 Adaptive Summary Composer SELECT methods (TKT-027@0.1.0) ────────
+
+  public async getWaterEventsInWindow(userId: string, startUtc: string, endUtc: string): Promise<import("./types.js").WaterEventRow[]> {
+    this.guard(userId, "read", "water_events");
+    return this.inner.getWaterEventsInWindow(userId, startUtc, endUtc);
+  }
+
+  public async getSleepRecordsInWindow(userId: string, startUtc: string, endUtc: string): Promise<import("./types.js").SleepRecordRow[]> {
+    this.guard(userId, "read", "sleep_records");
+    return this.inner.getSleepRecordsInWindow(userId, startUtc, endUtc);
+  }
+
+  public async getWorkoutEventsInWindow(userId: string, startUtc: string, endUtc: string): Promise<import("./types.js").WorkoutEventRow[]> {
+    this.guard(userId, "read", "workout_events");
+    return this.inner.getWorkoutEventsInWindow(userId, startUtc, endUtc);
+  }
+
+  public async getMoodEventsInWindow(userId: string, startUtc: string, endUtc: string): Promise<import("./types.js").MoodEventRow[]> {
+    this.guard(userId, "read", "mood_events");
+    return this.inner.getMoodEventsInWindow(userId, startUtc, endUtc);
   }
 }
 
