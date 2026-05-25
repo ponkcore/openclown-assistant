@@ -1,3 +1,22 @@
+/**
+ * C5 Voice Transcription Adapter — wraps voiceClient.ts
+ *
+ * This module preserves the existing C5 contract surface:
+ *   - Duration check (>15s rejection)
+ *   - Budget check (SpendTracker preflight)
+ *   - Raw audio deletion obligation
+ *   - Retry orchestration at the adapter level is removed;
+ *     retry now lives inside voiceClient.ts (ONE retry on transport failure)
+ *
+ * The actual HTTP call to the provider's `POST /v1/audio/transcriptions`
+ * endpoint is delegated to voiceClient.transcribe(), which resolves
+ * the provider from the registry per ADR-023@0.1.0 and ADR-024@0.1.0.
+ *
+ * Per TKT-034@0.1.0: "Do NOT change the C5 contract surface
+ *   (transcript text + duration metadata + raw-audio deletion obligation).
+ *   This is an indirection swap, not a feature change."
+ */
+
 import { readFile } from "node:fs/promises";
 import type { ProviderAlias } from "../shared/types.js";
 import type { PreflightResult } from "../observability/costGuard.js";
@@ -6,20 +25,20 @@ import { KPI_EVENT_NAMES } from "../observability/kpiEvents.js";
 import { MSG_VOICE_TOO_LONG } from "../telegram/messages.js";
 import {
   MAX_VOICE_DURATION_SECONDS,
-  TRANSCRIPTION_TIMEOUT_MS,
-  TRANSCRIPTION_RETRY_DELAY_MS,
   type TranscriptionConfig,
   type TranscriptionRequest,
   type TranscriptionResult,
 } from "./types.js";
+import {
+  transcribe as voiceTranscribe,
+  type TranscribeOpts,
+  type VoiceCallContext,
+} from "./voiceClient.js";
+import type { Resolved } from "../llm/registry.js";
 
 async function defaultAudioFileReader(filePath: string): Promise<Uint8Array> {
   const buffer = await readFile(filePath);
   return new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-}
-
-interface InternalAttemptResult extends TranscriptionResult {
-  retryable: boolean;
 }
 
 export class DurationExceededError extends Error {
@@ -36,13 +55,28 @@ export class DurationExceededError extends Error {
   }
 }
 
+/**
+ * Build a Resolved override from the legacy TranscriptionConfig so that
+ * callers who pass explicit config (without the registry) continue to work.
+ */
+function buildResolvedFromConfig(config: TranscriptionConfig): Resolved {
+  return {
+    provider_id: config.providerAlias,
+    base_url: `${config.baseUrl}/v1`,
+    api_key_env: `LLM_${config.providerAlias.toUpperCase()}_API_KEY`,
+    model: config.modelAlias,
+  };
+}
+
 export async function transcribeVoice(
   config: TranscriptionConfig,
-  request: TranscriptionRequest
+  request: TranscriptionRequest,
+  resolvedOverride?: Resolved,
 ): Promise<TranscriptionResult> {
   const startTime = Date.now();
   const readAudio = request.audioFileReader ?? defaultAudioFileReader;
 
+  // ── Duration check (>15s rejection) — C5 contract ──────────────────────
   if (request.durationSeconds > MAX_VOICE_DURATION_SECONDS) {
     emitLog(
       request.logger,
@@ -75,6 +109,7 @@ export async function transcribeVoice(
     };
   }
 
+  // ── Budget check (SpendTracker preflight) — C5 contract ────────────────
   const preflight = await request.spendTracker.preflightCheck("transcription");
   if (!preflight.allowed) {
     emitLog(
@@ -109,172 +144,39 @@ export async function transcribeVoice(
     };
   }
 
-  emitLog(
-    request.logger,
-    buildRedactedEvent(
-      "info",
-      "kbju-meal-logging",
-      "C5",
-      KPI_EVENT_NAMES.provider_call_started,
-      request.requestId,
-      request.userId,
-      "success",
-      request.degradeModeEnabled,
-      {
-        call_type: "transcription",
-        provider_alias: config.providerAlias,
-        model_alias: config.modelAlias,
-      }
-    )
-  );
+  // ── Read audio file ────────────────────────────────────────────────────
+  const audioBytes = await readAudio(request.audioFilePath);
 
-  const firstAttempt = await attemptTranscription(
-    config,
-    request,
-    preflight,
-    startTime,
-    readAudio
-  );
+  // ── Delegate HTTP call to voiceClient ──────────────────────────────────
+  // Use resolvedOverride if provided (registry-based); otherwise build one
+  // from the legacy TranscriptionConfig so existing callers continue to work.
+  const resolved = resolvedOverride ?? buildResolvedFromConfig(config);
 
-  if (firstAttempt.outcome === "success") {
-    return firstAttempt;
-  }
-
-  if (
-    firstAttempt.retryable &&
-    isWithinLatencyBudget(startTime, config.maxLatencyMs)
-  ) {
-    await new Promise<void>((r) =>
-      setTimeout(r, TRANSCRIPTION_RETRY_DELAY_MS)
-    );
-
-    if (!isWithinLatencyBudget(startTime, config.maxLatencyMs)) {
-      await safeDeleteAudio(request, config.providerAlias);
-      return stripRetryable(firstAttempt, true);
-    }
-
-    const retryAttempt = await attemptTranscription(
-      config,
-      request,
-      preflight,
-      startTime,
-      readAudio
-    );
-    if (retryAttempt.outcome === "success") {
-      return retryAttempt;
-    }
-  }
-
-  await safeDeleteAudio(request, config.providerAlias);
-  return stripRetryable(firstAttempt, true);
-}
-
-function stripRetryable(
-  result: InternalAttemptResult,
-  audioDeleted: boolean
-): TranscriptionResult {
-  return {
-    providerAlias: result.providerAlias,
-    modelAlias: result.modelAlias,
-    transcriptText: result.transcriptText,
-    confidence: result.confidence,
-    estimatedCostUsd: result.estimatedCostUsd,
-    outcome: result.outcome,
-    audioDeleted,
+  const voiceOpts: TranscribeOpts = {
+    call_type: "kbju.voice_transcription",
+    audio_buffer: audioBytes,
+    audio_mime: "audio/ogg",
+    audio_filename: "voice.ogg",
+    language: config.languageHint,
   };
-}
 
-function isRetryableHttpStatus(status: number): boolean {
-  return status >= 500 || status === 429;
-}
+  const voiceCtx: VoiceCallContext = {
+    apiKeyOverride: config.apiKey,
+    requestId: request.requestId,
+    userId: request.userId,
+    logger: request.logger,
+  };
 
-async function attemptTranscription(
-  config: TranscriptionConfig,
-  request: TranscriptionRequest,
-  preflight: PreflightResult,
-  startTime: number,
-  readAudio: (filePath: string) => Promise<Uint8Array>
-): Promise<InternalAttemptResult> {
-  try {
-    const audioBytes = await readAudio(request.audioFilePath);
-    const audioBlob = new Blob([new Uint8Array(audioBytes)]);
+  const voiceResult = await voiceTranscribe(voiceOpts, voiceCtx, resolved);
 
-    const formData = new FormData();
-    formData.append("file", audioBlob, "voice.ogg");
-    formData.append("model", config.modelAlias);
-    formData.append("language", config.languageHint);
-    formData.append("response_format", "json");
-
-    const controller = new AbortController();
-    const timer = setTimeout(
-      () => controller.abort(),
-      TRANSCRIPTION_TIMEOUT_MS
-    );
-
-    const httpResponse = await fetch(
-      `${config.baseUrl}/v1/audio/transcriptions`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${config.apiKey}`,
-        },
-        body: formData,
-        signal: controller.signal,
-      }
-    );
-
-    clearTimeout(timer);
-
-    if (!httpResponse.ok) {
-      const retryable = isRetryableHttpStatus(httpResponse.status);
-
-      emitLog(
-        request.logger,
-        buildRedactedEvent(
-          "warn",
-          "kbju-meal-logging",
-          "C5",
-          KPI_EVENT_NAMES.provider_call_finished,
-          request.requestId,
-          request.userId,
-          "provider_failure",
-          request.degradeModeEnabled,
-          {
-            call_type: "transcription",
-            provider_alias: config.providerAlias,
-            model_alias: config.modelAlias,
-            error_code: `http_${httpResponse.status}`,
-          }
-        )
-      );
-
-      return {
-        providerAlias: config.providerAlias,
-        modelAlias: config.modelAlias,
-        transcriptText: "",
-        confidence: null,
-        estimatedCostUsd: preflight.estimatedCallCostUsd,
-        outcome: "provider_failure",
-        audioDeleted: false,
-        retryable,
-      };
-    }
-
-    const json = (await httpResponse.json()) as {
-      text?: string;
-      confidence?: number;
-    };
-
-    const transcriptText = json.text ?? "";
-    const confidence =
-      typeof json.confidence === "number" ? json.confidence : null;
-
-    const deletionOk = await safeDeleteAudio(request, config.providerAlias);
-
+  // ── Process result ─────────────────────────────────────────────────────
+  if (voiceResult.outcome === "success") {
     await request.spendTracker.recordCostAndCheckBudget(
       preflight.estimatedCallCostUsd,
       false
     );
+
+    const deletionOk = await safeDeleteAudio(request, config.providerAlias);
 
     const latencyMs = Date.now() - startTime;
 
@@ -302,57 +204,26 @@ async function attemptTranscription(
     return {
       providerAlias: config.providerAlias,
       modelAlias: config.modelAlias,
-      transcriptText,
-      confidence,
+      transcriptText: voiceResult.transcriptText,
+      confidence: null,
       estimatedCostUsd: preflight.estimatedCallCostUsd,
       outcome: "success",
       audioDeleted: deletionOk,
-      retryable: false,
-    };
-  } catch (error) {
-    const errorCode =
-      error instanceof Error && error.name === "AbortError"
-        ? "timeout"
-        : "fetch_error";
-
-    emitLog(
-      request.logger,
-      buildRedactedEvent(
-        "warn",
-        "kbju-meal-logging",
-        "C5",
-        KPI_EVENT_NAMES.provider_call_finished,
-        request.requestId,
-        request.userId,
-        "provider_failure",
-        request.degradeModeEnabled,
-        {
-          call_type: "transcription",
-          provider_alias: config.providerAlias,
-          model_alias: config.modelAlias,
-          error_code: errorCode,
-        }
-      )
-    );
-
-    return {
-      providerAlias: config.providerAlias,
-      modelAlias: config.modelAlias,
-      transcriptText: "",
-      confidence: null,
-      estimatedCostUsd: preflight.estimatedCallCostUsd,
-      outcome: "provider_failure",
-      audioDeleted: false,
-      retryable: true,
     };
   }
-}
 
-function isWithinLatencyBudget(
-  startTime: number,
-  maxLatencyMs: number
-): boolean {
-  return Date.now() - startTime < maxLatencyMs;
+  // ── Failure path — delete audio, return failure ────────────────────────
+  await safeDeleteAudio(request, config.providerAlias);
+
+  return {
+    providerAlias: config.providerAlias,
+    modelAlias: config.modelAlias,
+    transcriptText: "",
+    confidence: null,
+    estimatedCostUsd: preflight.estimatedCallCostUsd,
+    outcome: "provider_failure",
+    audioDeleted: true,
+  };
 }
 
 async function safeDeleteAudio(
