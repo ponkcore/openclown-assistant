@@ -114,3 +114,60 @@ Recommendation to PO: request changes from Executor (iterate once on copy + pair
 | 7 | "встал" without "лёг" → clarifying reply, no record | `logger.unit.test.ts`:289 (path 4, `MORNING_NO_PAIR_REPLY`, `persisted: false`) |
 | 8 | DST smoke: LA 2026-03-08 02:30→09:30, `attribution_date_local=2026-03-08`, duration UTC-anchored | `logger.dst.test.ts`:229 (asserts `durationMin: 360`, `attribution_date_local: "2026-03-08"`) |
 | 9 | Russian copy matches `src/modality/sleep/copy.ru.ts` | 5 of 7 strings match §6.2.2 verbatim; 2 deviations (F-M1, F-M2) |
+
+## Iteration 2 verdict (Reviewer, 2026-05-25)
+
+**Iter-2 diff scope:** `07d6cad..5ccc9e5` — 5 files changed, +209 −32. Files: `src/modality/sleep/copy.ru.ts`, `src/modality/sleep/logger.ts`, `tests/modality/sleep/logger.sanity.test.ts`, `tests/modality/sleep/logger.unit.test.ts`, `docs/tickets/` `TKT-023-c18-sleep-logger.md` (execution-log append only). No out-of-zone files touched.
+
+**F-M1 (ASCII quotes) — CLOSED:**
+- `copy.ru.ts`:17 — `EVENING_ACK_REPLY` now uses `\"встал\"` (ASCII escaped double quotes). ✅
+- `copy.ru.ts`:26 — `MORNING_NO_PAIR_REPLY` now uses `\"лёг\"`, `\"поспал(а) 7 часов\"`, `\"лёг в 23, встал в 7\"` (all ASCII). ✅
+- `copy.ru.ts`:32 — `SANITY_FLOOR_WARN` keeps `«дневной сон»` (guillemets) per `ARCH-001@0.6.2` §6.2.2 verbatim. ✅
+- New header comment (`copy.ru.ts`:12-13) clarifies the §6.2.2 rule: ASCII for inline command words, guillemets for descriptive labels. ✅
+
+**F-M2 (OFF-state silent) — CLOSED:**
+- `logger.ts`:240 — OFF-state branch returns `{ text: "", persisted: false }`. Empty string is the correct "silent" shape per §6.2.2. ✅
+- `OFF_STATE_REPLY` import removed from `logger.ts` (no runtime callers remain). ✅
+- `copy.ru.ts`:37-38 — `OFF_STATE_REPLY` kept as export with `@internal` debug comment; no production code path references it. Acceptable. ✅
+- Dispatch surface: `handleSleepEvent` has no Telegram-wiring callers in this PR (that's a future TKT). The return contract (`text: ""`) is correct — the future caller must suppress Telegram messages when `text === ""`. This matches §6.2.2 "Modality OFF: silent." ✅
+- `logger.unit.test.ts`:424 — existing OFF-state test updated to assert `result.text === ""` (was `OFF_STATE_REPLY`). ✅
+
+**F-M3 (paired-correction preserves is_paired_origin + deletes pairing) — CLOSED:**
+- `logger.ts`:634 — `correctSanityWarnedSleep` signature now accepts `isPairedOrigin: boolean` as 5th parameter. ✅
+- `logger.ts`:706-708 — `insertSleepRecord` call passes `isPairedOrigin` through to the store. ✅
+- `logger.ts`:711-713 — `if (isPairedOrigin) { await deps.store.deleteSleepPairingState(userId); }` — pairing state deleted after correction insert. ✅
+- `sanityPending` shape (`logger.ts`:77-83) carries `isPairedOrigin` from path-3 trigger (`logger.ts`:324: `isPairedOrigin: true`) and path-5 trigger (`logger.ts`:473: `isPairedOrigin: false`). ✅
+- `logger.sanity.test.ts`:228-254 — new test for paired correction asserts `insertSleepRecord` called with `is_paired_origin=true` AND `deleteSleepPairingState` called once with `USER_ID`. ✅
+- `logger.unit.test.ts`:594-624 — new "F-M3" test asserts `is_paired_origin=true` preserved, `sourceLabel: "paired"`, `deleteSleepPairingState` called. ✅
+
+**F-L1 (OFF-state tests for paths 3, 5) — CLOSED:**
+- `logger.unit.test.ts`:629-648 — "OFF-state on morning_vstal" test: `sleepOn: false`, kind `morning_vstal` → `text === ""`, `persisted === false`, `insertSleepRecord` not called. ✅
+- `logger.unit.test.ts`:650-670 — "OFF-state on single_duration" test: `sleepOn: false`, kind `single_duration` → `text === ""`, `persisted === false`, `insertSleepRecord` not called. ✅
+
+**F-L2 (telemetry-emit-shape rigor) — NOTED, not addressed:**
+- Non-blocking nit from iter-1. Tests still do not assert on `emitLog`/`buildRedactedEvent` call shapes. Backlog after merge.
+
+**Out-of-zone diff sweep:** `07d6cad..5ccc9e5` touches exactly 5 files, all within `src/modality/sleep/**`, `tests/modality/sleep/**`, and the ticket file. No out-of-zone files. ✅
+
+**No-regression sweep:** No Node.js runtime available locally; cannot run typecheck/lint/tests. Executor §10 log claims clean. Iter-2 changes are narrow: removed one import, added one parameter to an existing function signature, updated existing test assertions, added new test blocks. No modification to production logic outside the three M-finding remediations. Structural risk is low.
+
+**Minor style nit (Low, non-blocking):** New `describe` blocks appended at `logger.unit.test.ts`:594 and `:627` are at file top-level but indented with 2 spaces (matching the inner describe convention). Functionally correct; inconsistent with the 0-space indent of other top-level describes (`extractDurationFromText`, `formatDurationHm`, etc.). Not worth an iteration.
+
+### Iteration 2 status:
+- F-M1: closed (ASCII quotes per `ARCH-001@0.6.2` §6.2.2)
+- F-M2: closed (OFF-state returns `text: ""`, silent per §6.2.2)
+- F-M3: closed (`isPairedOrigin` passed through + `deleteSleepPairingState` called on paired correction)
+- F-L1: closed (2 OFF-state tests added for `morning_vstal` + `single_duration`)
+- F-L2: noted, not addressed (telemetry-shape rigor — non-blocking, backlog)
+
+### New findings introduced by iter-2:
+- None. (One Low style nit noted above — non-blocking.)
+
+### Updated overall verdict:
+- [x] pass
+- [ ] pass_with_changes
+- [ ] fail
+
+One-sentence justification: All three Medium findings are verifiably closed with correct implementations and matching tests; remaining Low (F-L2) is backlog-only.
+
+Recommendation to PO: **merge** — all blocking findings resolved; F-L2 telemetry nit is non-blocking backlog.
