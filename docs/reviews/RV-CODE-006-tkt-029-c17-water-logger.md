@@ -15,13 +15,13 @@ The C17 Water Logger implementation is functionally solid: the LLM extraction ch
 
 ## Verdict
 
-- [ ] pass
-- [x] pass_with_changes
+- [x] pass
+- [ ] pass_with_changes
 - [ ] fail
 
 One-sentence justification: All Acceptance Criteria in TKT-029@0.1.0 §5 are verifiably met and the code is functionally correct, but three Medium copy/observability findings (emoji in reply text, structured-log extra-key gaps, persona gender mismatch) require remediation before or shortly after merge.
 
-Recommendation to PO: request changes from Executor (iterate the three Mediums).
+Recommendation to PO: approve & merge (all three iter-1 Mediums closed in iter-2; Lows backlogged).
 
 ## Contract compliance (each must be ticked or marked finding)
 
@@ -130,3 +130,24 @@ Mental estimate:
 - **Observability:** Prometheus metric `kbju_modality_event_persisted` has correct `{modality, source}` labels (`logger.ts:202–205`). Structured log event has `component: "C17"`, `event_name: "kbju_modality_event_persisted"`, `outcome: "success"/"skipped_off"/"low_confidence"/"out_of_range"`. `source` label passes through `ALLOWED_EXTRA_KEYS`. `raw_text` is in `LOG_FORBIDDEN_FIELDS` → redacted if present (it is never passed). Gap: `modality` and `volume_ml` dropped from structured log (F-M2). `LOG_FORBIDDEN_FIELDS` still contains all TKT-026@0.1.0 entries (`workout_text`, `mood_comment_text`, etc.) — executor did NOT remove any. ✓ (with F-M2 caveat)
 
 - **Rollback:** All changes are additive — new files (`src/modality/water/*`, `config/water-extractor.json`, new tests) plus additive method additions to existing files (`types.ts`, `tenantStore.ts`, `kpiEvents.ts`). Rollback: `git revert` the single commit. No existing code depends on the new `insertWaterEvent` method. The water module is self-contained. ✓
+
+## Iteration 2 verdict (Reviewer, 2026-05-25)
+
+Iteration-2 status:
+- F-M1: closed — `SUCCESS_REPLY`, `OUT_OF_RANGE_REPLY`, `LOW_CONFIDENCE_REPLY` in `copy.ru.ts` now contain zero emoji (verified by grep). `keyboard.ts` retains emoji (💧) only in button labels — allowed per ARCH-001@0.6.2 §6.2.2 keyboard exemption.
+- F-M2: closed — `ALLOWED_EXTRA_KEYS` in `src/observability/events.ts:43–71` now contains all 8 new keys: `modality`, `volume_ml`, `duration_min`, `distance_km`, `score`, `is_nap`, `attribution_date_local`, `event_id`. Change is additive only (no existing entries removed — verified diff). All 8 are closed-enum, bounded numeric, UUID, or date types; none can carry raw user text. New tests in `tests/observability/events.test.ts:255–323` cover: (a) `modality` + `volume_ml` propagate through `redactPii`, (b) `mood_comment_text` still redacted (TKT-026@0.1.0 regression guard), (c) pre-seeded sibling modality keys propagate, (d) `raw_text` still dropped.
+- F-M3: closed — `SUCCESS_REPLY` in `copy.ru.ts:14` now reads "Записала {ml} мл воды" (feminine). Test assertions in `logger.test.ts:196,224` updated to "Записала 500 мл воды" and "Записала 250 мл воды".
+
+New findings introduced by iter-2 (if any):
+- none
+
+Scope check (iter-2 only, 5 files): `docs/tickets/TKT-029-c17-water-logger.md` (§10 log append), `src/modality/water/copy.ru.ts`, `src/observability/events.ts` (PO-authorised carve-out), `tests/modality/water/logger.test.ts`, `tests/observability/events.test.ts`. All within expected carve-out. ✓
+
+Regression sweep: typecheck clean ✓. Tests 1051 pass / 3 fail — all 3 pre-existing (healthCheck.test.ts × 1 + allowlist.test.ts × 2), unchanged from iter-1. Lint: `eslint` binary not installed in review env (tooling limitation, not a code issue); typecheck covers structural correctness. ✓
+
+Updated overall verdict:
+- [x] pass
+- [ ] pass_with_changes (Lows only; backlog after merge)
+- [ ] fail
+
+Recommendation to PO: merge
