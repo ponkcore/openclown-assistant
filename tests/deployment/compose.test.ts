@@ -4,9 +4,20 @@ import { resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const COMPOSE_PATH = resolve(ROOT, "docker-compose.yml");
+const CF_TUNNEL_PATH = resolve(ROOT, "docker-compose.cf-tunnel.yml");
+const DOCKERFILE_PATH = resolve(ROOT, "Dockerfile");
+
+const DIGEST_RE = /^[^:@\s]+@sha256:[a-f0-9]{64}$/;
 
 function readCompose(): string {
   return readFileSync(COMPOSE_PATH, "utf-8");
+}
+
+function extractImageLines(content: string): string[] {
+  return content
+    .split("\n")
+    .filter((l) => l.trim().startsWith("image:"))
+    .map((l) => l.trim().replace(/^image:\s*/, ""));
 }
 
 describe("docker-compose.yml", () => {
@@ -138,14 +149,56 @@ describe("docker-compose.yml", () => {
     expect(content).toContain("openclaw-gateway:");
     expect(content).toContain("KBJU_SIDECAR_URL");
   });
+
+  // --- TKT-043@0.1.0: digest-pinning assertions ---
+
+  it("every image: reference uses the image@sha256:<digest> form (no bare tags)", () => {
+    const imageLines = extractImageLines(content);
+    expect(imageLines.length, "no image: lines found").toBeGreaterThan(0);
+    for (const img of imageLines) {
+      expect(
+        DIGEST_RE.test(img),
+        `image "${img}" does not match image@sha256:<64-hex-chars> form`
+      ).toBe(true);
+    }
+  });
+
+  it("no :latest tag remains in any image: reference", () => {
+    const imageLines = extractImageLines(content);
+    for (const img of imageLines) {
+      expect(
+        img,
+        `image "${img}" contains :latest`
+      ).not.toMatch(/:latest/);
+    }
+  });
 });
 
 describe("Dockerfile", () => {
-  const dockerfilePath = resolve(ROOT, "Dockerfile");
-  const dockerfileContent = readFileSync(dockerfilePath, "utf-8");
+  const dockerfileContent = readFileSync(DOCKERFILE_PATH, "utf-8");
 
   it("does not define image-level HEALTHCHECK", () => {
     expect(dockerfileContent).not.toContain("HEALTHCHECK");
+  });
+
+  // --- TKT-043@0.1.0: digest-pinning assertions ---
+
+  it("every FROM line pins the base image to a digest", () => {
+    const fromLines = dockerfileContent
+      .split("\n")
+      .filter((l) => /^FROM\s+/i.test(l.trim()));
+    expect(fromLines.length, "no FROM lines found").toBeGreaterThan(0);
+    for (const line of fromLines) {
+      const match = line.match(/^FROM\s+(\S+)/i);
+      expect(match, `cannot parse FROM line: ${line}`).toBeDefined();
+      const imageRef = match![1];
+      // Allow AS alias after the image ref
+      const baseImage = imageRef;
+      expect(
+        /^.+@sha256:[a-f0-9]{64}$/.test(baseImage),
+        `FROM image "${baseImage}" is not pinned to a digest`
+      ).toBe(true);
+    }
   });
 });
 
@@ -170,8 +223,8 @@ describe("docker-compose.yml — caddy service (ADR-020@0.1.1)", () => {
     expect(content).toContain("  caddy:");
   });
 
-  it("caddy uses caddy:2-alpine image", () => {
-    expect(content).toMatch(/image:\s*caddy:2-alpine/);
+  it("caddy uses a digest-pinned image", () => {
+    expect(content).toMatch(/image:\s*caddy@sha256:[a-f0-9]{64}/);
   });
 
   it("caddy exposes ports 80 and 443", () => {
@@ -269,8 +322,7 @@ describe("Caddyfile (ADR-020@0.1.1)", () => {
 });
 
 describe("docker-compose.cf-tunnel.yml (ADR-020@0.1.1 §Override path)", () => {
-  const cfTunnelPath = resolve(ROOT, "docker-compose.cf-tunnel.yml");
-  const cfContent = readFileSync(cfTunnelPath, "utf-8");
+  const cfContent = readFileSync(CF_TUNNEL_PATH, "utf-8");
 
   it("exists and is non-empty", () => {
     expect(cfContent.length).toBeGreaterThan(0);
@@ -285,8 +337,8 @@ describe("docker-compose.cf-tunnel.yml (ADR-020@0.1.1 §Override path)", () => {
     expect(cfContent).toContain("cloudflared:");
   });
 
-  it("cloudflared uses the cloudflare/cloudflared image", () => {
-    expect(cfContent).toMatch(/image:\s*cloudflare\/cloudflared/);
+  it("cloudflared uses a digest-pinned image", () => {
+    expect(cfContent).toMatch(/image:\s*cloudflare\/cloudflared@sha256:[a-f0-9]{64}/);
   });
 
   it("cloudflared command references CLOUDFLARED_TUNNEL_TOKEN", () => {
@@ -299,5 +351,29 @@ describe("docker-compose.cf-tunnel.yml (ADR-020@0.1.1 §Override path)", () => {
 
   it("cloudflared is on the internal network", () => {
     expect(cfContent).toContain("- internal");
+  });
+
+  // --- TKT-043@0.1.0: digest-pinning assertions ---
+
+  it("every image: reference uses the image@sha256:<digest> form (no bare tags)", () => {
+    const imageLines = extractImageLines(cfContent);
+    // Only cloudflared has an image line in this overlay
+    expect(imageLines.length, "no image: lines found").toBeGreaterThan(0);
+    for (const img of imageLines) {
+      expect(
+        DIGEST_RE.test(img),
+        `image "${img}" does not match image@sha256:<64-hex-chars> form`
+      ).toBe(true);
+    }
+  });
+
+  it("no :latest tag remains in any image: reference", () => {
+    const imageLines = extractImageLines(cfContent);
+    for (const img of imageLines) {
+      expect(
+        img,
+        `image "${img}" contains :latest`
+      ).not.toMatch(/:latest/);
+    }
   });
 });
