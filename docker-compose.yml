@@ -99,10 +99,35 @@ services:
         max-size: "5m"
         max-file: "3"
 
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      KBJU_PUBLIC_DOMAIN: ${KBJU_PUBLIC_DOMAIN}
+    depends_on:
+      openclaw-gateway:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - internal
+    restart: unless-stopped
+
 volumes:
   kbju_pgdata:
   openclaw_state:
   kbju_config:
+  caddy_data:
+  caddy_config:
 
 networks:
   internal:

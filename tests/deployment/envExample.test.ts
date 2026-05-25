@@ -35,6 +35,9 @@ const REQUIRED_VARS = [
   "PERSONA_PATH",
   "PO_ALERT_CHAT_ID",
   "MONTHLY_SPEND_CEILING_USD",
+  "KBJU_PUBLIC_DOMAIN",
+  "CLOUDFLARED_TUNNEL_TOKEN",
+  "INSTALL_TLS_MODE",
   "AUDIT_DB_URL",
 ];
 
@@ -92,10 +95,40 @@ describe(".env.example", () => {
   it("all other variables have blank or obviously-safe placeholder values", () => {
     for (const [key, value] of vars.entries()) {
       if (key === "MONTHLY_SPEND_CEILING_USD") continue;
+      if (key === "INSTALL_TLS_MODE") continue;
       expect(
         value === "" || value === "10",
         `${key} has non-blank non-safe value: "${value}"`
       ).toBe(true);
     }
+  });
+});
+
+describe(".env.example — TLS termination vars (ADR-020@0.1.0)", () => {
+  const content = readEnvExample();
+  const vars = parseEnvVars(content);
+
+  it("contains KBJU_PUBLIC_DOMAIN", () => {
+    expect(vars.has("KBJU_PUBLIC_DOMAIN"), "missing KBJU_PUBLIC_DOMAIN").toBe(true);
+  });
+
+  it("contains CLOUDFLARED_TUNNEL_TOKEN", () => {
+    expect(vars.has("CLOUDFLARED_TUNNEL_TOKEN"), "missing CLOUDFLARED_TUNNEL_TOKEN").toBe(true);
+  });
+
+  it("contains INSTALL_TLS_MODE", () => {
+    expect(vars.has("INSTALL_TLS_MODE"), "missing INSTALL_TLS_MODE").toBe(true);
+  });
+
+  it("KBJU_PUBLIC_DOMAIN has a blank placeholder", () => {
+    expect(vars.get("KBJU_PUBLIC_DOMAIN")).toBe("");
+  });
+
+  it("CLOUDFLARED_TUNNEL_TOKEN has a blank placeholder", () => {
+    expect(vars.get("CLOUDFLARED_TUNNEL_TOKEN")).toBe("");
+  });
+
+  it("INSTALL_TLS_MODE defaults to caddy", () => {
+    expect(vars.get("INSTALL_TLS_MODE")).toBe("caddy");
   });
 });
