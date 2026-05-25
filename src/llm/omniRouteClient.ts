@@ -1,22 +1,63 @@
+/**
+ * C23 LLM Gateway — Backward-compatible adapter over llmClient.ts
+ *
+ * This module re-exports the new provider-agnostic client surface and
+ * provides a backward-compat `callOmniRoute` wrapper so existing callers
+ * continue to work without source changes.
+ *
+ * Per TKT-033@0.1.0 §2: "re-export the new client surface OR delete the file
+ * and update its callers; the executor picks whichever is cleaner."
+ *
+ * The adapter translates the old (OmniRouteConfig, OmniRouteCallOptions) pair
+ * into the new (ChatCompletionOpts, LlmCallContext) pair and delegates to
+ * llmClient.chatCompletion / llmClient.vision. The explicit OmniRouteConfig
+ * values are used as a Resolved override so the registry is NOT required
+ * when this legacy path is used (e.g., in existing tests that don't init the
+ * registry).
+ *
+ * New code should import from llmClient.ts directly.
+ */
+
+import { chatCompletion, vision } from "./llmClient.js";
+import type {
+  ChatCompletionOpts,
+  VisionOpts,
+  LlmCallContext,
+  ChatCompletionResult,
+} from "./llmClient.js";
+import type { Resolved } from "./registry.js";
 import type {
   ProviderAlias,
   CallType,
   OpenClawLogger,
 } from "../shared/types.js";
 import type { SpendTracker, PreflightResult } from "../observability/costGuard.js";
-import { worstCaseCostForCall } from "../observability/costGuard.js";
-import { buildRedactedEvent, emitLog } from "../observability/events.js";
-import { KPI_EVENT_NAMES, LOG_FORBIDDEN_FIELDS } from "../observability/kpiEvents.js";
+import { LOG_FORBIDDEN_FIELDS } from "../observability/kpiEvents.js";
 import { LLM_TIMEOUT_MS } from "../kbju/types.js";
-import {
-  StallWatchdog,
-  StallExhaustedError,
-  defaultStallWatchdogConfig,
-  checkKillSwitch,
-  KILL_SWITCH_DEFAULT_PATH,
-  type StallWatchdogConfig,
-  type StallEvent,
-} from "../observability/stallWatchdog.js";
+import type { StallWatchdogConfig } from "../observability/stallWatchdog.js";
+
+// ── Re-export new client surface ───────────────────────────────────────────
+
+export { chatCompletion, vision, isPromptOrResponseSafeForLogging } from "./llmClient.js";
+export type {
+  ChatCompletionOpts,
+  VisionOpts,
+  LlmCallContext,
+  ChatCompletionResult,
+} from "./llmClient.js";
+export type { Resolved } from "./registry.js";
+export {
+  resolve,
+  reload,
+  initRegistry,
+  closeRegistry,
+  getApiKey,
+  RegistryError,
+  adaptMetricsSink,
+} from "./registry.js";
+export type { RegistryMetricsSink, ProviderEntry, CallTypeEntry, LlmRegistryFile } from "./registry.js";
+
+// ── Legacy types (kept for backward compat) ────────────────────────────────
 
 export interface OmniRouteConfig {
   baseUrl: string;
@@ -28,8 +69,15 @@ export interface OmniRouteConfig {
 
 export interface OmniRouteCallOptions {
   callType: CallType;
+  /** Optional registry alias override. When set, the registry is used for
+   *  provider/model resolution; when unset, the explicit OmniRouteConfig
+   *  values are used as a Resolved override. */
+  callTypeAlias?: string;
   systemPrompt: string;
   userContent: string;
+  /** Image URL for vision calls. When set, vision() is used instead of
+   *  chatCompletion(). */
+  imageUrl?: string;
   requestId: string;
   userId: string;
   degradeModeEnabled: boolean;
@@ -47,376 +95,104 @@ export interface OmniRouteCallResult {
   inputUnits: number;
   outputUnits: number;
   estimatedCostUsd: number;
-  outcome: "success" | "provider_failure" | "budget_blocked" | "validation_blocked" | "stall_detected";
+  outcome:
+    | "success"
+    | "provider_failure"
+    | "budget_blocked"
+    | "validation_blocked"
+    | "stall_detected"
+    | "registry_error";
+}
+
+// ── Legacy adapter ─────────────────────────────────────────────────────────
+
+/** Map explicit OmniRouteConfig → Resolved override (bypasses registry). */
+function configToResolved(config: OmniRouteConfig): Resolved {
+  return {
+    provider_id: "omniroute",
+    base_url: config.baseUrl.endsWith('/v1') ? config.baseUrl : config.baseUrl + '/v1',
+    api_key_env: "LLM_OMNIROUTE_API_KEY",          // name only — value read from config
+    model: config.textModelAlias,
+  };
+}
+
+/** Map new ChatCompletionResult → legacy OmniRouteCallResult. */
+function resultToLegacy(result: ChatCompletionResult): OmniRouteCallResult {
+  return {
+    providerAlias: (result.provider_id as ProviderAlias) ?? "omniroute",
+    modelAlias: result.model,
+    rawResponseText: result.rawResponseText,
+    inputUnits: result.inputUnits,
+    outputUnits: result.outputUnits,
+    estimatedCostUsd: result.estimatedCostUsd,
+    outcome: result.outcome,
+  };
 }
 
 export async function callOmniRoute(
   config: OmniRouteConfig,
-  options: OmniRouteCallOptions
-): Promise<OmniRouteCallResult> {
-  const killSwitchPath = options.killSwitchPath ?? KILL_SWITCH_DEFAULT_PATH;
-  const fileExists = options.fileExists ?? (() => false);
-  const killSwitchResult = checkKillSwitch(fileExists, killSwitchPath, Date.now);
-  if (killSwitchResult.active) {
-    if (killSwitchResult.event) {
-      emitLog(options.logger, buildRedactedEvent(
-        "warn",
-        "kbju-meal-logging",
-        "C13",
-        KPI_EVENT_NAMES.runtime_kill_switch_active,
-        options.requestId,
-        options.userId,
-        "kill_switch_active",
-        options.degradeModeEnabled,
-        {
-          kill_switch_path: killSwitchPath,
-        }
-      ));
-    }
-    return {
-      providerAlias: "omniroute",
-      modelAlias: config.textModelAlias,
-      rawResponseText: "",
-      inputUnits: 0,
-      outputUnits: 0,
-      estimatedCostUsd: 0,
-      outcome: "stall_detected",
-    };
-  }
-
-  const preflight = await options.spendTracker.preflightCheck(options.callType);
-  if (!preflight.allowed) {
-    emitLog(options.logger, buildRedactedEvent(
-      "warn",
-      "kbju-meal-logging",
-      "C6",
-      KPI_EVENT_NAMES.budget_blocked,
-      options.requestId,
-      options.userId,
-      "budget_blocked",
-      options.degradeModeEnabled,
-      {
-        call_type: options.callType,
-        estimated_cost_usd: preflight.estimatedCallCostUsd,
-        provider_alias: "omniroute" as ProviderAlias,
-      }
-    ));
-    return {
-      providerAlias: "omniroute",
-      modelAlias: config.textModelAlias,
-      rawResponseText: "",
-      inputUnits: 0,
-      outputUnits: 0,
-      estimatedCostUsd: 0,
-      outcome: "budget_blocked",
-    };
-  }
-
-  const stallConfig = options.stallConfig ?? defaultStallWatchdogConfig();
-  let stallRetryCount = 0;
-  let stallWatchdog: StallWatchdog | null = null;
-
-  const body = {
-    model: config.textModelAlias,
-    messages: [
-      { role: "system", content: options.systemPrompt },
-      { role: "user", content: options.userContent },
-    ],
-    max_tokens: config.maxOutputTokens,
-    max_input_tokens: config.maxInputTokens,
-    timeout_ms: LLM_TIMEOUT_MS,
-  };
-
-  let responseText = "";
-  let outcome: OmniRouteCallResult["outcome"] = "success";
-  let inputUnits = 0;
-  let outputUnits = 0;
-
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
-
-    stallWatchdog = new StallWatchdog(
-      stallConfig,
-      {
-        now: Date.now,
-        emit: (event: StallEvent) => {
-          emitLog(options.logger, buildRedactedEvent(
-            "warn",
-            "kbju-meal-logging",
-            "C13",
-            KPI_EVENT_NAMES.llm_call_stalled,
-            options.requestId,
-            options.userId,
-            "stall_detected",
-            options.degradeModeEnabled,
-            {
-              provider_alias: event.provider as ProviderAlias,
-              model_alias: event.model,
-              tenant_id: event.tenant_id,
-              threshold_ms: event.threshold_ms,
-              actual_stall_ms: event.actual_stall_ms,
-              retry_count: event.retry_count,
-            }
-          ));
-        },
-        abort: () => controller.abort(),
-      },
-      "omniroute",
-      config.textModelAlias,
-      options.userId,
-    );
-
-    stallWatchdog.start();
-
-    const httpResponse = await fetch(`${config.baseUrl}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timer);
-
-    if (stallWatchdog.isStalled()) {
-      stallWatchdog.stop();
-      stallRetryCount++;
-      if (stallRetryCount <= stallConfig.maxRetries) {
-        return retryOnce(config, options, preflight);
-      }
-      return {
-        providerAlias: "omniroute",
-        modelAlias: config.textModelAlias,
-        rawResponseText: "",
-        inputUnits: 0,
-        outputUnits: 0,
-        estimatedCostUsd: preflight.estimatedCallCostUsd,
-        outcome: "stall_detected",
-      };
-    }
-
-    stallWatchdog.touch();
-    stallWatchdog.stop();
-
-    if (!httpResponse.ok) {
-      outcome = "provider_failure";
-      const responseBody = await httpResponse.text().catch(() => "");
-      const retryable = httpResponse.status >= 500 || httpResponse.status === 429;
-
-      emitLog(options.logger, buildRedactedEvent(
-        "warn",
-        "kbju-meal-logging",
-        "C6",
-        KPI_EVENT_NAMES.provider_call_finished,
-        options.requestId,
-        options.userId,
-        "provider_failure",
-        options.degradeModeEnabled,
-        {
-          call_type: options.callType,
-          provider_alias: "omniroute" as ProviderAlias,
-          model_alias: config.textModelAlias,
-          error_code: `http_${httpResponse.status}`,
-        }
-      ));
-
-      if (retryable) {
-        return retryOnce(config, options, preflight);
-      }
-
-      return {
-        providerAlias: "omniroute",
-        modelAlias: config.textModelAlias,
-        rawResponseText: responseBody,
-        inputUnits: 0,
-        outputUnits: 0,
-        estimatedCostUsd: preflight.estimatedCallCostUsd,
-        outcome: "provider_failure",
-      };
-    }
-
-    const json = await httpResponse.json() as {
-      choices?: Array<{ message?: { content?: string } }>;
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
-    };
-
-    responseText = json.choices?.[0]?.message?.content ?? "";
-    inputUnits = json.usage?.prompt_tokens ?? 0;
-    outputUnits = json.usage?.completion_tokens ?? 0;
-  } catch (error) {
-    outcome = "provider_failure";
-    const isStallAbort = error instanceof DOMException
-      && error.name === "AbortError"
-      && stallWatchdog?.isStalled() === true;
-    const errorCode = error instanceof Error && error.name === "AbortError"
-      ? (isStallAbort ? "stall_detected" : "timeout")
-      : "fetch_error";
-
-    if (stallWatchdog) {
-      stallWatchdog.stop();
-    }
-
-    emitLog(options.logger, buildRedactedEvent(
-      "warn",
-      "kbju-meal-logging",
-      isStallAbort ? "C13" : "C6",
-      isStallAbort ? KPI_EVENT_NAMES.llm_call_stalled : KPI_EVENT_NAMES.provider_call_finished,
-      options.requestId,
-      options.userId,
-      isStallAbort ? "stall_detected" : "provider_failure",
-      options.degradeModeEnabled,
-      {
-        call_type: options.callType,
-        provider_alias: "omniroute" as ProviderAlias,
-        model_alias: config.textModelAlias,
-        error_code: errorCode,
-      }
-    ));
-
-    if (isStallAbort) {
-      stallRetryCount++;
-      if (stallRetryCount <= stallConfig.maxRetries) {
-        return retryOnce(config, options, preflight);
-      }
-      return {
-        providerAlias: "omniroute",
-        modelAlias: config.textModelAlias,
-        rawResponseText: "",
-        inputUnits: 0,
-        outputUnits: 0,
-        estimatedCostUsd: preflight.estimatedCallCostUsd,
-        outcome: "stall_detected",
-      };
-    }
-
-    if (errorCode === "timeout") {
-      return retryOnce(config, options, preflight);
-    }
-
-    return {
-      providerAlias: "omniroute",
-      modelAlias: config.textModelAlias,
-      rawResponseText: "",
-      inputUnits: 0,
-      outputUnits: 0,
-      estimatedCostUsd: preflight.estimatedCallCostUsd,
-      outcome: "provider_failure",
-    };
-  }
-
-  const estimatedCost = preflight.estimatedCallCostUsd;
-  await options.spendTracker.recordCostAndCheckBudget(estimatedCost, false);
-
-  emitLog(options.logger, buildRedactedEvent(
-    "info",
-    "kbju-meal-logging",
-    "C6",
-    KPI_EVENT_NAMES.provider_call_finished,
-    options.requestId,
-    options.userId,
-    "success",
-    options.degradeModeEnabled,
-    {
-      call_type: options.callType,
-      provider_alias: "omniroute" as ProviderAlias,
-      model_alias: config.textModelAlias,
-      estimated_cost_usd: estimatedCost,
-    }
-  ));
-
-  return {
-    providerAlias: "omniroute",
-    modelAlias: config.textModelAlias,
-    rawResponseText: responseText,
-    inputUnits,
-    outputUnits,
-    estimatedCostUsd: estimatedCost,
-    outcome,
-  };
-}
-
-async function retryOnce(
-  config: OmniRouteConfig,
   options: OmniRouteCallOptions,
-  preflight: PreflightResult
 ): Promise<OmniRouteCallResult> {
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  const isVision = options.callType === "vision_llm" || !!options.imageUrl;
+  const resolvedOverride = configToResolved(config);
+
+  // When using the override path, we need to inject the apiKey directly
+  // because the registry isn't used. We do this by temporarily setting
+  // the env var that configToResolved references.
+  const apiKeyEnvName = resolvedOverride.api_key_env;
+  const prevEnvValue = process.env[apiKeyEnvName];
+  const hadPrevEnv = apiKeyEnvName in process.env;
+  process.env[apiKeyEnvName] = config.apiKey;
 
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+    const messages = [
+      { role: "system" as const, content: options.systemPrompt },
+      { role: "user" as const, content: options.userContent },
+    ];
 
-    const body = {
-      model: config.textModelAlias,
-      messages: [
-        { role: "system", content: options.systemPrompt },
-        { role: "user", content: options.userContent },
-      ],
-      max_tokens: config.maxOutputTokens,
-      max_input_tokens: config.maxInputTokens,
-      timeout_ms: LLM_TIMEOUT_MS,
+    const ctx: LlmCallContext = {
+      callType: options.callType,
+      requestId: options.requestId,
+      userId: options.userId,
+      logger: options.logger,
+      spendTracker: options.spendTracker,
+      degradeModeEnabled: options.degradeModeEnabled,
+      stallConfig: options.stallConfig,
+      killSwitchPath: options.killSwitchPath,
+      fileExists: options.fileExists,
     };
 
-    const httpResponse = await fetch(`${config.baseUrl}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+    let result: ChatCompletionResult;
 
-    clearTimeout(timer);
-
-    if (!httpResponse.ok) {
-      return {
-        providerAlias: "omniroute",
-        modelAlias: config.textModelAlias,
-        rawResponseText: "",
-        inputUnits: 0,
-        outputUnits: 0,
-        estimatedCostUsd: preflight.estimatedCallCostUsd,
-        outcome: "provider_failure",
+    if (isVision && options.imageUrl) {
+      const visionOpts: VisionOpts = {
+        call_type: options.callTypeAlias ?? "kbju.photo_recognition",
+        messages,
+        max_tokens: config.maxOutputTokens,
+        image_url: options.imageUrl,
       };
+      result = await vision(visionOpts, ctx, resolvedOverride);
+    } else {
+      const chatOpts: ChatCompletionOpts = {
+        call_type: options.callTypeAlias ?? "kbju.meal_text",
+        messages,
+        max_tokens: config.maxOutputTokens,
+      };
+      result = await chatCompletion(chatOpts, ctx, resolvedOverride);
     }
 
-    const json = await httpResponse.json() as {
-      choices?: Array<{ message?: { content?: string } }>;
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
-    };
-
-    const responseText = json.choices?.[0]?.message?.content ?? "";
-    const inputUnits = json.usage?.prompt_tokens ?? 0;
-    const outputUnits = json.usage?.completion_tokens ?? 0;
-    const estimatedCost = preflight.estimatedCallCostUsd;
-
-    await options.spendTracker.recordCostAndCheckBudget(estimatedCost, false);
-
-    return {
-      providerAlias: "omniroute",
-      modelAlias: config.textModelAlias,
-      rawResponseText: responseText,
-      inputUnits,
-      outputUnits,
-      estimatedCostUsd: estimatedCost,
-      outcome: "success",
-    };
-  } catch {
-    return {
-      providerAlias: "omniroute",
-      modelAlias: config.textModelAlias,
-      rawResponseText: "",
-      inputUnits: 0,
-      outputUnits: 0,
-      estimatedCostUsd: preflight.estimatedCallCostUsd,
-      outcome: "provider_failure",
-    };
+    return resultToLegacy(result);
+  } finally {
+    // Restore env var
+    if (hadPrevEnv) {
+      process.env[apiKeyEnvName] = prevEnvValue;
+    } else {
+      delete process.env[apiKeyEnvName];
+    }
   }
 }
+
+// ── Legacy prompt builders (used by kbjuEstimator.ts) ──────────────────────
 
 export function buildMealParsingSystemPrompt(): string {
   return [
@@ -435,16 +211,4 @@ export function buildMealParsingSystemPrompt(): string {
 
 export function buildMealParsingUserContent(mealTextRu: string): string {
   return JSON.stringify({ meal_text_ru: mealTextRu });
-}
-
-export function isPromptOrResponseSafeForLogging(obj: Record<string, unknown>): boolean {
-  for (const forbidden of LOG_FORBIDDEN_FIELDS) {
-    if (forbidden in obj) {
-      return false;
-    }
-  }
-  if ("prompt" in obj || "system_prompt" in obj || "provider_response_raw" in obj) {
-    return false;
-  }
-  return true;
 }

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "providers": {
+    "omniroute":  { "base_url": "http://omniroute:8000/v1",               "api_key_env": "LLM_OMNIROUTE_API_KEY"  },
+    "openrouter": { "base_url": "https://openrouter.ai/api/v1",           "api_key_env": "LLM_OPENROUTER_API_KEY" },
+    "openai":     { "base_url": "https://api.openai.com/v1",              "api_key_env": "LLM_OPENAI_API_KEY"     },
+    "fireworks":  { "base_url": "https://api.fireworks.ai/inference/v1",  "api_key_env": "LLM_FIREWORKS_API_KEY"  }
+  },
+  "call_types": {
+    "kbju.meal_text":                  { "provider": "omniroute", "model": "gpt-oss-120b" },
+    "kbju.summary_recommendation":      { "provider": "omniroute", "model": "gpt-oss-120b" },
+    "kbju.modality_router_classifier": { "provider": "fireworks", "model": "accounts/fireworks/models/gpt-oss-20b",
+                                         "fallback_call_type": "kbju.modality_router_classifier_fallback" },
+    "kbju.modality_router_classifier_fallback":
+                                       { "provider": "fireworks", "model": "accounts/fireworks/models/qwen3-vl-30b-a3b" },
+    "kbju.water_volume_extractor":     { "provider": "fireworks", "model": "accounts/fireworks/models/gpt-oss-20b" },
+    "kbju.sleep_duration_extractor":   { "provider": "fireworks", "model": "accounts/fireworks/models/qwen3-vl-30b-a3b" },
+    "kbju.workout_extractor":          { "provider": "fireworks", "model": "accounts/fireworks/models/qwen3-vl-30b-a3b" },
+    "kbju.mood_inferrer":              { "provider": "fireworks", "model": "accounts/fireworks/models/executor" },
+    "kbju.voice_transcription":        { "provider": "fireworks", "model": "whisper-v3-turbo" },
+    "kbju.photo_recognition":          { "provider": "fireworks", "model": "accounts/fireworks/models/qwen3-vl-30b-a3b" },
+    "comment": "PO edits this file; sidecar picks up within 30 s. No restart for provider/model swaps."
+  }
+}
