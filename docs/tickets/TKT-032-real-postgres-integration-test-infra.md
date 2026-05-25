@@ -1,7 +1,7 @@
 ---
 id: TKT-032
 title: 'Real-Postgres integration test infrastructure (testcontainers)'
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: Test infrastructure
@@ -72,3 +72,7 @@ Stand up `testcontainers-node`-based PostgreSQL integration tests so DDL / RLS /
 
 ## 10. Execution Log
 <!-- executor fills as work proceeds -->
+
+- 2026-05-25T21:20Z opencode-executor: started
+- 2026-05-25T21:28Z opencode-executor: all §5 Outputs implemented; typecheck clean; lint clean; unit test suite passes (2 pre-existing failures unrelated to this TKT)
+- 2026-05-25T21:29Z opencode-executor: in_review; tests N/A (Docker not in sandbox, integration not invoked live); lint clean; typecheck clean
