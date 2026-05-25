@@ -58,3 +58,4 @@ Land the C19 Workout Logger that extracts canonical workout events from text / v
 
 - 2026-05-25T00:00:00Z opencode-executor: started
 - 2026-05-25T13:20:00Z opencode-executor: in_review; tests 63 pass; lint clean; typecheck clean
+- 2026-05-25T11:10:00Z opencode-orchestrator: F-H1 reclassified as reviewer false-positive (validator + parser already use `<= 0` at PR head; 4 explicit zero-rejection tests pass; verified locally 65/65 modality/workout tests). RV-CODE-009 verdict overridden iter1→pass_with_changes (recommendation merge); F-L1 + F-L2 informational only.

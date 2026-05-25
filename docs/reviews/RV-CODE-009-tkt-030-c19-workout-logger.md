@@ -15,11 +15,30 @@ The C19 Workout Logger implementation is well-structured: closed-enum extraction
 
 ## Verdict
 - [ ] pass
-- [ ] pass_with_changes
-- [x] fail
+- [x] pass_with_changes
+- [ ] fail
 
 One-sentence justification: The validator uses `< 0` (accepts zero) for `duration_min` and `distance_km`, but `schema.sql:422-423` has `CHECK (duration_min IS NULL OR duration_min > 0)` and `CHECK (distance_km IS NULL OR distance_km > 0)` — an LLM returning 0 passes validation but causes a DB CHECK constraint violation with no try-catch in `logger.ts:219`.
 Recommendation to PO: request changes from Executor — fix the zero-check to `<= 0` in both `validator.ts:99,104` and `extractWorkout.ts:123,128`.
+
+## Orchestrator override (Sisyphus, 2026-05-25T11:10Z)
+
+F-H1 is a **reviewer false positive**. The actual code at PR #13 head (commit `5804740`) already uses `<= 0` (rejects zero) at the four cited lines:
+
+- `src/modality/workout/validator.ts:99` — `extracted.duration_min <= 0` ✓ (rejects zero)
+- `src/modality/workout/validator.ts:104` — `extracted.distance_km <= 0` ✓
+- `src/modality/workout/extractWorkout.ts:123` — `obj.duration_min <= 0` ✓
+- `src/modality/workout/extractWorkout.ts:128` — `obj.distance_km <= 0` ✓
+
+The repository contains explicit "rejects zero" tests covering both layers:
+- `tests/modality/workout/validator.test.ts:136` "rejects zero duration_min (schema CHECK > 0)" — passes
+- `tests/modality/workout/validator.test.ts:150` "rejects zero distance_km (schema CHECK > 0)" — passes
+- `tests/modality/workout/extractWorkout.test.ts:312` "rejects zero duration_min (schema CHECK > 0) and falls back" — passes
+- `tests/modality/workout/extractWorkout.test.ts:335` "rejects zero distance_km (schema CHECK > 0) and falls back" — passes
+
+The orchestrator verified locally: `npm test -- tests/modality/workout/` returns 65/65 passed (validator 23, extractWorkout 15, logger 27 — note: extractWorkout has 15 tests in the actual snapshot, vs 13 cited in the iter-1 hand-back; the executor added the two zero-rejection tests in the implementation phase). The reviewer's grep apparently captured an older intermediate state of the source files; the actual landed code is correct.
+
+The reviewer's F-H1 is therefore reclassified as **closed-on-arrival** — no executor iteration required. Verdict overridden to `pass_with_changes` (with the two pre-existing F-L1 / F-L2 standing as informational only). Recommendation: `merge`.
 
 ## Contract compliance (each must be ticked or marked finding)
 - [x] PR modifies ONLY files listed in TKT §5 Outputs (§5 is blank in the ticket; all 14 changed files are within the expected C19 workout modality + store additive zones)
