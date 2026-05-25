@@ -6,6 +6,10 @@ import { setMetricsRegistry } from "./deployment/healthCheck.js";
 import type { BridgeRequest } from "./sidecar/types.js";
 import type { C1Deps } from "./telegram/types.js";
 
+import { runMigrations } from "./store/migrations.js";
+import { Pool } from "pg";
+import { fileURLToPath } from "node:url";
+
 const SERVER_PORT_DEFAULT = 3000;
 const BRIDGE_VERSION = "1.0";
 
@@ -256,9 +260,10 @@ export function createServer(opts?: ServerOptions): http.Server {
   });
 }
 
-export function startServer(): http.Server {
+export async function startServer(): Promise<http.Server> {
+  let config: ReturnType<typeof parseConfig> | null = null;
   try {
-    const config = parseConfig(process.env as Record<string, string | undefined>);
+    config = parseConfig(process.env as Record<string, string | undefined>);
     pilotUserIds = config.telegramPilotUserIds;
   } catch {
     pilotUserIds = [];
@@ -266,6 +271,21 @@ export function startServer(): http.Server {
   }
 
   const port = resolvePort();
+
+  // Apply database migrations before starting the HTTP server.
+  // Per TKT-041: on migration failure, log structured error and exit
+  // non-zero — never start the HTTP server with a partially-applied schema.
+  if (config?.databaseUrl) {
+    const pool = new Pool({ connectionString: config.databaseUrl });
+    try {
+      await runMigrations(pool);
+    } catch (err: unknown) {
+      console.error("Migration failed; refusing to start HTTP server:", err);
+      await pool.end().catch(() => {});
+      process.exit(1);
+    }
+  }
+
   const server = createServer();
   // Wire the shared metrics registry into the /metrics endpoint
   if (!deps) {
@@ -273,10 +293,13 @@ export function startServer(): http.Server {
   }
   setMetricsRegistry(deps.metricsRegistry);
   startTime = Date.now();
-  server.listen(port, () => {
-    console.log(`KBJU sidecar listening on port ${port}`);
+
+  return new Promise((resolve) => {
+    server.listen(port, () => {
+      console.log(`KBJU sidecar listening on port ${port}`);
+      resolve(server);
+    });
   });
-  return server;
 }
 
 export function stopServer(server: http.Server): Promise<void> {
@@ -285,6 +308,17 @@ export function stopServer(server: http.Server): Promise<void> {
       if (err) reject(err);
       else resolve();
     });
+  });
+}
+
+// Self-invoke only when run as the main entry point (e.g. Dockerfile CMD).
+// Prevents the side-effect of starting the server when the module is
+// imported by test files.
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] === __filename) {
+  startServer().catch((err: unknown) => {
+    console.error("Boot failed:", err);
+    process.exit(1);
   });
 }
 
