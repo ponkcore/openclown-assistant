@@ -3,7 +3,7 @@ id: TKT-027
 title: C22 Adaptive Summary Composer with deterministic section ordering + zero-event
   suppression
 version: 0.1.0
-status: in_review
+status: done
 arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: C22
@@ -95,3 +95,4 @@ Land the C22 Adaptive Summary Composer that folds active modality sections into 
 - 2026-05-25T00:00:00Z opencode-executor: started
 - 2026-05-25T15:15:00Z opencode-executor: in_review; tests 32 pass; lint clean; typecheck clean; latency claim: 4 parallel SELECT via Promise.all within ≤5% overhead budget
 - 2026-05-25T15:40:00Z opencode-executor iter2: closed F-M1 (Promise.all → Promise.allSettled with per-rejection structured-log emit; failed modality query → empty section, KBJU + other sections still delivered per ARCH-001@0.6.2 §3.22 mode (a)). Added unit test asserting transient water-table failure does not block KBJU delivery. F-L1..F-L5 left as-is.
+- 2026-05-25T12:50:00Z opencode-orchestrator: merged in commit 25cec78 (PR #14); RV-CODE-010 verdict iter2=pass (F-M1 closed; F-L1..F-L5 deferred); PRD-003 walk complete (10/10 tickets done)
