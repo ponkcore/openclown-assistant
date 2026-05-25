@@ -1,18 +1,19 @@
 # Contributing — Process Rules
 
-This file defines **how the three roles collaborate** in this repo. These are not suggestions. CI enforces the machine-checkable parts; the orchestrator's reviewer subagent enforces the rest. The Product Owner is the final authority.
+This file defines **how the four roles collaborate** in this repo. These are not suggestions. CI enforces the machine-checkable parts; the orchestrator's reviewer subagent enforces the rest. The Product Owner is the final authority.
 
 ## Roles and write zones
 
 | Role | Where it runs | MAY write | MUST NOT write |
 |---|---|---|---|
 | Product Owner (human) | — | Anything (final authority) | — |
+| Mentor | opencode primary agent (PO's machine) | `AGENTS.md`, `CONTRIBUTING.md`, `README.md`, `opencode.json`, `.opencode/**`, `docs/backlog/`, `docs/questions/`, `docs/drafts/`, `.gitignore` | `src/`, `tests/`, `packages/`, `migrations/`, `config/`, `docs/prd/`, `docs/architecture/`, `docs/tickets/`, `docs/reviews/`, `docs/roadmap/`, `docs/prompts/`, `docs/knowledge/`, `docs/personality/`, `.github/`, `infra/`, `scripts/`, `Dockerfile`, `docker-compose.yml`, `package*.json`, `tsconfig*.json`, secrets, `.env*`. **NEVER `status: approved` on PRD/ArchSpec/Ticket** (that is the PO's call). |
 | Business Planner | Any LLM in any runtime; PO chooses per session | `docs/prd/`, `docs/roadmap/` (with explicit PO authorisation per session) | `docs/architecture/`, `docs/tickets/`, `src/`, anything else |
 | Technical Architect | Any LLM in any runtime; PO chooses per session | `docs/architecture/`, `docs/tickets/` | `docs/prd/`, `docs/roadmap/`, `src/`, `tests/`, `infra/`, repo root |
 | Sisyphus orchestrator | opencode + oh-my-openagent (PO's machine) | Ticket frontmatter promotion only (`status`, `§10 Execution Log`), backlog entries, question files. Delegates code → executor subagent and reviews → reviewer subagent. | PRD bodies, ArchSpec bodies, ADR bodies, prompts, knowledge files, AGENTS.md, CONTRIBUTING.md, opencode.json, `.opencode/**`, `.github/**`, `infra/**`, `scripts/**` |
 | Executor subagent | opencode subagent | `src/`, `tests/`, `packages/`, files explicitly listed in the assigned ticket's `§5 Outputs`, ticket frontmatter `status` (transitions only) and `§10 Execution Log` (append-only) | All other ticket fields, all other docs zones, repo-wide config, all other tickets |
 | Reviewer subagent | opencode subagent (model family ≠ executor) | `docs/reviews/` only | Everything else, **NEVER `status: approved` on the artefact under review** (that is the PO's call) |
-| Architect-consult subagent | opencode subagent | Read-only — never edits any file | All files |
+| Architect-consult subagent | opencode subagent | `docs/architecture/**` (ArchSpec patch fixes + new ADRs only — no minor/major bumps, no component removal, no ADR retirement), `docs/backlog/**`, `docs/questions/**` | `src/`, `tests/`, `migrations/`, tickets, PRDs, ROADMAP, prompts, knowledge, AGENTS.md, CONTRIBUTING.md, opencode.json, `.opencode/**`, `.github/**`, `infra/**`, `scripts/**`. **NEVER `status: approved` on PRD/ArchSpec/Ticket** (PO only). May set `status: accepted` only on a NEW ADR it authors. |
 
 The **reviewer model family must differ from the executor model family** (separation of perspectives). Configure this in `.opencode/agents/executor.md` and `.opencode/agents/reviewer.md` or in `~/.config/opencode/oh-my-openagent.json`.
 

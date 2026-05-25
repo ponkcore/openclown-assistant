@@ -92,13 +92,33 @@ When the loop terminates, give the user a final report:
 
 ## Stop conditions (escalate to user; do not auto-resolve)
 
+Before any of the conditions below escalates to PO, if the failure is **localised to ArchSpec / ADR text** (typo, spec-vs-implementation drift, missing constraint, missing ADR for a decision the implementation requires), Sisyphus MUST first auto-call the `architect-consult` subagent. See `## Architect-consult auto-call protocol` below. Only escalate to PO if architect-consult returns `confidence: low`.
+
 - Cycle in `depends_on` graph.
 - Upstream gate open (PRD not `approved`, ArchSpec not `approved`).
 - A ticket lists a `§4 Inputs` reference to an artefact that does not exist on `main`.
 - A ticket's `§5 Outputs` overlaps with an `in_flight` ticket's outputs (this should not happen if the architect did their job — but check).
-- The architect-consult subagent returns confidence `low` (means a real ADR or PRD revision is needed before continuing).
-- A reviewer's verdict requires touching a file outside the executor's write-zone (e.g. a finding is "the ArchSpec needs an additional ADR for X").
+- The architect-consult subagent returns `confidence: low` (means the gap is too wide for in-flight architect to close; external Architect or PO involvement is needed before continuing).
+- A reviewer's verdict requires touching a file outside ANY in-opencode write-zone (e.g. a finding is "the PRD itself is wrong" or "this needs a ROADMAP revision").
 - More than 3 tickets in `blocked` — mass blocker often signals a systemic issue, not 3 independent bugs.
+
+## Architect-consult auto-call protocol
+
+When a TKT cycle hands back with reviewer verdict `fail` and `recommendation: escalate-to-architect`, OR when an executor returns BLOCKED with a Q-file pointing at a contradiction in the design artefacts, do NOT escalate to PO yet. Instead:
+
+1. Halt the failing TKT cycle but keep the rest of the frontier untouched.
+2. Dispatch the `architect-consult` subagent with a structured task containing:
+   - The triggering RV-CODE-NNN file path (or Q-file path).
+   - The Ticket id and the PR number / branch.
+   - The specific finding cited as the blocker (the High finding text from the RV file, or the contradiction line from the Q-file).
+   - A one-paragraph orchestrator read of why this looks localised to ArchSpec/ADR.
+3. Wait for architect-consult's structured hand-back. Three possible verdicts:
+   - **Action taken: edited ArchSpec / created ADR + opened arch PR**, `confidence: high`, recommendation `merge-arch-pr-then-iterate-ticket`. Sisyphus reviews the arch PR (CI must be green; `validate_docs.py` clean), squash-merges it to `main`, syncs `main` locally, then re-dispatches the failing ticket cycle (executor rebases the ticket branch on the new `main`, addresses the now-corrected reviewer findings).
+   - **Action taken: backlog entry only**, `confidence: medium`, recommendation `accept-with-backlog`. Sisyphus marks the original ticket PR `pass_with_changes` (the original High finding becomes a Medium because the spec is the issue, not the code), backlogs the deeper change for the external Architect, merges the ticket PR. Continues the PRD walk.
+   - **No edit, recommendation only**, `confidence: low`, recommendation `pause-and-escalate-to-po`. Sisyphus stops the PRD walk and reports to PO with: the architect-consult hand-back, the failing RV file, the ticket PR. PO decides whether to dispatch the external Architect, revise the PRD, or override.
+4. Cap: a single TKT cycle gets at most **two** architect-consult calls. If the second call also returns `confidence: low`, or if architect-consult's PR fails review/CI twice, stop the PRD walk and escalate to PO regardless.
+
+The architect-consult subagent has limited write rights (per `.opencode/agents/architect-consult.md`): `docs/architecture/**`, `docs/backlog/**`, `docs/questions/**`. It may NOT touch `src/`, `tests/`, tickets, PRDs, ROADMAP, prompts, knowledge, repo config. It is the in-flight-only adjudicator; the external Architect (curated by PO outside opencode) is still the only authority for new components, new PRDs, or whole ArchSpec rewrites.
 
 ## What you (orchestrator) MUST NOT do
 

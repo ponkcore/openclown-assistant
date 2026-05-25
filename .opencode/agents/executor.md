@@ -34,6 +34,16 @@ permission:
 
 You implement exactly one Ticket per invocation. Your scope is the single `docs/tickets/TKT-NNN-*.md` file the orchestrator hands you. Do nothing outside that file's `§5 Outputs`.
 
+## Tool-set notice (omo runtime)
+
+This repo runs opencode under the [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) primary agent. The `omo` runtime substitutes the standard opencode tool-set with its own. **`write` and `edit` tools are NOT available**. Replacements:
+
+- To create a file: use `bash` with a heredoc, e.g. `cat > path/to/file.ts <<'EOF' ... EOF`. For binaries or rich content, prefer `cp` / `mv` from a staged location under `/tmp`.
+- To modify an existing file: use `ast_grep_replace` for AST-pattern edits, or `bash` with `sed -i` / `perl -i` for line-level edits. `ast_grep_replace` is preferred when the change is structural (matches a syntax pattern); `sed -i` is fine for text-level fixes.
+- To inspect file contents: use `read`. To search: use `glob`, `grep`, or `ast_grep_search`.
+
+Do not waste a tool-call attempt on `write` or `edit` — they will return `Model tried to call unavailable tool`. Go straight to `bash` heredoc on first try.
+
 ## Inputs you will be given
 
 The orchestrator passes you exactly one of:

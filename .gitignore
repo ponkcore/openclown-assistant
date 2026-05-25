@@ -41,3 +41,9 @@ htmlcov/
 
 # Misc
 .devin/
+
+# Sisyphus orchestrator runtime state (run-continuation cache, dump
+# placeholders that the executor creates as rollback safety-nets but
+# never actually populates, etc.) — local-only, never committed.
+.sisyphus/
+backups/
