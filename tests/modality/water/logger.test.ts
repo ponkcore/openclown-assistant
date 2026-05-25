@@ -193,7 +193,7 @@ describe("handleWaterEvent", () => {
 
     expect(result.persisted).toBe(true);
     expect(result.volumeMl).toBe(500);
-    expect(result.text).toBe("Записал 500 мл воды 💧");
+    expect(result.text).toBe("Записала 500 мл воды");
     expect(store.insertWaterEvent).toHaveBeenCalledWith(
       "user-1",
       "keyboard",
@@ -221,7 +221,7 @@ describe("handleWaterEvent", () => {
 
     expect(result.persisted).toBe(true);
     expect(result.volumeMl).toBe(250);
-    expect(result.text).toBe("Записал 250 мл воды 💧");
+    expect(result.text).toBe("Записала 250 мл воды");
     expect(store.insertWaterEvent).toHaveBeenCalledWith(
       "user-1",
       "text",
