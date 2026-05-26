@@ -5,7 +5,8 @@ import type { C1Deps, TelegramHandlers, NormalizedTelegramUpdate } from "../../s
 import type { RussianReplyEnvelope } from "../../src/shared/types.js";
 import type { BridgeRequest } from "../../src/sidecar/types.js";
 import { routeBridgeRequest } from "../../src/sidecar/seam.js";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, mkdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { Allowlist, AllowlistSeedError } from "../../src/security/allowlist.js";
 import { resolve } from "node:path";
 import { runMigrations } from "../../src/store/migrations.js";
 
@@ -673,3 +674,150 @@ describe("TKT-041: runMigrations on boot", () => {
       delete process.env.KBJU_MIGRATION_TIMEOUT_MS;
     }
   });
+
+
+
+// Mock the Allowlist module so we can control when AllowlistSeedError is thrown.
+// The real Allowlist constructor accesses the filesystem (config/allowlist.json)
+// which may or may not exist in the test environment, making tests flaky.
+const mockAllowlistSeedError = AllowlistSeedError;
+vi.mock("../../src/security/allowlist.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/security/allowlist.js")>();
+  return {
+    ...actual,
+    Allowlist: vi.fn(),
+    AllowlistSeedError: actual.AllowlistSeedError,
+  };
+});
+
+describe("BACKLOG-004: AllowlistSeedError in boot path", () => {
+  const origEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const key of [
+      "TELEGRAM_BOT_TOKEN",
+      "TELEGRAM_PILOT_USER_IDS",
+      "DATABASE_URL",
+      "POSTGRES_PASSWORD",
+      "OMNIROUTE_BASE_URL",
+      "OMNIROUTE_API_KEY",
+      "FIREWORKS_API_KEY",
+      "USDA_FDC_API_KEY",
+      "PERSONA_PATH",
+      "PO_ALERT_CHAT_ID",
+      "MONTHLY_SPEND_CEILING_USD",
+      "AUDIT_DB_URL",
+      "SERVER_PORT",
+    ]) {
+      origEnv[key] = process.env[key];
+    }
+  });
+
+  afterEach(() => {
+    for (const [key, val] of Object.entries(origEnv)) {
+      if (val === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = val;
+      }
+    }
+    vi.mocked(Allowlist).mockReset();
+  });
+
+  it("when Allowlist constructor throws AllowlistSeedError, startServer exits non-zero within 5 s", async () => {
+    // Simulate the misconfig scenario: the Allowlist constructor throws
+    // AllowlistSeedError when neither file nor env var provides valid IDs.
+    vi.mocked(Allowlist).mockImplementationOnce(() => {
+      throw new mockAllowlistSeedError(
+        "Allowlist misconfiguration: config/allowlist.json is missing and TELEGRAM_PILOT_USER_IDS is unset"
+      );
+    });
+
+    // Set up all required env vars so parseConfig succeeds
+    process.env.TELEGRAM_BOT_TOKEN = "test-token";
+    process.env.TELEGRAM_PILOT_USER_IDS = "111";
+    process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/testdb";
+    process.env.POSTGRES_PASSWORD = "testpw";
+    process.env.OMNIROUTE_BASE_URL = "http://localhost:4000";
+    process.env.OMNIROUTE_API_KEY = "test-key";
+    process.env.FIREWORKS_API_KEY = "test-fw-key";
+    process.env.USDA_FDC_API_KEY = "test-usda-key";
+    process.env.PERSONA_PATH = "/tmp/test-persona.md";
+    process.env.PO_ALERT_CHAT_ID = "12345";
+    process.env.MONTHLY_SPEND_CEILING_USD = "10";
+    process.env.AUDIT_DB_URL = "postgresql://user:pass@localhost:5432/audit";
+    process.env.SERVER_PORT = "0";
+
+    const mockExit = vi.spyOn(process, "exit").mockImplementation((code?: string | number | null) => {
+      throw new Error("process.exit:" + String(code ?? 0));
+    });
+
+    const listenSpy = vi.spyOn(http.Server.prototype, "listen");
+
+    try {
+      await startServer();
+      expect.unreachable("startServer should have exited due to AllowlistSeedError");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Must exit with code 1
+      expect(msg).toContain("process.exit:1");
+      expect(mockExit).toHaveBeenCalledWith(1);
+      // server.listen must NOT have been called
+      expect(listenSpy).not.toHaveBeenCalled();
+    } finally {
+      mockExit.mockRestore();
+      listenSpy.mockRestore();
+      mockRunMigrations.mockReset();
+      mockRunMigrations.mockResolvedValue(undefined);
+    }
+  });
+
+  it("when Allowlist constructor succeeds, startServer proceeds to server.listen", async () => {
+    // Simulate the success scenario: Allowlist constructor returns a valid object.
+    vi.mocked(Allowlist).mockImplementationOnce(() => ({
+      isAllowed: vi.fn().mockReturnValue(true),
+      getMode: vi.fn().mockReturnValue("normal"),
+      getSize: vi.fn().mockReturnValue(1),
+      close: vi.fn(),
+    }) as unknown as InstanceType<typeof Allowlist>);
+
+    process.env.TELEGRAM_BOT_TOKEN = "test-token";
+    process.env.TELEGRAM_PILOT_USER_IDS = "111";
+    process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/testdb";
+    process.env.POSTGRES_PASSWORD = "testpw";
+    process.env.OMNIROUTE_BASE_URL = "http://localhost:4000";
+    process.env.OMNIROUTE_API_KEY = "test-key";
+    process.env.FIREWORKS_API_KEY = "test-fw-key";
+    process.env.USDA_FDC_API_KEY = "test-usda-key";
+    process.env.PERSONA_PATH = "/tmp/test-persona.md";
+    process.env.PO_ALERT_CHAT_ID = "12345";
+    process.env.MONTHLY_SPEND_CEILING_USD = "10";
+    process.env.AUDIT_DB_URL = "postgresql://user:pass@localhost:5432/audit";
+    process.env.SERVER_PORT = "0";
+
+    const mockExit = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("unexpected process.exit");
+    });
+
+    let server: http.Server | null = null;
+    try {
+      server = await startServer();
+
+      // runMigrations must have been called
+      expect(mockRunMigrations).toHaveBeenCalledTimes(1);
+      // server should be listening
+      expect(server.listening).toBe(true);
+      // Allowlist constructor must have been called
+      expect(Allowlist).toHaveBeenCalled();
+    } finally {
+      if (server) {
+        await new Promise<void>((resolve, reject) => {
+          server!.close((err) => (err ? reject(err) : resolve()));
+        });
+      }
+      mockExit.mockRestore();
+      mockRunMigrations.mockReset();
+      mockRunMigrations.mockResolvedValue(undefined);
+    }
+  });
+});
