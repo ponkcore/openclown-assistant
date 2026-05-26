@@ -1,8 +1,8 @@
 ---
 id: TKT-040
 title: 'install.sh single-command deploy + setWebhook + getWebhookInfo'
-status: in_review
-arch_ref: ARCH-001@0.7.0
+status: done
+arch_ref: ARCH-001@0.7.2
 prd_ref: PRD-001@0.3.0
 component: Deployment / scripts / ADR-020
 depends_on:
@@ -13,7 +13,10 @@ depends_on:
 blocks: []
 estimate: M
 created: 2026-05-25
-updated: 2026-05-25
+updated: 2026-05-26
+closed_at: 2026-05-26
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-025
 ---
 
 # TKT-040: install.sh single-command deploy + setWebhook + getWebhookInfo
@@ -99,3 +102,4 @@ The script MUST be idempotent: re-running on a healthy stack is a no-op except f
 - 2026-05-26T05:05:00Z opencode-executor: in_review; tests 33 pass (9 installScript + 24 bootEntrypoint); lint clean; typecheck clean. Carve-outs: (1) BACKLOG-004 AllowlistSeedError wiring — src/main.ts constructs Allowlist in startServer(), catches AllowlistSeedError, exits non-zero. Ref: docs/backlog/tkt-042-allowlist-seed-error-boot-wiring.md. (2) BUILD_SHA propagation — install.sh passes `--build-arg BUILD_SHA=$(git rev-parse HEAD)` to `docker compose build`. (3) --validate-config flag added to src/main.ts for install.sh step 5 per ARCH-001@0.7.2 §10.4 step 5. Version-pinned refs: ARCH-001@0.7.2, ADR-020@0.1.1.
 
 - 2026-05-26T05:35:00Z opencode-executor: iter 2; addressed RV-CODE-025 F-M1 (set -euo pipefail), F-M2 (linear backoff in retry()), F-M3 (clarified Allowlist bootMetrics comment per Option A); ARCH-001@0.7.2 + ADR-020@0.1.1 contract unchanged
+- 2026-05-26T02:40Z opencode-orchestrator: merged in commit 021a8ca; RV-CODE-025 verdict=pass after iter 2 (F-M1+F-M2+F-M3 fixed; F-L1 deferred — acceptable per executor weakest assumption #3); arch_ref bumped to ARCH-001@0.7.2; status=done; **PRD-001@0.3.0 walk complete**
