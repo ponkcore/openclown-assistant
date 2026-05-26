@@ -1,7 +1,7 @@
 ---
 id: TKT-044
 title: '/diag Telegram command (incident diagnostic block)'
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: C1 Entrypoint / IncidentDiagnostic
@@ -78,3 +78,5 @@ Implement the Telegram `/diag` command that returns a redacted plain-text diagno
 
 ## 10. Execution Log
 <!-- executor fills as work proceeds -->
+- 2026-05-26T00:00:00Z opencode-executor: started
+- 2026-05-26T03:30:00Z opencode-executor: in_review; tests 47 pass; lint clean; typecheck clean
