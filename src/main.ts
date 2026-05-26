@@ -1,5 +1,5 @@
 import http from "node:http";
-import { parseConfig } from "./shared/config.js";
+import { parseConfig, ConfigError } from "./shared/config.js";
 import { createSidecarDeps } from "./sidecar/factory.js";
 import { routeBridgeRequest } from "./sidecar/seam.js";
 import { setMetricsRegistry } from "./deployment/healthCheck.js";
@@ -9,6 +9,9 @@ import type { C1Deps } from "./telegram/types.js";
 import { runMigrations } from "./store/migrations.js";
 import { Pool } from "pg";
 import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { Allowlist, AllowlistSeedError } from "./security/allowlist.js";
+import type { MetricsRegistry } from "./observability/metricsEndpoint.js";
 
 const SERVER_PORT_DEFAULT = 3000;
 const BRIDGE_VERSION = "1.0";
@@ -315,9 +318,40 @@ export async function startServer(): Promise<http.Server> {
   }
 
   const server = createServer();
+  // BACKLOG-004: construct the C15 Allowlist before creating sidecar deps.
+  // If neither the allowlist file nor TELEGRAM_PILOT_USER_IDS provide valid IDs,
+  // AllowlistSeedError is thrown → we catch it, log structured, and exit non-zero,
+  // same shape as the migration-failure path from TKT-041@0.1.0.
+  let allowlist: Allowlist | undefined;
+  const allowlistPath = path.resolve("config/allowlist.json");
+  const bootLogger: import("./shared/types.js").OpenClawLogger = {
+    info: (msg: string) => console.log("[boot:info] " + msg),
+    warn: (msg: string) => console.warn("[boot:warn] " + msg),
+    error: (msg: string) => console.error("[boot:error] " + msg),
+    critical: (msg: string) => console.error("[boot:critical] " + msg),
+  };
+  // Minimal metrics registry for Allowlist construction — the real one
+  // comes from createSidecarDeps below.
+  const bootMetrics: MetricsRegistry = {
+    increment: () => {},
+    set: () => {},
+    observe: () => {},
+    getSamples: () => [],
+    render: () => "",
+  };
+  try {
+    allowlist = new Allowlist(allowlistPath, pilotUserIds, bootMetrics, bootLogger);
+  } catch (err: unknown) {
+    if (err instanceof AllowlistSeedError) {
+      console.error("AllowlistSeedError; refusing to start HTTP server:", err.message);
+      process.exit(1);
+    }
+    throw err;
+  }
+
   // Wire the shared metrics registry into the /metrics endpoint
   if (!deps) {
-    deps = createSidecarDeps(pilotUserIds);
+    deps = createSidecarDeps(pilotUserIds, allowlist);
   }
   setMetricsRegistry(deps.metricsRegistry);
   startTime = Date.now();
@@ -344,6 +378,25 @@ export function stopServer(server: http.Server): Promise<void> {
 // imported by test files.
 const __filename = fileURLToPath(import.meta.url);
 if (process.argv[1] === __filename) {
+  // --validate-config: lightweight exit-time config check for install.sh.
+  // Runs parseConfig against process.env and exits 0 if all required keys
+  // are present, exits 1 with a structured list of missing keys otherwise.
+  // Does NOT attempt network connections, migrations, or HTTP bind.
+  if (process.argv[2] === "--validate-config") {
+    try {
+      parseConfig(process.env as Record<string, string | undefined>);
+      console.log("Config validation: OK");
+      process.exit(0);
+    } catch (err: unknown) {
+      if (err instanceof ConfigError) {
+        console.error("Config validation failed. Missing required keys:", err.missingNames.join(", "));
+        process.exit(1);
+      }
+      console.error("Config validation failed:", err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  }
+
   startServer().catch((err: unknown) => {
     console.error("Boot failed:", err);
     process.exit(1);
