@@ -70,3 +70,49 @@ Recommendation to PO: **block until Executor fixes both High findings and re-sub
 - **Observability:** A 3am operator can request `/diag` from a pilot user to get the diagnostic block. Server-side logs: entrypoint emits C1 `logRouteOutcome` on success with `source: "command:/diag"` (from `normalizeMessage` path). The `kbju_diag_invocations_total` metric **will be label-stripped** in production (see F-H2) — after fix, it will carry the hashed user ID. No diag-specific log event capturing latency breakdowns — acceptable for P1. The `WebhookInfoCache` doesn't log refreshes — only a 3am operator checking the Telegraph `/diag` output would see webhook errors. Barely adequate but not under-scoped. ✓
 
 - **Rollback:** Reverting this PR is a plain `git revert` of the two commits. The Dockerfile change (`ARG BUILD_SHA`) is backward-compatible (not supplying the arg → `unknown`). No DB migrations, no schema changes. The entrypoint dynamic import means the module is only loaded when `/diag` is invoked — removing the routing code prevents load. Clean. ✓
+
+---
+
+## Iteration 2 — re-review
+
+**Re-reviewed commit:** `b7e4edb` (head of `tkt/TKT-044-diag-telegram-command`)
+
+**Prior verdict:** fail (F-H1 + F-H2)
+
+### Summary
+
+The executor's iter-2 changes cleanly resolve both High findings. The WAV audio probe is now inlined as a base64 constant in `src/incident/fixtures/diagProbe.ts`, eliminating the filesystem dependency that made it unreachable in the Docker image. The metric label `telegram_user_id_hashed` is registered in `ALLOWED_METRIC_LABELS`, and `validateLabels` logic now lets explicit ALLOWED entries override the FORBIDDEN substring check. Four new tests (3 in metricsEndpoint, 1 in diagHandler using a real `createMetricsRegistry`) verify the fix end-to-end. The original Medium and Low findings from RV-CODE-022 iter-1 remain unaddressed — all are acceptable as deferred to a follow-up.
+
+### Updated Verdict
+
+- [x] pass
+- [ ] pass_with_changes
+- [ ] fail
+
+One-sentence justification: Both iter-1 High findings are resolved with structural fixes (inlined probe, allowlist registration + validateLabels override), all existing tests pass, and 4 new tests confirm the fixes.
+
+Recommendation to PO: **merge** — F-H1 and F-H2 are cleanly addressed. F-M1, F-L1, F-L2, F-L3 are deferred and do not gate this PR.
+
+### Per-finding status
+
+| Finding | Severity | Status | Evidence |
+|---------|----------|--------|----------|
+| F-H1 (audio probe unreachable) | High | **RESOLVED** | `src/incident/fixtures/diag-probe.wav` deleted (`git rm`); new `src/incident/fixtures/diagProbe.ts` with `getDiagProbeBytes()` returning `Buffer.from(BASE64_WAV_PROBE, "base64")`. `loadAudioProbe()` at `diagHandler.ts:32-34` delegates to `getDiagProbeBytes()`. No `node:fs`/`node:url`/`node:path` imports. Base64 decodes to a valid WAV: `UklGR` → `RIFF`, `QVZF` → `WAVE`, `Zm10` → `fmt ` block with PCM=1, 8kHz, mono. Probe path is now a `tsc`-compiled JS module with no filesystem dependency. |
+| F-H2 (metric label stripped) | High | **RESOLVED** | (a) `telegram_user_id_hashed` added to `ALLOWED_METRIC_LABELS` at `kpiEvents.ts:99`. (b) `kbju_diag_invocations_total` added to `PROMETHEUS_METRIC_NAMES` at `kpiEvents.ts:83`. (c) `validateLabels` at `metricsEndpoint.ts:38-39` updated: `isForbidden` only fires when `!isAllowed` (explicit ALLOWED overrides substring FORBIDDEN). (d) `diagHandler.ts:248` calls `metricsRegistry.increment(PROMETHEUS_METRIC_NAMES.kbju_diag_invocations_total, ...)`. (e) 3 new `metricsEndpoint.test.ts` tests: `telegram_user_id_hashed` PASSES (label + value in rendered output), `telegram_user_id` FAILS, `user_id` FAILS. (f) 1 new `diagHandler.test.ts` test uses `createMetricsRegistry` + `renderMetricsToText` to assert `telegram_user_id_hashed=` in output and `telegram_id=` / `user_id=` absent. |
+| F-M1 (redactStringValue carrier-key abuse) | Medium | **DEFERRED** | `redactStringValue` at `diagHandler.ts:180-186` still uses `error_code` as the carrier key. Works today (`error_code` is in `ALLOWED_EXTRA_KEYS`) but fragile. Acceptable for merge — no functional breakage. |
+| F-L1 (redaction_version tied to LOG_SCHEMA_VERSION) | Low | **DEFERRED** | `diagHandler.ts:288` still uses `LOG_SCHEMA_VERSION` (`"1"`). Semantically conflation but functionally correct. Acceptable. |
+| F-L2 (metric cardinality per-request salt) | Low | **DEFERRED** | `sha256Half(userId:requestId)` at `diagHandler.ts:246` still creates per-invocation time series. Valid design tradeoff per ADR-021@0.1.0. Acceptable at pilot scale. |
+| F-L3 (no diag-specific log event) | Low | **DEFERRED** | No log event in the handler; C1 `logRouteOutcome` wrapper from entrypoint provides basic observability. Acceptable for P1. |
+
+### New iter-2 contract checks
+
+- [x] All files modified in iter-2 are within TKT §5 Outputs: `diagProbe.ts` (new, subsumes deleted `.wav`), `diagHandler.ts`, `kpiEvents.ts`, `metricsEndpoint.ts`, `metricsEndpoint.test.ts`, `diagHandler.test.ts`. Scope contract intact.
+- [x] No regression on NOT-In-Scope items. TKT-045@0.1.0 / TKT-046@0.1.0 files untouched.
+- [x] No new dependencies. `package.json`/`package-lock.json` unchanged.
+- [x] CI: executor reports lint clean, typecheck clean, tests pass (48 diagHandler + 28 metricsEndpoint = 76 pass; 4 pre-existing failures in unrelated files unchanged).
+
+### Red-team probes (re-checked on iter-2 changes)
+
+- **F-H1 fix surface:** base64 decoding failure → `Buffer.from(..., "base64")` would throw synchronously from `getDiagProbeBytes()`, which is called from `loadAudioProbe()` which is NOT wrapped in try/catch at the call site. If the base64 string were corrupted, `loadAudioProbe()` would throw synchronously during module load (top-level in `diagHandler.ts`? No — `loadAudioProbe()` is a function, called at module init or on-demand). If called at startup and it throws, the application would crash. However, `loadAudioProbe()` is not called at module load — it's exported as a helper; only the entrypoint's startup wiring calls it to inject into `DiagDeps.audioProbe`. If that call throws, startup crashes — correctly, since a malformed probe means the application is broken. **No concern**: the base64 is committed as code (not runtime input), identical to any other TypeScript constant. ✓
+- **F-H2 fix surface:** the `!isAllowed &&` prefix on the forbidden check means `telegram_user_id_hashed` is never evaluated against FORBIDDEN_METRIC_LABELS. This is the correct trust hierarchy (ALLOWED is authoritative). A label that is in ALLOWED is trusted by the maintainer. ✓
+- **No new secrets, injection surfaces, or concurrency concerns** introduced by iter-2 changes. ✓
