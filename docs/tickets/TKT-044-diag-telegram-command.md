@@ -1,8 +1,8 @@
 ---
 id: TKT-044
 title: '/diag Telegram command (incident diagnostic block)'
-status: in_review
-arch_ref: ARCH-001@0.7.0
+status: done
+arch_ref: ARCH-001@0.7.2
 prd_ref: PRD-001@0.3.0
 component: C1 Entrypoint / IncidentDiagnostic
 depends_on:
@@ -10,7 +10,10 @@ depends_on:
 blocks: []
 estimate: M
 created: 2026-05-25
-updated: 2026-05-25
+updated: 2026-05-26
+closed_at: 2026-05-26
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-022
 ---
 
 # TKT-044: /diag Telegram command (incident diagnostic block)
@@ -81,3 +84,4 @@ Implement the Telegram `/diag` command that returns a redacted plain-text diagno
 - 2026-05-26T00:00:00Z opencode-executor: started
 - 2026-05-26T03:30:00Z opencode-executor: in_review; tests 47 pass; lint clean; typecheck clean
 - 2026-05-26T03:45:00Z opencode-executor: iter 2; addressed RV-CODE-022 F-H1 (inlined WAV probe as TS module to survive dist-only runtime) and F-H2 (registered telegram_user_id_hashed in ALLOWED_METRIC_LABELS + tightened FORBIDDEN substring check so explicit ALLOWED entries override)
+- 2026-05-26T00:48Z opencode-orchestrator: merged in commit 9b16fd2; RV-CODE-022 verdict=pass after iter 2 (F-H1+F-H2 fixed; 1M+3L deferred and acceptable at severity); arch_ref bumped to ARCH-001@0.7.2; status=done
