@@ -1,7 +1,7 @@
 ---
 id: TKT-043
 title: Pin docker-compose.yml images to digests (openclaw-gateway, caddy)
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: Deployment
@@ -63,3 +63,7 @@ Replace tag-based references (`ghcr.io/.../openclaw:latest`, `caddy:2-alpine`, `
 
 ## 10. Execution Log
 <!-- executor fills as work proceeds -->
+- 2026-05-26T00:00:00Z opencode-executor: started
+- 2026-05-26T00:30:00Z opencode-executor: blocked; Q-TKT-043-01 filed — ghcr.io/nicholasgriffintn/openclaw:latest does not resolve on GHCR (manifest unknown); cannot pin per §7 Constraints; awaiting PO/Architect decision on image path
+- 2026-05-26T01:00:00Z opencode-executor: unblocked; proceeding with Q-TKT-043-01 default option A (ghcr.io/openclaw/openclaw digest) — only path satisfying ARCH-001@0.7.1 §7 Constraints + §6 AC
+- 2026-05-26T02:40:00Z opencode-executor: in_review; tests 71 pass (compose 48 + dockerfile 23); lint clean; typecheck clean; docker compose config OK

@@ -41,7 +41,7 @@ services:
         max-file: "5"
 
   openclaw-gateway:
-    image: ghcr.io/nicholasgriffintn/openclaw:latest
+    image: ghcr.io/openclaw/openclaw@sha256:dcfd148777401d1bbdc63eab5c2f280bbfa912dfb1818566f9d66bb96ffb3f95
     environment:
       KBJU_SIDECAR_URL: "http://kbju-sidecar:3000"
       PLUGIN_kbju_bridge_ENABLED: "true"
@@ -59,7 +59,7 @@ services:
         max-file: "5"
 
   postgres:
-    image: postgres:17
+    image: postgres@sha256:0027bef26712baaee437a4ea48fdf3d2d2e2bc5f0d81615374408ca320f3c7e3
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: kbju
@@ -103,7 +103,7 @@ services:
         max-file: "3"
 
   caddy:
-    image: caddy:2-alpine
+    image: caddy@sha256:86deaf5e3d3408a6ccec08fbb79989783dd26e206ae10bcf78a801dc8c9ab794
     ports:
       - "80:80"
       - "443:443"

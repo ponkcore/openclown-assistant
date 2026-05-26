@@ -78,10 +78,10 @@ describe("Dockerfile", () => {
     expect(stages[1].alias).toBe("runtime");
   });
 
-  it("both stages use node:24-slim base image", () => {
+  it("both stages use node:24-slim base image pinned to a digest", () => {
     const stages = parseStages(content);
     for (const stage of stages) {
-      expect(stage.image).toBe("node:24-slim");
+      expect(stage.image).toMatch(/^node:24-slim@sha256:[a-f0-9]{64}$/);
     }
   });
 

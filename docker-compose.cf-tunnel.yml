@@ -3,7 +3,7 @@ services:
     profiles: ["disabled"]    # disables Caddy when the overlay is active
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared@sha256:a5b5e6fd9a372f054b9a843c219bfbcdceb54691605312a8b1ee72978bdf1aa1
     command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TUNNEL_TOKEN}
     restart: unless-stopped
     networks:
