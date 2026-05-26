@@ -19,23 +19,18 @@
 import type { NormalizedTelegramUpdate } from "../telegram/types.js";
 import type { RussianReplyEnvelope } from "../shared/types.js";
 import { redactPii } from "../observability/events.js";
-import { LOG_SCHEMA_VERSION } from "../observability/kpiEvents.js";
+import { LOG_SCHEMA_VERSION, PROMETHEUS_METRIC_NAMES } from "../observability/kpiEvents.js";
 import { sha256Half } from "../observability/breachDetector.js";
 import type { WebhookInfoCache } from "../observability/webhookInfoCache.js";
 import type { MetricsRegistry } from "../observability/metricsEndpoint.js";
 import type { TenantQueryable } from "../store/tenantStore.js";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
+import { getDiagProbeBytes } from "./fixtures/diagProbe.js";
 
-// ── Audio probe (1-second WAV bundled at build time) ─────────────────────
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const AUDIO_PROBE_PATH = path.resolve(__dirname, "fixtures", "diag-probe.wav");
+// ── Audio probe (inlined 1-second WAV per RV-CODE-022 F-H1) ──────────────
 
 /** Load the project-bundled 1-second audio probe for the voice ping. */
 export function loadAudioProbe(): Uint8Array {
-  return new Uint8Array(readFileSync(AUDIO_PROBE_PATH));
+  return new Uint8Array(getDiagProbeBytes());
 }
 
 // ── Blocked-user message (exact copy from C1 entrypoint) ─────────────────
@@ -250,7 +245,7 @@ export async function handleDiag(
   // Metric: kbju_diag_invocations_total{telegram_user_id_hashed}
   const hashedUserId = sha256Half(`${userId}:${requestId}`);
   deps.metricsRegistry.increment(
-    "kbju_diag_invocations_total" as never,
+    PROMETHEUS_METRIC_NAMES.kbju_diag_invocations_total,
     { telegram_user_id_hashed: hashedUserId },
   );
 

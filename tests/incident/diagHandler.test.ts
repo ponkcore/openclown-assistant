@@ -28,6 +28,8 @@ import {
 import type { NormalizedTelegramUpdate } from "../../src/telegram/types.js";
 import { WebhookInfoCache, type WebhookInfoSnapshot } from "../../src/observability/webhookInfoCache.js";
 import type { MetricsRegistry } from "../../src/observability/metricsEndpoint.js";
+import { createMetricsRegistry, renderMetricsToText } from "../../src/observability/metricsEndpoint.js";
+import { PROMETHEUS_METRIC_NAMES } from "../../src/observability/kpiEvents.js";
 import type { TenantQueryable } from "../../src/store/tenantStore.js";
 
 // ── Test helper: a WebhookInfoCache that returns a pre-set snapshot ───────
@@ -511,6 +513,21 @@ describe("diagHandler", () => {
       // And no raw-ID label exists
       expect(labels.telegram_user_id).toBeUndefined();
       expect(labels.user_id).toBeUndefined();
+    });
+
+    it("label survives real validateLabels (not stripped at runtime)", async () => {
+      const realRegistry = createMetricsRegistry();
+      const deps = createMinimalDeps({ metricsRegistry: realRegistry });
+      const update = createUpdate(12345);
+
+      await handleDiag(update, deps);
+
+      const output = renderMetricsToText(realRegistry);
+      expect(output).toContain("kbju_diag_invocations_total");
+      expect(output).toContain("telegram_user_id_hashed=");
+      // Raw IDs must NOT appear
+      expect(output).not.toContain("telegram_id=");
+      expect(output).not.toContain("user_id=");
     });
 
     it("does NOT increment for non-allowlisted users", async () => {

@@ -31,10 +31,17 @@ function validateLabels(labels: Record<string, string>): Record<string, string> 
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(labels)) {
     const isAllowed = (ALLOWED_METRIC_LABELS as readonly string[]).includes(key);
-    const isForbidden = (FORBIDDEN_METRIC_LABELS as readonly string[]).some(
+    // Security guardrail per ARCH-001@0.7.2 §8.2: raw identifiers are forbidden
+    // in metric labels. Explicit ALLOWED entries (e.g. telegram_user_id_hashed)
+    // override the substring-based forbidden check — the allowlist is the trust
+    // boundary, and hashed identifiers are safe by design.
+    const isForbidden = !isAllowed && (FORBIDDEN_METRIC_LABELS as readonly string[]).some(
       (f) => key === f || key.toLowerCase().includes(f)
     );
-    if (!isAllowed || isForbidden) {
+    if (!isAllowed && isForbidden) {
+      continue;
+    }
+    if (!isAllowed) {
       continue;
     }
     result[key] = value;

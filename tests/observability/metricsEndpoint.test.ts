@@ -135,7 +135,47 @@ describe("metricsEndpoint label policy", () => {
   });
 });
 
-describe("metricsEndpoint metric names per ARCH-001 §8.2", () => {
+describe("metricsEndpoint hashed-identifier label (RV-CODE-022 F-H2)", () => {
+  let registry: MetricsRegistry;
+
+  function getRenderedOutput(): string {
+    return renderMetricsToText(registry);
+  }
+
+    it("telegram_user_id_hashed PASSES validation (explicit ALLOWED override)", () => {
+      registry = createMetricsRegistry();
+      registry.increment(PROMETHEUS_METRIC_NAMES.kbju_diag_invocations_total, {
+        telegram_user_id_hashed: "a1b2c3d4e5f6a7b8",
+      });
+      const output = getRenderedOutput();
+      expect(output).toContain("telegram_user_id_hashed");
+      expect(output).toContain("a1b2c3d4e5f6a7b8");
+    });
+
+    it("telegram_user_id (raw) STILL FAILS validation", () => {
+      registry = createMetricsRegistry();
+      registry.increment(PROMETHEUS_METRIC_NAMES.kbju_updates_total, {
+        component: "C1",
+        telegram_user_id: "123456789",
+      });
+      const output = getRenderedOutput();
+      expect(output).not.toContain("telegram_user_id=");
+      expect(output).not.toContain("123456789");
+    });
+
+    it("user_id (raw) STILL FAILS validation", () => {
+      registry = createMetricsRegistry();
+      registry.increment(PROMETHEUS_METRIC_NAMES.kbju_updates_total, {
+        component: "C1",
+        user_id: "uuid-abc-123",
+      });
+      const output = getRenderedOutput();
+      expect(output).not.toContain("user_id=");
+      expect(output).not.toContain("uuid-abc-123");
+    });
+  });
+
+  describe("metricsEndpoint metric names per ARCH-001 §8.2", () => {
   it("all required metric names from §8.2 are defined", () => {
     expect(PROMETHEUS_METRIC_NAMES.kbju_updates_total).toBe("kbju_updates_total");
     expect(PROMETHEUS_METRIC_NAMES.kbju_meal_draft_latency_ms).toBe("kbju_meal_draft_latency_ms");
