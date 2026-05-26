@@ -2,6 +2,7 @@
 # shellcheck source=/dev/null
 # install.sh — idempotent single-command deploy per ARCH-001@0.7.2 §10.4
 
+set -euo pipefail
 # ── Error trap ──────────────────────────────────────────────────────────────
 # Structured error output on any unhandled failure.
 err_trap() {
@@ -63,8 +64,9 @@ retry() {
       return 0
     fi
     if (( attempt < max )); then
-      echo "  attempt ${attempt}/${max} failed, retrying in ${delay}s..." >&2
-      sleep "$delay"
+      local actual_delay=$((delay * attempt))
+      echo "  attempt ${attempt}/${max} failed, retrying in ${actual_delay}s..." >&2
+      sleep "$actual_delay"
     fi
     attempt=$((attempt + 1))
   done

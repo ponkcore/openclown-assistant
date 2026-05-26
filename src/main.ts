@@ -330,8 +330,12 @@ export async function startServer(): Promise<http.Server> {
     error: (msg: string) => console.error("[boot:error] " + msg),
     critical: (msg: string) => console.error("[boot:critical] " + msg),
   };
-  // Minimal metrics registry for Allowlist construction — the real one
-  // comes from createSidecarDeps below.
+  // Allowlist is constructed early to catch AllowlistSeedError before
+  // the full sidecar deps are wired. Metrics emitted during construction
+  // are intentionally dropped (no-op registry); the production Allowlist
+  // instance used for runtime access checks is created later via
+  // createSidecarDeps with the real registry. Pre-existing pattern;
+  // acceptable per RV-CODE-025 F-M3 (severity Medium → informational).
   const bootMetrics: MetricsRegistry = {
     increment: () => {},
     set: () => {},

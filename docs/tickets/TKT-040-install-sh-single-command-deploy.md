@@ -97,3 +97,5 @@ The script MUST be idempotent: re-running on a healthy stack is a no-op except f
 - 2026-05-26T00:00:00Z opencode-executor: started
 
 - 2026-05-26T05:05:00Z opencode-executor: in_review; tests 33 pass (9 installScript + 24 bootEntrypoint); lint clean; typecheck clean. Carve-outs: (1) BACKLOG-004 AllowlistSeedError wiring — src/main.ts constructs Allowlist in startServer(), catches AllowlistSeedError, exits non-zero. Ref: docs/backlog/tkt-042-allowlist-seed-error-boot-wiring.md. (2) BUILD_SHA propagation — install.sh passes `--build-arg BUILD_SHA=$(git rev-parse HEAD)` to `docker compose build`. (3) --validate-config flag added to src/main.ts for install.sh step 5 per ARCH-001@0.7.2 §10.4 step 5. Version-pinned refs: ARCH-001@0.7.2, ADR-020@0.1.1.
+
+- 2026-05-26T05:35:00Z opencode-executor: iter 2; addressed RV-CODE-025 F-M1 (set -euo pipefail), F-M2 (linear backoff in retry()), F-M3 (clarified Allowlist bootMetrics comment per Option A); ARCH-001@0.7.2 + ADR-020@0.1.1 contract unchanged

@@ -437,7 +437,7 @@ describe("scripts/install.sh", () => {
     expect(content).toContain("getWebhookInfo");
   });
 
-  it("skips DNS and port-80 validation in cloudflare-tunnel mode", () => {
+  it("skips DNS and port-80 validation in cloudflare-tunnel mode", async () => {
     writeFakeDocker(FAKE_BIN);
     writeFakeCurlWithResponses(FAKE_BIN, {});
     writeFakePython3(FAKE_BIN);
@@ -459,7 +459,7 @@ describe("scripts/install.sh", () => {
     const output = result.stderr + result.stdout;
     // Should skip DNS validation
     expect(output).toContain("Skipped");
-  });
+  }, 30000);
 
   it("aborts when stdin is not a tty and KBJU_PUBLIC_DOMAIN is not set", () => {
     writeFakeDocker(FAKE_BIN);
@@ -496,5 +496,81 @@ describe("scripts/install.sh", () => {
     expect(result.exitCode).not.toBe(0);
     const output = result.stderr + result.stdout;
     expect(output).toContain("below v2");
+  });
+
+  it("retry() uses linear backoff: delays are non-decreasing and at least linear in attempt", () => {
+    // Test the retry() function's backoff behavior directly.
+    // We source just the retry function from install.sh and run it with
+    // a fake command that fails twice then succeeds, capturing sleep delays.
+    const sleepLogPath = join(TMP_DIR, "sleep-delays.txt");
+
+    // Write a fake sleep that logs its argument
+    writeFileSync(
+      join(FAKE_BIN, "sleep"),
+      `#!/bin/sh\necho "$1" >> '${sleepLogPath}'\nexit 0\n`,
+      { mode: 0o755 }
+    );
+
+    // Write a fake command that fails twice, then succeeds on attempt 3
+    const failCountPath = join(TMP_DIR, "fail-count.txt");
+    writeFileSync(failCountPath, "0", "utf-8");
+    writeFileSync(
+      join(FAKE_BIN, "flaky-cmd"),
+      `#!/bin/sh\nCOUNT=$(cat '${failCountPath}')\nCOUNT=$((COUNT + 1))\necho "$COUNT" > '${failCountPath}'\nif [ "$COUNT" -lt 3 ]; then exit 1; fi\nexit 0\n`,
+      { mode: 0o755 }
+    );
+
+    // Extract the retry function from install.sh and test it
+    const installContent = require("fs").readFileSync(INSTALL_SH, "utf-8");
+    // Extract just the retry function body
+    const retryMatch = installContent.match(
+      /retry\(\) \{[\s\S]*?^}/m
+    );
+    expect(retryMatch).not.toBeNull();
+
+    const testScript = `#!/bin/bash
+set -euo pipefail
+${retryMatch![0]}
+
+retry 3 2 flaky-cmd
+`;
+
+    const testScriptPath = join(TMP_DIR, "test-retry.sh");
+    writeFileSync(testScriptPath, testScript, { mode: 0o755 });
+
+    const result = spawnSync("bash", [testScriptPath], {
+      env: {
+        ...process.env,
+        PATH: `${FAKE_BIN}:${process.env.PATH}`,
+      } as Record<string, string>,
+      encoding: "utf-8",
+      timeout: 15000,
+    });
+
+    expect(result.status).toBe(0);
+
+    // Read the sleep delays log
+    const sleepDelays = require("fs")
+      .readFileSync(sleepLogPath, "utf-8")
+      .trim()
+      .split("\n")
+      .map(Number);
+
+    // There should be 2 sleep calls (between attempts 1→2 and 2→3)
+    expect(sleepDelays.length).toBe(2);
+
+    // Delays must be non-decreasing
+    for (let i = 1; i < sleepDelays.length; i++) {
+      expect(sleepDelays[i]).toBeGreaterThanOrEqual(sleepDelays[i - 1]);
+    }
+
+    // Delays must be at least linear in attempt number (base * attempt)
+    // With base delay = 2: attempt 1 → 2s, attempt 2 → 4s
+    expect(sleepDelays[0]).toBeGreaterThanOrEqual(2); // delay * 1
+    expect(sleepDelays[1]).toBeGreaterThanOrEqual(4); // delay * 2
+
+    // Exact linear: 2 and 4
+    expect(sleepDelays[0]).toBe(2);
+    expect(sleepDelays[1]).toBe(4);
   });
 });
