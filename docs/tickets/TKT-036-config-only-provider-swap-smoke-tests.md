@@ -1,8 +1,8 @@
 ---
 id: TKT-036
 title: 'Smoke tests proving config-only provider swap (no rebuild)'
-status: in_review
-arch_ref: ARCH-001@0.7.0
+status: done
+arch_ref: ARCH-001@0.7.2
 prd_ref: PRD-001@0.3.0
 component: Test infrastructure / C23 LLM Gateway
 depends_on:
@@ -12,7 +12,10 @@ depends_on:
 blocks: []
 estimate: S
 created: 2026-05-25
-updated: 2026-05-25
+updated: 2026-05-26
+closed_at: 2026-05-26
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-024
 ---
 
 # TKT-036: Smoke tests proving config-only provider swap (no rebuild)
@@ -68,3 +71,4 @@ Add an end-to-end smoke test that proves swapping a provider in `config/llm.json
 <!-- executor fills as work proceeds -->
 - 2026-05-26T00:00:00Z opencode-executor: started
 - 2026-05-26T04:35:00Z opencode-executor: in_review; tests 4 pass; lint clean; typecheck clean
+- 2026-05-26T01:41Z opencode-orchestrator: merged in commit ae417c5; RV-CODE-024 verdict=pass (0H/0M/2L deferred); env-var path adaptation accepted (registry only resolves API keys via getApiKey, NOT base_url — ticket §2 prose drift, not a bug); arch_ref bumped to ARCH-001@0.7.2; status=done
