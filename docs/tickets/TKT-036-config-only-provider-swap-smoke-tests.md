@@ -1,7 +1,7 @@
 ---
 id: TKT-036
 title: 'Smoke tests proving config-only provider swap (no rebuild)'
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: Test infrastructure / C23 LLM Gateway
@@ -66,3 +66,5 @@ Add an end-to-end smoke test that proves swapping a provider in `config/llm.json
 
 ## 10. Execution Log
 <!-- executor fills as work proceeds -->
+- 2026-05-26T00:00:00Z opencode-executor: started
+- 2026-05-26T04:35:00Z opencode-executor: in_review; tests 4 pass; lint clean; typecheck clean
