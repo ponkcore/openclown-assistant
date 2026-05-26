@@ -80,6 +80,7 @@ export const PROMETHEUS_METRIC_NAMES = {
   kbju_modality_llm_fallback_rate: "kbju_modality_llm_fallback_rate",
   kbju_modality_llm_failure_rate: "kbju_modality_llm_failure_rate",
   kbju_modality_event_persisted: "kbju_modality_event_persisted",
+  kbju_diag_invocations_total: "kbju_diag_invocations_total",
 } as const;
 
 export type PrometheusMetricName = (typeof PROMETHEUS_METRIC_NAMES)[keyof typeof PROMETHEUS_METRIC_NAMES];
@@ -95,6 +96,7 @@ export const ALLOWED_METRIC_LABELS: readonly string[] = [
   "tenant_id",
   "retry_count",
   "modality",
+  "telegram_user_id_hashed",
 ] as const;
 
 export type AllowedMetricLabel = (typeof ALLOWED_METRIC_LABELS)[number];
