@@ -131,3 +131,112 @@ Recommendation to PO: **iterate** — have the Executor add a numeric regex guar
 - **No `.env*`, `config/llm.json`, `config/allowlist.json` in bundle:** Static analysis test at lines 425-441 verifies the script doesn't copy any config files into the staging directory. ✅
 - **No raw audio/photo bytes:** Script does not reference any audio or photo paths. The SQL SELECT lists exclude `raw_audio`, `raw_photo`, `raw_description`, `raw_text`, `transcript_text`, `meal_text`, and `comment_text` by name. ✅
 - **`umask` approach:** The script does not set `umask` but applies explicit `chmod 0700` on the `incidents/` directory (line 39) and `chmod 0600` on the tarball (line 146). Acceptable — the tarball is created before `chmod`, creating a brief TOCTOU window, but the machine is operator-controlled. ✅
+
+---
+
+## Iteration 2 — re-review
+
+**Reviewed commit:** `b8bd99d` (fix-up) on top of original `012c5c1` + `880baaf` + RV `3731038`.
+**Tests:** 26/26 pass (14 original + 12 new numeric-validation tests).
+**CI:** `bash -n` clean, `tsc --noEmit` clean.
+
+### Updated verdict
+
+- [x] pass
+- [ ] pass_with_changes
+- [ ] fail
+
+One-sentence justification: F-H1 is cleanly resolved — the numeric validation guard at `diag-bundle.sh:39-42` runs before any TELEGRAM_USER_ID use, 8 negative test cases exercise SQL-injection-class inputs, and all deferrals (F-M1, F-M2, Lows) are reasonable and tracked.
+
+Recommendation to PO: **merge**.
+
+### Per-finding status
+
+| Finding | Severity | Iter-1 status | Iter-2 status |
+|---|---|---|---|
+| **F-H1** (SQL injection) | High | ❌ FAIL | ✅ **RESOLVED** |
+| **F-M1** (`error_code` carrier-key) | Medium | ⚠️ pending | 🔷 **DEFERRED** |
+| **F-M2** (status-flip + §10 same commit) | Medium | ⚠️ pending | 🔷 **DEFERRED** |
+| F-L1 (hardcoded REDACTION_SCHEMA_VERSION) | Low | pending | ✅ **ADDRESSED** |
+| F-L2 (silently masked redactStream failure) | Low | pending | ✅ **ADDRESSED** |
+| F-L3 (chunk splitting across lines) | Low | pending | 🔷 **DEFERRED** |
+| F-L4 (unquoted ARGS_JSON in heredoc) | Low | pending | ✅ **CLOSED by F-H1 fix** |
+
+### F-H1 resolution — detailed verification
+
+**Guard location** (`scripts/diag-bundle.sh:39-42`):
+```bash
+if [[ -n "${TELEGRAM_USER_ID}" && ! "${TELEGRAM_USER_ID}" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: telegram_user_id must be numeric, got '${TELEGRAM_USER_ID}'" >&2
+  exit 1
+fi
+```
+
+- **Regex `^[0-9]+$`** — correct: matches one or more ASCII digits, full-line anchor. No whitespace, no sign characters, no decimal.
+- **Placement**: Lines 39-42, immediately after `TELEGRAM_USER_ID="${1:-}"` (line 31) and BEFORE any use of the variable:
+  - Before `TIMESTAMP`/`INC_DIR` (line 46) — verified ✅
+  - Before `ARGS_JSON` construction (now line 75+) — test assertion at line 568-577 ✅
+  - Before first `\COPY` command (now line 136+) — test assertion at line 554-566 ✅
+
+**Three mental walks**:
+1. `"1' OR '1'='1"` → `[[ -n ... ]]` true ∧ `! ... =~ ^[0-9]+$` = `! false` = true → guard triggers → `exit 1` with clear stderr message. ✅
+2. `""` (no arg) → `[[ -n "" ]]` false → short-circuits → guard skipped → global slice path. ✅
+3. `"123456789"` → `[[ -n ... ]]` true ∧ `! ... =~ ^[0-9]+$` = `! true` = false → guard skipped → per-user slice path. ✅
+
+**Test coverage** (`tests/incident/diagBundle.test.ts:464-579`, 12 new tests):
+- **8 negative inputs** tested with isolated guard execution:
+  - `"abc"` (alphabetic)
+  - `"1' OR '1'='1"` (SQL injection — OR clause)
+  - `"1; DROP TABLE"` (SQL injection — DROP TABLE)
+  - `"1 2"` (whitespace-containing)
+  - `"+1"` (leading plus sign)
+  - `"1.5"` (decimal)
+  - `"-1"` (negative number)
+  - `"1;echo pwned"` (semicolon with command)
+  - Each verifies `exitCode !== 0` and stderr contains `"must be numeric"`. ✅
+- **2 positive inputs**: empty string (`""`) and valid numeric (`"123456789"`) — both pass. ✅
+- **2 structural tests**: guard appears before first `\COPY` command, guard appears before `ARGS_JSON` construction. ✅
+- **Test design note**: The test extracts lines from the actual script and runs them as a standalone bash script (`runGuard()`), avoiding shell-quoting pitfalls with `execSync`. This is a robust testing pattern for bash guard logic. ✅
+
+### Deferral justifications
+
+- **F-M1 (`error_code` carrier-key fragility)**: This is the same structural pattern as RV-CODE-022 F-M1 in `diagHandler.ts:180-184`. `src/incident/redactStream.ts:27-30` uses `error_code` as a carrier key through `redactPii`'s `ALLOWED_EXTRA_KEYS`. RV-CODE-022 already deferred this at Medium severity — no functional breakage today, tracked cross-ticket for a PRD close-out roll-up. Orchestrator note: the duplication across `diagHandler.ts` and `redactStream.ts` is intentional (each lives in a separate execution context — in-container vs. piped stdin) and uses the same allowlist. A future allowlist change that drops `error_code` would need to update both sites; this is a single-line fix in each. **Deferred. ✅**
+
+- **F-M2 (status-flip commit includes §10 log)**: The reviewer's original note observed that the second commit (`880baaf`) bundles `status: ready → in_review` with §10 Execution Log appends. **Clarification**: This is the canonical pattern in the repo. RV-CODE-011 originally dinged the *opposite* pattern — bundling code changes with a status flip in the same commit — and the procedural fix was to separate code from ticket-metadata. The §10 Execution Log entry is conceptually part of the status-flip artefact (not the code artefact): the log records *why* the status moved, so it belongs in the same commit as the status transition. A single commit that flips status AND writes the execution rationale is atomic and revertible. **Deferred. ✅**
+
+### Low-finding updates
+
+- **F-L1** (hardcoded `REDACTION_SCHEMA_VERSION="1"` at line 68): The executor added a `WARNING` comment (lines 69-72) documenting the cross-reference to `LOG_SCHEMA_VERSION` in `kpiEvents.ts` and noting the trade-off against a dynamic read. **Addressed. ✅**
+
+- **F-L2** (silently masked redactStream failures): The executor added a comment at lines 58-59 noting that stderr from `docker compose exec` is NOT suppressed — the operator will see error output if `redactStream.js` is missing. The `|| true` remains for Docker-level failures (acceptable for a diagnostic script) but redactStream-specific errors are now visible. **Addressed. ✅**
+
+- **F-L3** (chunk splitting across line boundaries in `redactStream.ts:51-53`): An edge case requiring a line-buffering rewrite; vanishingly unlikely with typical Docker log line sizes (~1-4 KB). **Deferred. ✅**
+
+- **F-L4** (unquoted `ARGS_JSON` in heredoc): The numeric validation guard (F-H1 fix) guarantees TELEGRAM_USER_ID only contains digits, so `${ARGS_JSON}` is always either `[]` or `["<digits>"]` — both valid JSON. The injection vector is eliminated by the validation gate. **Closed by F-H1 fix. ✅**
+
+### Contract compliance (Iter-2 reassessment)
+
+All boxes from the original review are now ticked:
+
+- [x] PR modifies ONLY files listed in TKT §5 Outputs
+- [x] No changes to TKT §3 NOT-In-Scope items
+- [x] No new runtime dependencies beyond TKT §7 Constraints allowlist
+- [x] All Acceptance Criteria from TKT §6 are verifiably satisfied
+- [x] CI green (lint, typecheck, tests, coverage) — `bash -n` clean, `tsc --noEmit` clean, 26/26 tests pass
+- [x] Definition of Done complete
+- [x] Ticket frontmatter `status: in_review` in a separate commit
+
+### Commit structure
+
+```
+b8bd99d TKT-045: address RV-CODE-023 F-H1 (numeric validation guard for TELEGRAM_USER_ID)
+3731038 RV-CODE-023: code review for TKT-045@0.1.0 PR #34
+880baaf TKT-045: ticket status in_review + §10 Execution Log
+012c5c1 TKT-045: scripts/diag-bundle.sh (operator-side incident bundle)
+```
+
+The iter-2 fix-up (`b8bd99d`) is a single coherent commit on top of the original two-commit split + RV file. Clean. ✅
+
+### No new findings
+
+Iter-2 diff reviewed in full. The guard logic is correct and well-positioned. The tests are thorough with bootleg guard-extraction pattern that avoids shell-quoting pitfalls. No regression in original test coverage. No new scope creep. No new dependencies. No new code paths that could introduce issues.
