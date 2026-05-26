@@ -1,7 +1,7 @@
 ---
 id: TKT-045
 title: 'scripts/diag-bundle.sh (operator-side incident bundle)'
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.7.0
 prd_ref: PRD-001@0.3.0
 component: scripts / IncidentDiagnostic
@@ -85,3 +85,7 @@ INC-<UTC-timestamp>/
 
 ## 10. Execution Log
 <!-- executor fills as work proceeds -->
+
+- 2026-05-26T00:00:00Z opencode-executor: started
+
+- 2026-05-26T03:57:00Z opencode-executor: in_review; tests 14 pass; lint clean; typecheck clean
