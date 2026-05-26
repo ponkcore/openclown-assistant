@@ -1,8 +1,8 @@
 ---
 id: TKT-043
 title: Pin docker-compose.yml images to digests (openclaw-gateway, caddy)
-status: in_review
-arch_ref: ARCH-001@0.7.0
+status: done
+arch_ref: ARCH-001@0.7.2
 prd_ref: PRD-001@0.3.0
 component: Deployment
 depends_on:
@@ -10,7 +10,10 @@ depends_on:
 blocks: []
 estimate: S
 created: 2026-05-25
-updated: 2026-05-25
+updated: 2026-05-26
+closed_at: 2026-05-26
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-021
 ---
 
 # TKT-043: Pin docker-compose.yml images to digests (openclaw-gateway, caddy)
@@ -67,3 +70,4 @@ Replace tag-based references (`ghcr.io/.../openclaw:latest`, `caddy:2-alpine`, `
 - 2026-05-26T00:30:00Z opencode-executor: blocked; Q-TKT-043-01 filed — ghcr.io/nicholasgriffintn/openclaw:latest does not resolve on GHCR (manifest unknown); cannot pin per §7 Constraints; awaiting PO/Architect decision on image path
 - 2026-05-26T01:00:00Z opencode-executor: unblocked; proceeding with Q-TKT-043-01 default option A (ghcr.io/openclaw/openclaw digest) — only path satisfying ARCH-001@0.7.1 §7 Constraints + §6 AC
 - 2026-05-26T02:40:00Z opencode-executor: in_review; tests 71 pass (compose 48 + dockerfile 23); lint clean; typecheck clean; docker compose config OK
+- 2026-05-26T00:14Z opencode-orchestrator: merged in commit 3ce8ac5; RV-CODE-021 verdict=pass_with_changes (1M scope-mechanical accepted; 2L cosmetic backlogged); ARCH-001@0.7.2 §10.2 (canonical openclaw-gateway image source) merged via arch PR #32 prior; procedural drift (executor self-unblocked) → BACKLOG-009; arch_ref bumped to ARCH-001@0.7.2; status=done
