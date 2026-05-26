@@ -53,11 +53,11 @@ Recommendation to PO: **iterate** — fix the three medium findings in a follow-
 - **F-L1 (scripts/install.sh:258):** `step_validate_config` (step 5) builds `kbju-sidecar` to run `--validate-config`, and `step_build_images` (step 7) rebuilds it. Docker cache makes the second build near-instant, but the double-build pattern is confusing during debugging and wastes wall-clock time on cache-miss rebuilds. Noted per weaker assumption #3 — acceptable since `--validate-config` requires the built image and running `npm`/`node` on the host is forbidden by §7 Constraints.
 
 ## Red-team probes (Reviewer must address each)
-- **Error paths (Telegram/webhook/DB failure):** install.sh retries Telegram API calls 3× with delay (though see F-M2 for backoff shape). On permanent failure, exits 1 with `ERROR: Telegram ... failed after 3 attempts`. DNS/port-80 failures produce `ERROR:` messages with remediation guidance. Migration/timeout failures are handled by `startServer()` (TKT-041 path — 120 s timeout, structured log, `pool.end()`, `process.exit(1)`). Allowlist seed failure exits 1 with structured error. Sidecar boot failure polls health for 60 s then dumps logs. Caddy ACME failure polls 120 s then dumps `caddy` logs. No unhandled error sinks.
+- **Error paths (Telegram/webhook/DB failure):** install.sh retries Telegram API calls 3× with delay (though see F-M2 for backoff shape). On permanent failure, exits 1 with `ERROR: Telegram ... failed after 3 attempts`. DNS/port-80 failures produce `ERROR:` messages with remediation guidance. Migration/timeout failures are handled by `startServer()` (TKT-041@0.1.0 path — 120 s timeout, structured log, `pool.end()`, `process.exit(1)`). Allowlist seed failure exits 1 with structured error. Sidecar boot failure polls health for 60 s then dumps logs. Caddy ACME failure polls 120 s then dumps `caddy` logs. No unhandled error sinks.
 - **Concurrency (two install.sh simultaneously):** No lockfile. Two concurrent runs would both execute `docker compose up -d` (idempotent but may race on image builds). Single-operator VPS pilot mitigates this; acceptable for v0.1.
 - **Input validation:** `KBJU_PUBLIC_DOMAIN` rejects empty strings. `TELEGRAM_BOT_TOKEN` uses `${VAR:?}` parameter expansion for fail-fast. `.env.production` sources are validated via `--validate-config`. No other user-typed inputs.
 - **Prompt injection:** Not applicable — install.sh makes only operator-initiated API calls (Telegram setWebhook/getWebhookInfo). No user-generated text from Telegram is processed by the script.
-- **Tenant isolation:** Deployment-level script — does not handle per-user data. Tenant isolation is enforced at runtime in `main.ts` via `isAllowlisted()` (uses `pilotUserIds`, not the C15 Allowlist). RLS for new tables is a separate concern (ADR-001) — no new tables in this PR.
+- **Tenant isolation:** Deployment-level script — does not handle per-user data. Tenant isolation is enforced at runtime in `main.ts` via `isAllowlisted()` (uses `pilotUserIds`, not the C15 Allowlist). RLS for new tables is a separate concern (tenant-isolation ADR) — no new tables in this PR.
 - **Secrets:** `.env.production` written mode 0600 (line 148). `TELEGRAM_BOT_TOKEN` not echoed. `docker compose logs` in error paths could surface secrets if the application logs them — pre-existing risk, not introduced here. `.gitignore` covers `.env*` — no weakening confirmed.
 - **Observability:** Step-numbered log lines (`[1] Validating Docker...`, `[2] Reading .env.production...`, etc.). Error messages include domain, line number, and exit code via `err_trap()`. `docker compose logs` dumped on postgres/sidecar/caddy failures. "INSTALL OK" banner includes git SHA. A 3am operator can trace any failure to the exact step and line. **Gap:** Allowlist boot-time metrics are lost (see F-M3).
 - **Rollback:** The script uses only `docker compose up -d --remove-orphans` (never `down`/`rm`). Rollback follows ARCH-001@0.7.2 §10.6 — image/git-tag rollback + DB restore. No rollback logic duplicated in install.sh (per §3 NOT-In-Scope). ✓
@@ -88,7 +88,7 @@ Recommendation to PO: **iterate** — fix the three medium findings in a follow-
 
 - **AllowlistSeedError catch (src/main.ts:342-350):** ✓ Matches the migration-failure pattern: structured `console.error(...)` + `process.exit(1)`. The migration path also closes its pool; the Allowlist path has no pool to close (pool already ended in the migration block). The error message format is consistent but not identical — migration uses `err instanceof Error ? err.message : err` (defensive against non-Error throws) while Allowlist uses `err.message` directly (safe since `AllowlistSeedError extends Error`). Acceptable.
 - **`--validate-config` (src/main.ts:385-398):** ✓ Uses `parseConfig` directly — no logic duplication. Produces structured list of missing keys via `ConfigError.missingNames.join(", ")`. `ConfigError` class confirmed to have `missingNames` property (config.ts:48). Flag checked at `process.argv[1] === __filename` gate, before `startServer()` — exits 0 on success, 1 on failure. Does not attempt network, migration, or HTTP bind.
-- **System-level misconfig test (tests/deployment/bootEntrypoint.test.ts:693-823):** ✓ Extends existing file (appended, not duplicated). Uses `vi.mock("../../src/security/allowlist.js")` to make `Allowlist` a `vi.fn()` and throw `AllowlistSeedError` on construction. Verifies `process.exit(1)`, `server.listen` not called, and on success path `runMigrations` + `server.listen` both proceed normally. Mock isolates filesystem dependency. The `vi.mock` is hoisted and applies to all tests in the file — verified that existing TKT-041 tests are unaffected (migration-failure exits before Allowlist construction; migration-success test has `SERVER_PORT=0` and succeeds through the mock). Separate `describe("BACKLOG-004: ...")` block has its own `beforeEach`/`afterEach` env management.
+- **System-level misconfig test (tests/deployment/bootEntrypoint.test.ts:693-823):** ✓ Extends existing file (appended, not duplicated). Uses `vi.mock("../../src/security/allowlist.js")` to make `Allowlist` a `vi.fn()` and throw `AllowlistSeedError` on construction. Verifies `process.exit(1)`, `server.listen` not called, and on success path `runMigrations` + `server.listen` both proceed normally. Mock isolates filesystem dependency. The `vi.mock` is hoisted and applies to all tests in the file — verified that existing TKT-041@0.1.0 tests are unaffected (migration-failure exits before Allowlist construction; migration-success test has `SERVER_PORT=0` and succeeds through the mock). Separate `describe("BACKLOG-004: ...")` block has its own `beforeEach`/`afterEach` env management.
 
 ## Version-pinned reference check
 
@@ -97,4 +97,66 @@ All documented references use proper version pins:
 - `TKT-041@0.1.0` (install.sh:321, main.ts comment)
 - `ADRP-020@0.1.1` (execution log)
 - `BACKLOG-004` cited with `TKT-042@0.1.0` as spec-ref source
+
+
+---
+
+## Iteration 2 — re-review
+
+**Date:** 2026-05-26  
+**Commit range:** `8d707dd`→`49192b4` (one fix-up commit on top of iter-1 review)  
+**Verdict:** **pass**
+
+All three medium findings from iter-1 are cleanly resolved. The fix-up commit (`49192b4`) is surgical — it touches only the lines implicated by each finding. No new findings, no regressions.
+
+### F-M1 — `set -euo pipefail` missing | RESOLVED
+
+- **Before:** No `set` directive in `scripts/install.sh`.
+- **After:** `set -euo pipefail` at line 5 (after shebang and comments, before any variable assignments, functions, or the ERR trap).
+- **Verification:** `bash -n scripts/install.sh` returns 0. The directive is the first executable line in the script — no preceding logic could be bypassed. All existing `${VAR:-}` and `${VAR:?}` patterns remain intact (no global relax of `set -u` needed).
+- **Residual risk:** None. `set -u` catches any future unset variable; `set -o pipefail` catches any future pipeline with a failing first command. These are additive safeguards on top of the already-present ERR trap.
+
+### F-M2 — `retry()` uses constant delay instead of linear backoff | RESOLVED
+
+- **Before:** `sleep "$delay"` on every retry — delays were 2s, 2s, 2s.
+- **After:** `local actual_delay=$((delay * attempt))` then `sleep "$actual_delay"`. With `delay=2`, delays are 2s, 4s, 6s — linear with attempt number.
+- **Echo updated** to reflect `actual_delay` instead of `delay`.
+- **New test** at `tests/deployment/installScript.test.ts:501-574`:
+  - Extracts the `retry()` function from install.sh via regex.
+  - Creates a fake `sleep` that logs its delay argument to a file.
+  - Creates a fake `flaky-cmd` that fails twice, then succeeds on attempt 3.
+  - Runs `retry 3 2 flaky-cmd` in a subprocess.
+  - Asserts: 2 sleep invocations, delays non-decreasing, `sleepDelays[0] ≥ 2`, `sleepDelays[1] ≥ 4`, exact values 2 and 4.
+  - The test **exercises** the retry path — not a structural string check.
+- **Residual risk:** None. The test proves the `actual_delay` computation and the delay count. The fake `sleep` is a faithful stub (logs, exits 0).
+
+### F-M3 — Allowlist constructed with no-op metrics, real registry never wired | RESOLVED via Option A
+
+- **Before:** Comment: *"Minimal metrics registry for Allowlist construction — the real one comes from createSidecarDeps below."* — factually incorrect (the real registry was never wired into the Allowlist).
+- **After:** Comment now reads: *"Allowlist is constructed early to catch AllowlistSeedError before the full sidecar deps are wired. Metrics emitted during construction are intentionally dropped (no-op registry); the production Allowlist instance used for runtime access checks is created later via createSidecarDeps with the real registry. Pre-existing pattern; acceptable per RV-CODE-025 F-M3 (severity Medium → informational)."*
+- **Code unchanged** — only the comment was replaced. This is the correct Option A approach per the iter-2 fix-up summary: the Allowlist construction remains early for AllowlistSeedError catch, the metrics gap is acknowledged as intentional, and the runtime Allowlist comes from `createSidecarDeps` with the real registry.
+- **Residual risk:** None. The comment is truthful and references the review finding that classified it. The practical impact was already negligible (covered in iter-1 F-M3 analysis — `main.ts` uses `pilotUserIds` for access control, not `deps.allowlist.isAllowed()`).
+
+### F-L1 — Double build (step 5 + step 7) | UNCHANGED, ACCEPTABLE
+
+- No change from iter-1. The double-build in `step_validate_config` (builds `kbju-sidecar` for `--validate-config`) and `step_build_images` (rebuilds both `kbju-sidecar` and `metrics`) persists. Docker cache makes the second build a no-op in practice. Acceptable per weaker assumption #3 from the original review — building in Docker is the only option since `npm`/`node` on host is forbidden by §7 Constraints.
+
+### Contract re-checks
+
+| Gate | Status |
+|------|--------|
+| PR modifies only allowed files | ✓ — same files as iter-1, no new outputs |
+| §3 NOT-In-Scope unchanged | ✓ |
+| No new dependencies | ✓ |
+| §6 Acceptance Criteria still met | ✓ — all ACs structurally satisfied; new retry test adds positive coverage |
+| CI green | Confirmed by executor: `bash -n` clean, typecheck clean, lint clean, all tests pass |
+| §8 DoD two-commit topology | ✓ — `817b058` + `8d707dd` preserved; iter-2 is one fix-up commit (`49192b4`) on top |
+| Ticket status | `in_review` (unchanged from iter-1) |
+| Execution log updated | ✓ — iter-2 entry at `TKT-040@0.1.0 §10` |
+
+### Summary
+
+All three medium findings are resolved with surgical, minimal changes. No regression detected. The review test for F-M2 is thorough and actually exercises the retry function with instrumented sleep. The fix-up commit does not touch any files outside the authorised scope. This PR is ready to merge.
+
+**Recommendation to PO:** **merge** — this closes the PRD-001@0.3.0 walk.
 
