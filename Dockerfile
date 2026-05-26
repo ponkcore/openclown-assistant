@@ -16,6 +16,10 @@ RUN npm run build
 # --- Runtime stage: production deps + compiled artefacts only ---
 FROM node:24-slim@sha256:242549cd46785b480c832479a730f4f2a20865d61ea2e404fdb2a5c3d3b73ecf AS runtime
 
+ARG BUILD_SHA=unknown
+LABEL org.openclown.build_sha=${BUILD_SHA}
+ENV BUILD_SHA=${BUILD_SHA}
+
 WORKDIR /app
 
 COPY package.json package-lock.json* ./

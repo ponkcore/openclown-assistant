@@ -17,6 +17,7 @@ import {
 } from "./messages.js";
 import { isOperationAllowed } from "../security/allowlist.js";
 import type { SettingsCommandHandler } from "../modality/settings/telegramCommand.js";
+import type { DiagDeps } from "../incident/diagHandler.js";
 
 export const MAX_VOICE_DURATION_SECONDS = 15;
 
@@ -27,6 +28,13 @@ let settingsHandler: SettingsCommandHandler | null = null;
 
 export function registerSettingsHandler(handler: SettingsCommandHandler): void {
   settingsHandler = handler;
+}
+
+// ── IncidentDiagnostic /diag handler (additive routing per TKT-044@0.1.0) ──
+let diagDeps: DiagDeps | null = null;
+
+export function registerDiagDeps(deps: DiagDeps): void {
+  diagDeps = deps;
 }
 
 const MSG_BLOCKED_USER = "Извините, бот пока в закрытом тестировании.";
@@ -261,6 +269,16 @@ export async function routeMessage(
   if (settingsHandler && update.text?.startsWith("/settings")) {
     await invokeWithTyping(deps, update, () =>
       settingsHandler!.handleSettingsCommand(update)
+    );
+    return;
+  }
+
+  // IncidentDiagnostic /diag command — additive routing per TKT-044@0.1.0.
+  // Intercepts /diag before it falls into the text_meal switch-case.
+  if (diagDeps && update.text?.startsWith("/diag")) {
+    const { handleDiag } = await import("../incident/diagHandler.js");
+    await invokeWithTyping(deps, update, () =>
+      handleDiag(update, diagDeps!)
     );
     return;
   }
