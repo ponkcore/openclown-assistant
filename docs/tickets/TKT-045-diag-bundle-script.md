@@ -1,8 +1,8 @@
 ---
 id: TKT-045
 title: 'scripts/diag-bundle.sh (operator-side incident bundle)'
-status: in_review
-arch_ref: ARCH-001@0.7.0
+status: done
+arch_ref: ARCH-001@0.7.2
 prd_ref: PRD-001@0.3.0
 component: scripts / IncidentDiagnostic
 depends_on:
@@ -10,7 +10,10 @@ depends_on:
 blocks: []
 estimate: S
 created: 2026-05-25
-updated: 2026-05-25
+updated: 2026-05-26
+closed_at: 2026-05-26
+closed_by: orchestrator (PO-delegated)
+review_ref: RV-CODE-023
 ---
 
 # TKT-045: scripts/diag-bundle.sh (operator-side incident bundle)
@@ -91,3 +94,4 @@ INC-<UTC-timestamp>/
 - 2026-05-26T03:57:00Z opencode-executor: in_review; tests 14 pass; lint clean; typecheck clean
 
 - 2026-05-26T04:15:00Z opencode-executor: iter 2; addressed RV-CODE-023 F-H1 (added strict numeric validation guard for TELEGRAM_USER_ID arg before any SQL interpolation per ARCH-001@0.7.2 §9.5); negative test cases added for non-numeric inputs; also addressed F-L1 (REDACTION_SCHEMA_VERSION cross-reference warning), F-L2 (stderr visibility note for missing redactStream.js), F-L4 (no change needed — ARGS_JSON insertion is safe per reviewer note)
+- 2026-05-26T01:19Z opencode-orchestrator: merged in commit b93719e; RV-CODE-023 verdict=pass after iter 2 (F-H1 fixed; F-M1 deferred — same fragility as RV-CODE-022 F-M1 cross-ticket; F-M2 deferred — bundling §10 with status flip is canonical; lows addressed or closed); arch_ref bumped to ARCH-001@0.7.2; status=done
