@@ -460,3 +460,120 @@ describe("diag-bundle.sh static analysis", () => {
     expect(content).toMatch(/chmod\s+0700.*\$\{WORK_DIR\}/);
   });
 });
+
+// ── Numeric validation guard (RV-CODE-023 F-H1) ────────────────────────────
+
+describe("diag-bundle.sh numeric validation for TELEGRAM_USER_ID (RV-CODE-023 F-H1)", () => {
+  const guardWorkDir = join(process.cwd(), "tests", "incident", "_guard_tmp");
+
+  beforeAll(() => {
+    mkdirSync(guardWorkDir, { recursive: true });
+  });
+
+  afterAll(() => {
+    rmSync(guardWorkDir, { recursive: true, force: true });
+  });
+
+  /**
+   * Extract the numeric validation guard from the actual script and run
+   * it as a standalone bash script with the given argument.
+   * This avoids shell-quoting pitfalls with execSync.
+   */
+  function runGuard(arg: string): { exitCode: number; stdout: string; stderr: string } {
+    const scriptContent = readFileSync(SCRIPT_PATH, "utf-8");
+    const lines = scriptContent.split("\n");
+    // Extract the TELEGRAM_USER_ID assignment + numeric guard (lines 31-42)
+    // These are the lines from "TELEGRAM_USER_ID="${1:-}" to the closing "fi"
+    const guardLines: string[] = [];
+    let inGuard = false;
+    for (const line of lines) {
+      if (line.startsWith('TELEGRAM_USER_ID="${1:-}"')) inGuard = true;
+      if (inGuard) {
+        guardLines.push(line);
+        if (line.trim() === "fi") break;
+      }
+    }
+
+    const guardScript = [
+      "#!/usr/bin/env bash",
+      ...guardLines,
+      'echo "OK"',
+    ].join("\n");
+
+    const guardScriptPath = join(guardWorkDir, `guard-${Date.now()}.sh`);
+    writeFileSync(guardScriptPath, guardScript);
+
+    try {
+      const stdout = execSync(`bash "${guardScriptPath}" ${arg === "" ? "" : `"${arg}"`}`, {
+        encoding: "utf-8",
+        timeout: 5000,
+        stdio: "pipe",
+      });
+      return { exitCode: 0, stdout: stdout.trim(), stderr: "" };
+    } catch (err: unknown) {
+      const e = err as { status?: number; stdout?: string; stderr?: string };
+      return {
+        exitCode: e.status ?? 1,
+        stdout: (e.stdout ?? "").trim(),
+        stderr: (e.stderr ?? "").trim(),
+      };
+    }
+  }
+
+  const invalidInputs: Array<{ label: string; value: string }> = [
+    { label: "alphabetic", value: "abc" },
+    { label: "SQL injection (OR clause)", value: "1' OR '1'='1" },
+    { label: "SQL injection (DROP TABLE)", value: "1; DROP TABLE" },
+    { label: "whitespace-containing", value: "1 2" },
+    { label: "leading plus", value: "+1" },
+    { label: "decimal", value: "1.5" },
+    { label: "negative number", value: "-1" },
+    { label: "semicolon", value: "1;echo pwned" },
+  ];
+
+  for (const { label, value } of invalidInputs) {
+    it(`exits non-zero for non-numeric input: ${label} ("${value}")`, () => {
+      const { exitCode, stderr } = runGuard(value);
+      expect(exitCode, `guard must exit non-zero for input "${value}"`).not.toBe(0);
+      expect(stderr, `stderr must mention numeric validation for input "${value}"`).toContain("must be numeric");
+    });
+  }
+
+  it("exits zero for empty input (no arg — global slice)", () => {
+    const { exitCode, stdout } = runGuard("");
+    expect(exitCode, "empty string (no arg) must pass validation").toBe(0);
+    expect(stdout).toBe("OK");
+  });
+
+  it("exits zero for valid numeric input (positive integer)", () => {
+    const { exitCode, stdout } = runGuard("123456789");
+    expect(exitCode, "numeric input must pass validation").toBe(0);
+    expect(stdout).toBe("OK");
+  });
+
+  it("validation guard appears BEFORE any SQL \\COPY usage in the script", () => {
+    const content = readFileSync(SCRIPT_PATH, "utf-8");
+    const guardPos = content.indexOf("=~ ^[0-9]+$");
+    // Match the actual \COPY command (inside psql -c argument), not the
+    // comment that also mentions \COPY.
+    const firstCopyCmdPos = content.indexOf('"\\COPY');
+    expect(guardPos, "numeric validation guard must exist in script").toBeGreaterThan(0);
+    expect(firstCopyCmdPos, "script must contain \\COPY command").toBeGreaterThan(0);
+    expect(
+      guardPos,
+      "validation guard must appear before the first \\COPY command",
+    ).toBeLessThan(firstCopyCmdPos);
+  });
+
+  it("validation guard appears BEFORE manifest.json args construction", () => {
+    const content = readFileSync(SCRIPT_PATH, "utf-8");
+    const guardPos = content.indexOf("=~ ^[0-9]+$");
+    const argsPos = content.indexOf("ARGS_JSON");
+    expect(guardPos, "guard must exist").toBeGreaterThan(0);
+    expect(argsPos, "ARGS_JSON must exist").toBeGreaterThan(0);
+    expect(
+      guardPos,
+      "validation guard must appear before ARGS_JSON construction",
+    ).toBeLessThan(argsPos);
+  });
+});

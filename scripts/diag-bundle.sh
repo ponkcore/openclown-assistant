@@ -30,6 +30,17 @@ set -euo pipefail
 
 TELEGRAM_USER_ID="${1:-}"
 
+# ── Numeric validation (RV-CODE-023 F-H1 fix) ─────────────────────────────
+# Empty (no arg) is fine — global slice. Any non-empty value must be a
+# positive integer (Telegram user IDs are numeric). This guard runs BEFORE
+# any use of TELEGRAM_USER_ID: INC_DIR naming, manifest args, SQL \COPY.
+# BRE ^[0-9]+$ is portable across bash 4+ (Linux) and macOS bash 3.2+.
+
+if [[ -n "${TELEGRAM_USER_ID}" && ! "${TELEGRAM_USER_ID}" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: telegram_user_id must be numeric, got '${TELEGRAM_USER_ID}'" >&2
+  exit 1
+fi
+
 # ── Timestamp & paths ─────────────────────────────────────────────────────
 
 TIMESTAMP="$(date -u +%Y-%m-%dT%H-%MZ)"
@@ -44,6 +55,8 @@ mkdir -p "${STAGING}"
 # ── Node redactStream helper path ─────────────────────────────────────────
 # The compiled JS lives inside the Docker container at /app/dist/...
 # We invoke it via `docker compose exec -T kbju-sidecar node <path>`.
+# NOTE (RV-CODE-023 F-L2): stderr is NOT suppressed so that a missing
+# redactStream.js in an old deployment is visible to the operator.
 
 REDACT_CMD="docker compose exec -T kbju-sidecar node /app/dist/src/incident/redactStream.js"
 
@@ -52,7 +65,11 @@ REDACT_CMD="docker compose exec -T kbju-sidecar node /app/dist/src/incident/reda
 APP_VERSION="$(docker compose exec -T kbju-sidecar node -e 'process.stdout.write(require(\"/app/package.json\").version)' 2>/dev/null || echo "unknown")"
 GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-# redaction_schema_version matches LOG_SCHEMA_VERSION from kpiEvents.ts
+# redaction_schema_version matches LOG_SCHEMA_VERSION from kpiEvents.ts.
+# WARNING (RV-CODE-023 F-L1): if LOG_SCHEMA_VERSION in kpiEvents.ts is
+# bumped, this string must be updated in sync. A dynamic read via
+# `docker compose exec` was considered but rejected to avoid an extra
+# container exec round-trip per bundle invocation.
 REDACTION_SCHEMA_VERSION="1"
 
 # Build args array for manifest
@@ -112,6 +129,7 @@ curl -fsS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo" \
 #   meal_text, comment_text, raw_text, raw_description, transcript_text
 #
 # SELECT lists are explicit so reviewers can audit.
+# TELEGRAM_USER_ID is validated numeric above (RV-CODE-023 F-H1).
 
 if [[ -n "${TELEGRAM_USER_ID}" ]]; then
   mkdir -p "${STAGING}/db"
